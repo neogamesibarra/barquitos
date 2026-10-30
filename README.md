@@ -1,6 +1,6 @@
-# SHIPPED - Versión Neocities (Sin Computadora)
+# Batalla de Barquitos
 
-Esta edición especial de **SHIPPED** está preparada para subirse a [neocities.org](https://neocities.org/) (alojamiento web estático 100% gratuito). Permite jugar abriendo la página web directamente desde la Smart TV Samsung Tizen (o cualquier televisor) y usar los teléfonos móviles como mandos **sin necesidad de encender ninguna computadora en casa**.
+Esta edición especial permite jugar abriendo la página web directamente desde la Smart TV Samsung Tizen (o cualquier televisor) y usar los teléfonos móviles como mandos **sin necesidad de encender ninguna computadora en casa**.
 
 ---
 
@@ -15,36 +15,6 @@ Para resolver esto:
    - La TV genera automáticamente un **Código de Sala** único de 4 caracteres (ejemplo: `8421`) y dibuja su **Código QR** correspondiente.
    - Los teléfonos móviles (2 a 8 jugadores) se conectan al mismo canal de la sala instantáneamente al escanear el QR o ingresar el código.
    - Latencia ultra baja (~30-50 ms), ideal para partidas multijugador fluidas.
-
----
-
-## 🚀 Pasos para Subir el Juego a Neocities.org
-
-### 1. Crear cuenta gratuita en Neocities
-Si aún no tienes una, regístrate en [https://neocities.org/](https://neocities.org/). Elige un nombre de usuario (por ejemplo `barquitos-shipped`), tu web será `https://barquitos-shipped.neocities.org/`.
-
-### 2. Subir los archivos al Dashboard de Neocities
-1. Inicia sesión en tu cuenta de Neocities y ve a la sección **"Edit Site"** (Editar Sitio).
-2. Arrastra y suelta (o usa el botón **"Upload"**) todos los archivos y carpetas de esta carpeta:
-   ```
-   Shipped_Neocities/
-   ├── index.html
-   ├── tv.html
-   ├── controller.html
-   ├── css/
-   │   ├── landing.css
-   │   ├── tv.css
-   │   └── controller.css
-   └── js/
-       ├── paho-mqtt.min.js
-       ├── cloud_network.js
-       ├── qrcode.min.js
-       ├── sound_synth.js
-       ├── tizen_keys.js
-       ├── game_engine.js
-       └── controller.js
-   ```
-   *(Nota: en el panel de Neocities puedes crear las carpetas `css` y `js` con el botón "New Directory" y subir los archivos respectivos dentro).*
 
 ---
 
