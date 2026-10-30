@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SHIPPED - TV Pantalla Grande (Neocities Cloud)</title>
+  <link rel="stylesheet" href="css/tv.css">
+</head>
+<body>
+  <!-- Canvas principal renderizado en Canvas 2D a 60 FPS -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Overlay UI del Lobby -->
+  <div id="lobby-ui" class="lobby-container">
+    <div class="lobby-header">
+      <h1 class="game-title">SHIPPED</h1>
+      <p class="game-subtitle">MULTIJUGADOR EN LA NUBE - HASTA 8 JUGADORES</p>
+      <div id="cloud-status" class="status-tag connecting">Conectando a la nube...</div>
+    </div>
+
+    <div class="lobby-content">
+      <!-- Tarjeta del Código QR y Código de Sala -->
+      <div class="qr-card">
+        <div class="room-banner">
+          <span class="room-label">CÓDIGO DE SALA:</span>
+          <span id="room-code-text" class="room-code">----</span>
+        </div>
+
+        <div class="qr-box">
+          <canvas id="qr-canvas" width="250" height="250"></canvas>
+        </div>
+        <p class="qr-instructions">Escanea el QR con la cámara de tu iPhone o Android</p>
+        <p class="qr-subinstructions">¡No requiere instalar apps ni usar computadora!</p>
+        <div class="url-badge">
+          O abre en el navegador: <strong id="url-text">Generando enlace...</strong>
+        </div>
+      </div>
+
+      <!-- Selector de Modo de Juego -->
+      <div class="controls-card">
+        <h3 class="section-title">SELECCIÓN DE MODO</h3>
+        <div class="mode-buttons-row">
+          <button id="btn-mode-battle" class="mode-btn active" type="button">
+            <span class="mode-icon">⚔️</span>
+            <span class="mode-name">MODO BATALLA</span>
+            <span class="mode-desc">Empuja a tus rivales fuera del agua antes de que caiga el borde rojo</span>
+          </button>
+          <button id="btn-mode-cruise" class="mode-btn" type="button">
+            <span class="mode-icon">🏁</span>
+            <span class="mode-name">CARRERA DE OBSTÁCULOS</span>
+            <span class="mode-desc">Navega a toda velocidad esquivando islas hexagonales y checkpoints</span>
+          </button>
+        </div>
+
+        <button id="btn-start-game" class="start-btn" type="button">
+          ⚓ INICIAR PARTIDA ⚓
+        </button>
+
+        <div class="remote-legend">
+          <div class="legend-item"><span class="key-badge">OK / ENTER</span> Iniciar partida</div>
+          <div class="legend-item"><span class="key-badge">◀ / ▶</span> Cambiar modo</div>
+          <div class="legend-item"><span class="key-badge">AZUL / P</span> 🎂 Mensaje Sorpresa</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts en orden de dependencia en ES5 estricto -->
+  <script src="js/paho-mqtt.min.js"></script>
+  <script src="js/cloud_network.js"></script>
+  <script src="js/qrcode.min.js"></script>
+  <script src="js/sound_synth.js"></script>
+  <script src="js/tizen_keys.js"></script>
+  <script src="js/game_engine.js"></script>
+</body>
+</html>

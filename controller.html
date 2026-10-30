@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>SHIPPED - Mando Móvil Cloud</title>
+  <link rel="stylesheet" href="css/controller.css">
+</head>
+<body>
+  <!-- Aviso para orientar en horizontal -->
+  <div id="rotate-prompt" class="rotate-prompt">
+    <div class="rotate-icon">📱🔄</div>
+    <div class="rotate-text">Gira tu teléfono en horizontal para jugar</div>
+  </div>
+
+  <!-- Modal para ingresar el código de sala si no se escaneó el QR -->
+  <div id="room-overlay" class="room-overlay" style="display: none;">
+    <div class="room-dialog">
+      <h2>UNIRSE A LA SALA</h2>
+      <p>Escribe el código de 4 caracteres que se muestra en la pantalla de la TV:</p>
+      <input id="room-input" type="text" maxlength="4" placeholder="EJ: 8421" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+      <button id="btn-join-room" type="button">ENTRAR AL JUEGO ⚓</button>
+    </div>
+  </div>
+
+  <!-- Pantalla principal del mando -->
+  <div id="gamepad-container" class="gamepad-container">
+    <!-- Barra superior con información del jugador -->
+    <div class="top-bar">
+      <div class="status-indicator">
+        <span id="conn-dot" class="conn-dot"></span>
+        <span id="conn-text" class="conn-text">Conectando...</span>
+      </div>
+
+      <div id="player-badge" class="player-badge">
+        <span id="player-symbol" class="player-symbol">●</span>
+        <span id="player-name" class="player-name">ASIGNANDO BARCO...</span>
+      </div>
+
+      <button id="btn-ready" class="ready-btn" type="button">
+        LISTO ✓
+      </button>
+    </div>
+
+    <!-- Zona de mandos táctiles -->
+    <div class="controls-area">
+      <!-- MITAD IZQUIERDA: Timón / Volante Virtual -->
+      <div id="steering-zone" class="steering-zone">
+        <div class="zone-label">TIMÓN / GIRO</div>
+        <div id="wheel-outer" class="wheel-outer">
+          <div id="wheel-indicator" class="wheel-indicator"></div>
+          <div id="wheel-knob" class="wheel-knob">⚓</div>
+        </div>
+        <div class="turn-labels">
+          <span>◀ BABOR</span>
+          <span>ESTRIBOR ▶</span>
+        </div>
+      </div>
+
+      <!-- MITAD DERECHA: Botones de Acción -->
+      <div class="actions-zone">
+        <!-- Botón Acelerar / Impulso -->
+        <div id="btn-thrust" class="touch-btn thrust-btn">
+          <div class="btn-icon">💨</div>
+          <div class="btn-label">ACELERAR</div>
+          <div class="btn-sublabel">IMPULSO</div>
+        </div>
+
+        <!-- Botón Disparar Cañón -->
+        <div id="btn-shoot" class="touch-btn shoot-btn">
+          <div class="btn-icon">💣</div>
+          <div class="btn-label">DISPARAR</div>
+          <div class="btn-sublabel">CAÑÓN</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts en orden de dependencia en ES5 estricto -->
+  <script src="js/paho-mqtt.min.js"></script>
+  <script src="js/cloud_network.js"></script>
+  <script src="js/controller.js"></script>
+</body>
+</html>

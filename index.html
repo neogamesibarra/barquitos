@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SHIPPED - Multijugador Web en la Nube</title>
+  <link rel="stylesheet" href="css/landing.css">
+</head>
+<body>
+  <div class="landing-card">
+    <h1 class="title">SHIPPED</h1>
+    <p class="tagline">Juego Multijugador Local para Smart TV y Teléfonos Móviles</p>
+    <p class="subtitle">¡Sin computadoras, sin instalar nada, 100% en el navegador!</p>
+
+    <div class="role-selector">
+      <a href="tv.html" class="role-btn btn-tv">
+        <span class="icon">📺</span>
+        <span class="btn-text">
+          <strong>ABRIR PANTALLA DE JUEGO</strong>
+          <small>Para Smart TVs (Samsung Tizen, LG WebOS, Android TV o PC)</small>
+        </span>
+      </a>
+
+      <a href="controller.html" class="role-btn btn-controller">
+        <span class="icon">📱</span>
+        <span class="btn-text">
+          <strong>ABRIR MANDO MÓVIL</strong>
+          <small>Para tu teléfono Android o iPhone</small>
+        </span>
+      </a>
+    </div>
+
+    <div class="instructions">
+      <h3>¿Cómo jugar en tu Smart TV sin computadora?</h3>
+      <ol>
+        <li>Abre la aplicación <strong>"Navegador Web"</strong> de tu Smart TV e ingresa a esta misma página.</li>
+        <li>Selecciona <strong>"Abrir Pantalla de Juego"</strong>. La TV generará un Código de Sala y un Código QR.</li>
+        <li>Cada jugador escanea el QR con la cámara de su teléfono móvil para unirse con su barco.</li>
+        <li>¡Toma el timón y compite con hasta 8 jugadores!</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    // Detección automática en ES5 para redirigir si se abre desde la TV o con código de sala
+    (function() {
+      var query = window.location.search;
+      if (query && query.indexOf('room=') !== -1) {
+        window.location.replace('controller.html' + query);
+        return;
+      }
+
+      var ua = (navigator.userAgent || '').toLowerCase();
+      var isTV = ua.indexOf('tizen') !== -1 ||
+                 ua.indexOf('smart-tv') !== -1 ||
+                 ua.indexOf('googletv') !== -1 ||
+                 ua.indexOf('appletv') !== -1 ||
+                 ua.indexOf('webos') !== -1;
+
+      if (isTV) {
+        window.location.replace('tv.html');
+      }
+    })();
+  </script>
+</body>
+</html>
