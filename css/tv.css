@@ -1,0 +1,337 @@
+/* tv.css - Estilos para Navegador de TV Tizen en Neocities */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #0d2838;
+  font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+  color: #ffffff;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#game-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 1;
+  background-color: #0b2230;
+}
+
+/* Overlay UI del Lobby */
+.lobby-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  display: flex;
+  display: -webkit-flex;
+  flex-direction: column;
+  -webkit-flex-direction: column;
+  align-items: center;
+  -webkit-align-items: center;
+  justify-content: flex-start;
+  -webkit-justify-content: flex-start;
+  padding: 25px 40px;
+  background: rgba(13, 30, 45, 0.75);
+  box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.7);
+  pointer-events: auto;
+}
+
+.lobby-header {
+  text-align: center;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.game-title {
+  font-size: 60px;
+  font-weight: 900;
+  letter-spacing: 8px;
+  color: #fffb00;
+  text-shadow: 0 4px 15px rgba(0, 0, 0, 0.9), 0 0 30px rgba(255, 251, 0, 0.4);
+  margin-bottom: 4px;
+}
+
+.game-subtitle {
+  font-size: 16px;
+  letter-spacing: 4px;
+  color: #a8d5e5;
+  font-weight: 600;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  margin-bottom: 8px;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.status-tag.connecting {
+  background: #f39c12;
+  color: #ffffff;
+}
+
+.status-tag.online {
+  background: #27ae60;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(39, 174, 96, 0.5);
+}
+
+.status-tag.offline {
+  background: #e74c3c;
+  color: #ffffff;
+}
+
+.lobby-content {
+  display: flex;
+  display: -webkit-flex;
+  flex-direction: row;
+  -webkit-flex-direction: row;
+  align-items: stretch;
+  -webkit-align-items: stretch;
+  justify-content: center;
+  -webkit-justify-content: center;
+  width: 100%;
+  max-width: 1120px;
+}
+
+/* Tarjeta del QR */
+.qr-card {
+  flex: 1;
+  -webkit-flex: 1;
+  background: rgba(20, 45, 65, 0.9);
+  border: 3px solid #2ecc71;
+  border-radius: 16px;
+  padding: 20px;
+  margin-right: 25px;
+  text-align: center;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  display: flex;
+  display: -webkit-flex;
+  flex-direction: column;
+  -webkit-flex-direction: column;
+  align-items: center;
+  -webkit-align-items: center;
+  justify-content: center;
+  -webkit-justify-content: center;
+}
+
+.room-banner {
+  background: #112838;
+  border: 2px solid #ffea00;
+  border-radius: 10px;
+  padding: 6px 18px;
+  margin-bottom: 12px;
+  display: flex;
+  display: -webkit-flex;
+  align-items: center;
+  -webkit-align-items: center;
+  gap: 10px;
+}
+
+.room-label {
+  font-size: 15px;
+  font-weight: 800;
+  color: #e0f2fe;
+  letter-spacing: 1px;
+}
+
+.room-code {
+  font-size: 26px;
+  font-weight: 900;
+  color: #ffea00;
+  font-family: 'Consolas', monospace;
+  letter-spacing: 3px;
+  text-shadow: 0 0 10px rgba(255, 234, 0, 0.6);
+}
+
+.qr-box {
+  background: #ffffff;
+  padding: 10px;
+  border-radius: 12px;
+  display: inline-block;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  margin-bottom: 12px;
+}
+
+#qr-canvas {
+  display: block;
+}
+
+.qr-instructions {
+  font-size: 16px;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 3px;
+}
+
+.qr-subinstructions {
+  font-size: 12px;
+  color: #a0c2d6;
+  margin-bottom: 10px;
+}
+
+.url-badge {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #3d6a86;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #e0f2fe;
+  word-break: break-all;
+  max-width: 320px;
+}
+
+.url-badge strong {
+  color: #2ecc71;
+  font-size: 13px;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+/* Tarjeta de Controles */
+.controls-card {
+  flex: 1.2;
+  -webkit-flex: 1.2;
+  background: rgba(20, 45, 65, 0.9);
+  border: 3px solid #3498db;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  display: flex;
+  display: -webkit-flex;
+  flex-direction: column;
+  -webkit-flex-direction: column;
+  justify-content: space-between;
+  -webkit-justify-content: space-between;
+}
+
+.section-title {
+  font-size: 17px;
+  letter-spacing: 2px;
+  color: #64b5f6;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.mode-buttons-row {
+  display: flex;
+  display: -webkit-flex;
+  flex-direction: column;
+  -webkit-flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.mode-btn {
+  background: rgba(10, 25, 40, 0.8);
+  border: 2px solid #2a5d84;
+  border-radius: 10px;
+  padding: 10px 16px;
+  color: #b0bec5;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  display: block;
+  width: 100%;
+}
+
+.mode-btn .mode-icon {
+  font-size: 22px;
+  float: left;
+  margin-right: 12px;
+  line-height: 1.2;
+}
+
+.mode-btn .mode-name {
+  display: block;
+  font-size: 17px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.mode-btn .mode-desc {
+  display: block;
+  font-size: 12px;
+  color: #90a4ae;
+  margin-top: 2px;
+}
+
+.mode-btn.active {
+  background: #1b4965;
+  border-color: #00e5ff;
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
+}
+
+.mode-btn.active .mode-name {
+  color: #00e5ff;
+}
+
+.start-btn {
+  background: #27ae60;
+  border: 3px solid #2ecc71;
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  padding: 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
+  transition: all 0.15s ease;
+  margin-bottom: 16px;
+}
+
+.start-btn:hover, .start-btn:focus {
+  background: #2ecc71;
+  box-shadow: 0 8px 25px rgba(46, 204, 113, 0.8);
+  transform: translateY(-2px);
+}
+
+.remote-legend {
+  display: flex;
+  display: -webkit-flex;
+  justify-content: space-around;
+  -webkit-justify-content: space-around;
+  background: rgba(5, 15, 25, 0.6);
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #1e3a50;
+}
+
+.legend-item {
+  font-size: 12px;
+  color: #cfd8dc;
+  display: flex;
+  display: -webkit-flex;
+  align-items: center;
+  -webkit-align-items: center;
+}
+
+.key-badge {
+  background: #37474f;
+  color: #ffca28;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 10px;
+  margin-right: 5px;
+  border: 1px solid #546e7a;
+}

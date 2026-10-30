@@ -1,0 +1,139 @@
+/* landing.css - Estilos de la página principal de Neocities */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: linear-gradient(135deg, #0b2230 0%, #154563 100%);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #ffffff;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.landing-card {
+  background: rgba(13, 30, 45, 0.95);
+  border: 3px solid #00e5ff;
+  border-radius: 20px;
+  padding: 35px 30px;
+  max-width: 650px;
+  width: 100%;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+
+.title {
+  font-size: 56px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: #fffb00;
+  text-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
+  margin-bottom: 5px;
+}
+
+.tagline {
+  font-size: 18px;
+  font-weight: bold;
+  color: #00e5ff;
+  margin-bottom: 6px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #b0bec5;
+  margin-bottom: 30px;
+}
+
+.role-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.role-btn {
+  display: flex;
+  align-items: center;
+  padding: 18px 24px;
+  border-radius: 14px;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+}
+
+.role-btn:hover {
+  transform: translateY(-2px);
+}
+
+.role-btn .icon {
+  font-size: 40px;
+  margin-right: 18px;
+}
+
+.role-btn .btn-text {
+  text-align: left;
+}
+
+.role-btn strong {
+  display: block;
+  font-size: 20px;
+  letter-spacing: 1px;
+}
+
+.role-btn small {
+  display: block;
+  font-size: 13px;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.btn-tv {
+  background: linear-gradient(135deg, #1b4965 0%, #2b6cb0 100%);
+  border: 2px solid #63b3ed;
+  color: #ffffff;
+}
+
+.btn-tv:hover {
+  box-shadow: 0 8px 25px rgba(99, 179, 237, 0.5);
+}
+
+.btn-controller {
+  background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+  border: 2px solid #2ecc71;
+  color: #ffffff;
+}
+
+.btn-controller:hover {
+  box-shadow: 0 8px 25px rgba(46, 204, 113, 0.5);
+}
+
+.instructions {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.instructions h3 {
+  font-size: 16px;
+  color: #ffca28;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.instructions ol {
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cfd8dc;
+}
+
+.instructions li {
+  margin-bottom: 6px;
+}
