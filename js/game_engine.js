@@ -175,20 +175,22 @@
     this.y += this.vy * dt;
 
     // Disparos
-    if (this.shootInput && this.shootCooldown <= 0 && this.ammo > 0 && this.stunTimer <= 0) {
-      this.ammo--;
-      this.shootCooldown = 0.45;
+    if (this.shootInput) {
+      if (this.shootCooldown <= 0 && this.ammo > 0 && this.stunTimer <= 0) {
+        this.ammo--;
+        this.shootCooldown = 0.45;
+
+        this.vx -= fwdX * 180;
+        this.vy -= fwdY * 180;
+
+        SoundSynth.playCannon();
+        var bX = this.x + fwdX * 32;
+        var bY = this.y + fwdY * 32;
+        cannonballs.push(new Cannonball(bX, bY, fwdX, fwdY, this.slot));
+        spawnMuzzleFlash(bX, bY, this.rotation);
+        sendTvAction('vibrate', this.slot, 60);
+      }
       this.shootInput = false;
-
-      this.vx -= fwdX * 180;
-      this.vy -= fwdY * 180;
-
-      SoundSynth.playCannon();
-      var bX = this.x + fwdX * 32;
-      var bY = this.y + fwdY * 32;
-      cannonballs.push(new Cannonball(bX, bY, fwdX, fwdY, this.slot));
-      spawnMuzzleFlash(bX, bY, this.rotation);
-      sendTvAction('vibrate', this.slot, 60);
     }
 
     // Estela de burbujas en popa
@@ -257,7 +259,9 @@
 
   Ship.prototype.collectAmmo = function() {
     if (!this.isAlive || this.ammo >= 3) return false;
-    this.ammo = Math.min(3, this.ammo + 1);
+    this.ammo = 3; // Recargar 3 balas completas
+    this.shootInput = false; // Evitar que dispare al recoger la caja
+    this.shootCooldown = 0.35; // Pausa de seguridad para que no dispare automáticamente
     SoundSynth.playPickup();
     sendTvAction('vibrate', this.slot, 40);
     return true;
@@ -854,7 +858,7 @@
           if (activeShips[sh].slot === inSlot) {
             activeShips[sh].turnInput = typeof msg.turn === 'number' ? msg.turn : 0;
             activeShips[sh].thrustInput = !!msg.thrust;
-            if (msg.shoot) activeShips[sh].shootInput = true;
+            activeShips[sh].shootInput = !!msg.shoot;
             break;
           }
         }
