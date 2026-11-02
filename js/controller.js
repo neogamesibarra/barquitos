@@ -206,6 +206,67 @@
     }
   }
 
+  function updateLayoutDimensions() {
+    var isPortrait = (window.innerHeight > window.innerWidth);
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    var container = document.getElementById('gamepad-container');
+    if (container) {
+      if (isPortrait) {
+        // En modo vertical: rotar 90° horario y forzar ancho = alto del dispositivo y alto = ancho del dispositivo
+        container.style.position = 'fixed';
+        container.style.top = '0px';
+        container.style.left = w + 'px';
+        container.style.right = 'auto';
+        container.style.bottom = 'auto';
+        container.style.width = h + 'px';
+        container.style.height = w + 'px';
+        container.style.maxWidth = h + 'px';
+        container.style.maxHeight = w + 'px';
+        container.style.transform = 'rotate(90deg)';
+        container.style.transformOrigin = 'top left';
+      } else {
+        // En modo horizontal nativo o fullscreen: sin rotación, 100% de la pantalla sin desbordar jamás
+        container.style.position = 'fixed';
+        container.style.top = '0px';
+        container.style.left = '0px';
+        container.style.right = '0px';
+        container.style.bottom = '0px';
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.maxWidth = '100%';
+        container.style.maxHeight = '100%';
+        container.style.transform = 'none';
+        container.style.transformOrigin = 'initial';
+      }
+    }
+
+    var overlay = document.getElementById('room-overlay');
+    if (overlay && overlay.style.display !== 'none') {
+      if (isPortrait) {
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0px';
+        overlay.style.left = w + 'px';
+        overlay.style.right = 'auto';
+        overlay.style.bottom = 'auto';
+        overlay.style.width = h + 'px';
+        overlay.style.height = w + 'px';
+        overlay.style.transform = 'rotate(90deg)';
+        overlay.style.transformOrigin = 'top left';
+      } else {
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0px';
+        overlay.style.left = '0px';
+        overlay.style.right = '0px';
+        overlay.style.bottom = '0px';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.transform = 'none';
+        overlay.style.transformOrigin = 'initial';
+      }
+    }
+  }
+
   function toggleFullscreen() {
     var doc = window.document;
     var docEl = doc.documentElement;
@@ -214,14 +275,24 @@
 
     if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
       if (req) {
-        req.call(docEl);
+        try {
+          var p = req.call(docEl);
+          if (p && p.catch) p.catch(function () {});
+        } catch (e) {}
         if (screen.orientation && screen.orientation.lock) {
-          screen.orientation.lock('landscape').catch(function () {});
+          try {
+            screen.orientation.lock('landscape').catch(function () {});
+          } catch (e2) {}
         }
       }
     } else {
-      if (exit) exit.call(doc);
+      if (exit) {
+        try { exit.call(doc); } catch (e3) {}
+      }
     }
+    setTimeout(updateLayoutDimensions, 50);
+    setTimeout(updateLayoutDimensions, 200);
+    setTimeout(updateLayoutDimensions, 500);
   }
 
   // Envío constante a 60 Hz al host (TV)
@@ -510,8 +581,23 @@
     elBtnJoin = document.getElementById('btn-join-room');
 
     preventPageZoom();
+    updateLayoutDimensions();
     setupSteeringControls();
     setupActionButtons();
+
+    window.addEventListener('resize', updateLayoutDimensions, false);
+    window.addEventListener('orientationchange', function () {
+      setTimeout(updateLayoutDimensions, 50);
+      setTimeout(updateLayoutDimensions, 250);
+    }, false);
+    document.addEventListener('fullscreenchange', function () {
+      setTimeout(updateLayoutDimensions, 50);
+      setTimeout(updateLayoutDimensions, 250);
+    }, false);
+    document.addEventListener('webkitfullscreenchange', function () {
+      setTimeout(updateLayoutDimensions, 50);
+      setTimeout(updateLayoutDimensions, 250);
+    }, false);
 
     if (currentRoom) {
       connectToRoom(currentRoom);
