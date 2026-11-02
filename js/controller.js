@@ -303,22 +303,14 @@
           var p = req.call(docEl);
           if (p && p.catch) p.catch(function () {});
         } catch (e) {}
-        if (screen.orientation && screen.orientation.lock) {
-          try {
-            screen.orientation.lock('landscape').catch(function () {});
-          } catch (e2) {}
-        }
       }
     } else {
       if (exit) {
-        try { exit.call(doc); } catch (e3) {}
-      }
-      if (screen.orientation && screen.orientation.unlock) {
-        try { screen.orientation.unlock(); } catch (e4) {}
+        try { exit.call(doc); } catch (e2) {}
       }
     }
 
-    var delays = [20, 60, 120, 250, 400, 600, 850, 1100];
+    var delays = [20, 60, 120, 250, 400, 600, 850];
     for (var d = 0; d < delays.length; d++) {
       setTimeout(updateLayoutDimensions, delays[d]);
     }
