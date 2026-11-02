@@ -207,37 +207,61 @@
   }
 
   function updateLayoutDimensions() {
-    var isPortrait = (window.innerHeight > window.innerWidth);
-    var w = window.innerWidth;
-    var h = window.innerHeight;
+    var winW = window.innerWidth || document.documentElement.clientWidth || screen.width;
+    var winH = window.innerHeight || document.documentElement.clientHeight || screen.height;
+    var isPortrait = (winH > winW);
+
+    var doc = window.document;
     var container = document.getElementById('gamepad-container');
-    if (container) {
-      if (isPortrait) {
-        // En modo vertical: rotar 90° horario y forzar ancho = alto del dispositivo y alto = ancho del dispositivo
-        container.style.position = 'fixed';
-        container.style.top = '0px';
-        container.style.left = w + 'px';
-        container.style.right = 'auto';
-        container.style.bottom = 'auto';
-        container.style.width = h + 'px';
-        container.style.height = w + 'px';
-        container.style.maxWidth = h + 'px';
-        container.style.maxHeight = w + 'px';
-        container.style.transform = 'rotate(90deg)';
-        container.style.transformOrigin = 'top left';
-      } else {
-        // En modo horizontal nativo o fullscreen: sin rotación, 100% de la pantalla sin desbordar jamás
-        container.style.position = 'fixed';
-        container.style.top = '0px';
-        container.style.left = '0px';
-        container.style.right = '0px';
-        container.style.bottom = '0px';
-        container.style.width = '100%';
-        container.style.height = '100%';
-        container.style.maxWidth = '100%';
-        container.style.maxHeight = '100%';
-        container.style.transform = 'none';
-        container.style.transformOrigin = 'initial';
+    if (!container) return;
+
+    // Forzar ancho y alto en html y body para que no queden valores heredados de portrait
+    doc.documentElement.style.width = winW + 'px';
+    doc.documentElement.style.height = winH + 'px';
+    doc.body.style.width = winW + 'px';
+    doc.body.style.height = winH + 'px';
+
+    if (isPortrait) {
+      // Teléfono vertical: rotar 90° horario
+      // El ancho visual del mando es el alto físico de la ventana (winH)
+      // El alto visual del mando es el ancho físico de la ventana (winW)
+      container.style.position = 'fixed';
+      container.style.top = '0px';
+      container.style.left = winW + 'px';
+      container.style.right = 'auto';
+      container.style.bottom = 'auto';
+      container.style.width = winH + 'px';
+      container.style.height = winW + 'px';
+      container.style.maxWidth = winH + 'px';
+      container.style.maxHeight = winW + 'px';
+      container.style.transform = 'rotate(90deg)';
+      container.style.transformOrigin = 'top left';
+    } else {
+      // Modo horizontal (landscape) nativo o bloqueado en fullscreen:
+      // Sin rotación, anclado al tamaño exacto de la pantalla sin desbordar
+      container.style.position = 'fixed';
+      container.style.top = '0px';
+      container.style.left = '0px';
+      container.style.right = '0px';
+      container.style.bottom = '0px';
+      container.style.width = winW + 'px';
+      container.style.height = winH + 'px';
+      container.style.maxWidth = winW + 'px';
+      container.style.maxHeight = winH + 'px';
+      container.style.transform = 'none';
+      container.style.transformOrigin = 'initial';
+    }
+
+    // Ajustar el alto exacto de la zona de controles táctiles en píxeles
+    var controlsArea = document.querySelector('.controls-area');
+    var topBar = document.querySelector('.top-bar');
+    if (controlsArea && topBar) {
+      var topBarH = topBar.offsetHeight || 44;
+      var totalH = isPortrait ? winW : winH;
+      var availH = totalH - topBarH - 20;
+      if (availH > 100) {
+        controlsArea.style.height = availH + 'px';
+        controlsArea.style.maxHeight = availH + 'px';
       }
     }
 
@@ -246,11 +270,11 @@
       if (isPortrait) {
         overlay.style.position = 'fixed';
         overlay.style.top = '0px';
-        overlay.style.left = w + 'px';
+        overlay.style.left = winW + 'px';
         overlay.style.right = 'auto';
         overlay.style.bottom = 'auto';
-        overlay.style.width = h + 'px';
-        overlay.style.height = w + 'px';
+        overlay.style.width = winH + 'px';
+        overlay.style.height = winW + 'px';
         overlay.style.transform = 'rotate(90deg)';
         overlay.style.transformOrigin = 'top left';
       } else {
@@ -259,8 +283,8 @@
         overlay.style.left = '0px';
         overlay.style.right = '0px';
         overlay.style.bottom = '0px';
-        overlay.style.width = '100%';
-        overlay.style.height = '100%';
+        overlay.style.width = winW + 'px';
+        overlay.style.height = winH + 'px';
         overlay.style.transform = 'none';
         overlay.style.transformOrigin = 'initial';
       }
@@ -289,10 +313,15 @@
       if (exit) {
         try { exit.call(doc); } catch (e3) {}
       }
+      if (screen.orientation && screen.orientation.unlock) {
+        try { screen.orientation.unlock(); } catch (e4) {}
+      }
     }
-    setTimeout(updateLayoutDimensions, 50);
-    setTimeout(updateLayoutDimensions, 200);
-    setTimeout(updateLayoutDimensions, 500);
+
+    var delays = [20, 60, 120, 250, 400, 600, 850, 1100];
+    for (var d = 0; d < delays.length; d++) {
+      setTimeout(updateLayoutDimensions, delays[d]);
+    }
   }
 
   // Envío constante a 60 Hz al host (TV)
