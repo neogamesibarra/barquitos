@@ -1,4 +1,4 @@
-/* controller.css - Mando táctil para Neocities Cloud */
+/* controller.css - Mando táctil siempre horizontal para iOS Safari y Android Chrome */
 * {
   margin: 0;
   padding: 0;
@@ -18,6 +18,8 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: #ffffff;
   position: fixed;
+  margin: 0;
+  padding: 0;
 }
 
 /* Modal de ingreso de código de sala */
@@ -25,21 +27,22 @@ html, body {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   background: rgba(8, 16, 24, 0.95);
   z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  box-sizing: border-box;
 }
 
 .room-dialog {
   background: #142838;
   border: 3px solid #00e5ff;
   border-radius: 16px;
-  padding: 25px 20px;
+  padding: 22px 20px;
   max-width: 380px;
   width: 100%;
   text-align: center;
@@ -55,7 +58,7 @@ html, body {
 .room-dialog p {
   font-size: 13px;
   color: #b0bec5;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .room-dialog input {
@@ -69,7 +72,7 @@ html, body {
   text-align: center;
   letter-spacing: 6px;
   padding: 10px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   outline: none;
   text-transform: uppercase;
 }
@@ -87,66 +90,44 @@ html, body {
   color: #ffffff;
   font-size: 18px;
   font-weight: 900;
-  padding: 14px;
+  padding: 12px;
   cursor: pointer;
   letter-spacing: 1px;
 }
 
-/* Aviso de rotación en vertical */
-.rotate-prompt {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: #0d1e2d;
-  z-index: 9999;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 20px;
-}
-
-.rotate-icon {
-  font-size: 64px;
-  margin-bottom: 20px;
-  animation: rotateAnim 2s infinite ease-in-out;
-}
-
-@keyframes rotateAnim {
-  0% { transform: rotate(0deg); }
-  50% { transform: rotate(-90deg); }
-  100% { transform: rotate(0deg); }
-}
-
-.rotate-text {
-  font-size: 22px;
-  font-weight: bold;
-  color: #ffca28;
-  max-width: 320px;
-  line-height: 1.4;
-}
-
-@media (orientation: portrait) {
-  .rotate-prompt {
-    display: flex !important;
-  }
-  .gamepad-container {
-    display: none !important;
-  }
-}
-
-/* Contenedor del Mando */
+/* CONTENEDOR PRINCIPAL DEL MANDO (SIEMPRE HORIZONTAL) */
 .gamepad-container {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   padding: 8px 12px;
   transition: background-color 0.3s ease;
   background-color: #1a2634;
+  box-sizing: border-box;
+}
+
+/* Si el dispositivo está en vertical (portrait), rotamos 90 grados para que el mando SIEMPRE aparezca horizontal */
+@media (orientation: portrait) {
+  .gamepad-container {
+    position: fixed;
+    top: 0;
+    left: 100%;
+    width: 100vh;
+    height: 100vw;
+    transform: rotate(90deg);
+    transform-origin: top left;
+  }
+
+  .room-overlay {
+    position: fixed;
+    top: 0;
+    left: 100%;
+    width: 100vh;
+    height: 100vw;
+    transform: rotate(90deg);
+    transform-origin: top left;
+  }
 }
 
 /* Barra Superior */
@@ -158,7 +139,7 @@ html, body {
   height: 44px;
   background: rgba(0, 0, 0, 0.45);
   border-radius: 10px;
-  padding: 0 14px;
+  padding: 0 12px;
   margin-bottom: 8px;
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
@@ -196,8 +177,8 @@ html, body {
 .player-badge {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 3px 10px;
+  background: rgba(255, 255, 255, 0.22);
+  padding: 4px 12px;
   border-radius: 20px;
   font-weight: 900;
   font-size: 13px;
@@ -207,6 +188,29 @@ html, body {
 .player-symbol {
   margin-right: 5px;
   font-size: 14px;
+}
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fullscreen-btn {
+  background: #2c3e50;
+  color: #00e5ff;
+  border: 2px solid #34495e;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.fullscreen-btn:active {
+  background: #34495e;
+  transform: scale(0.95);
 }
 
 .ready-btn {
@@ -261,8 +265,8 @@ html, body {
 }
 
 .wheel-outer {
-  width: 160px;
-  height: 160px;
+  width: 155px;
+  height: 155px;
   border-radius: 50%;
   border: 4px solid rgba(255, 255, 255, 0.3);
   background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.4) 100%);
@@ -284,15 +288,15 @@ html, body {
 }
 
 .wheel-knob {
-  width: 75px;
-  height: 75px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.25);
   border: 3px solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30px;
+  font-size: 28px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   pointer-events: none;
   transform: translate(0, 0);
@@ -317,6 +321,7 @@ html, body {
   display: flex;
   flex-direction: row;
   gap: 12px;
+  position: relative;
 }
 
 .touch-btn {
@@ -357,7 +362,7 @@ html, body {
 }
 
 .btn-icon {
-  font-size: 40px;
+  font-size: 38px;
   margin-bottom: 4px;
   pointer-events: none;
 }
@@ -377,4 +382,54 @@ html, body {
   letter-spacing: 2px;
   margin-top: 2px;
   pointer-events: none;
+}
+
+/* PANEL ANFITRIÓN (MANDO 1 EN LOBBY O PODIO) */
+.host-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 20;
+  background: rgba(10, 20, 30, 0.95);
+  border: 2px solid #00e5ff;
+  border-radius: 14px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.host-action-btn {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  cursor: pointer;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  transition: transform 0.08s ease;
+}
+
+.host-action-btn:active {
+  transform: scale(0.96);
+}
+
+.start-round-btn {
+  background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+  border: 2px solid #a8f5ba;
+  font-size: 18px;
+}
+
+.change-mode-btn {
+  background: linear-gradient(135deg, #1b4965 0%, #00b4d8 100%);
+  border: 2px solid #90e0ef;
+  font-size: 15px;
 }

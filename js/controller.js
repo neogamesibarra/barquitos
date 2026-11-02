@@ -1,5 +1,5 @@
 /**
- * SHIPPED - Controlador Web para Neocities (Sin Computadora)
+ * BARQUITOS - Controlador Web para GitHub Pages / Neocities (Sin Computadora)
  * Compatible con iOS Safari y Android Chrome en ES5 estricto.
  */
 
@@ -19,7 +19,7 @@
   }
 
   function getOrCreateUUID() {
-    var key = 'shipped_cloud_uuid';
+    var key = 'barquitos_cloud_uuid';
     var saved = null;
     try {
       saved = window.localStorage.getItem(key);
@@ -47,6 +47,7 @@
   var currentRoom = getQueryParam('room');
   var mySlot = -1;
   var isReady = false;
+  var currentGameState = 'lobby';
 
   var inputState = {
     turn: 0,
@@ -68,11 +69,16 @@
   var elPlayerName = null;
   var elPlayerSymbol = null;
   var elBtnReady = null;
+  var elBtnFullscreen = null;
   var elSteeringZone = null;
   var elWheelOuter = null;
   var elWheelKnob = null;
   var elBtnThrust = null;
   var elBtnShoot = null;
+
+  var elHostPanel = null;
+  var elBtnHostStart = null;
+  var elBtnHostMode = null;
 
   var elRoomOverlay = null;
   var elRoomInput = null;
@@ -123,7 +129,7 @@
       isReady = !!msg.ready;
 
       if (elPlayerName) {
-        elPlayerName.textContent = 'JUGADOR ' + (mySlot + 1) + ' (' + msg.name + ')';
+        elPlayerName.textContent = 'JUGADOR ' + (mySlot + 1) + ' (' + msg.name.toUpperCase() + ')';
       }
       if (elPlayerSymbol && msg.symbol) {
         elPlayerSymbol.textContent = msg.symbol;
@@ -133,10 +139,37 @@
       }
 
       updateReadyUI();
+      updateHostControls();
+    } else if (msg.type === 'state_change') {
+      currentGameState = msg.state;
+      updateHostControls();
+    } else if (msg.type === 'mode_change') {
+      if (elBtnHostMode) {
+        elBtnHostMode.textContent = '🔄 MODO: ' + (msg.mode === 0 ? 'BATALLA' : 'CARRERA');
+      }
     } else if (msg.type === 'vibrate') {
       triggerVibration(msg.duration || 80);
     } else if (msg.type === 'error') {
       alert(msg.message || 'Error al conectar');
+    }
+  }
+
+  function updateHostControls() {
+    if (!elHostPanel) return;
+
+    // Solo el Mando 1 (mySlot === 0) muestra controles de anfitrión en podio o lobby
+    if (mySlot === 0 && (currentGameState === 'podium' || currentGameState === 'lobby')) {
+      elHostPanel.style.display = 'flex';
+      if (elBtnThrust) elBtnThrust.style.display = 'none';
+      if (elBtnShoot) elBtnShoot.style.display = 'none';
+      if (elBtnHostStart) {
+        elBtnHostStart.textContent = (currentGameState === 'podium') ? '⚓ OTRA PARTIDA' : '⚓ INICIAR PARTIDA';
+      }
+    } else {
+      // Durante la ronda activa o en mandos 2-8: botones táctiles normales de acción
+      elHostPanel.style.display = 'none';
+      if (elBtnThrust) elBtnThrust.style.display = 'flex';
+      if (elBtnShoot) elBtnShoot.style.display = 'flex';
     }
   }
 
@@ -173,6 +206,24 @@
     }
   }
 
+  function toggleFullscreen() {
+    var doc = window.document;
+    var docEl = doc.documentElement;
+    var req = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+    var exit = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+    if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+      if (req) {
+        req.call(docEl);
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(function () {});
+        }
+      }
+    } else {
+      if (exit) exit.call(doc);
+    }
+  }
+
   // Envío constante a 60 Hz al host (TV)
   function sendInputUpdate() {
     if (mySlot === -1 || !window.CloudNet || !window.CloudNet.isConnected()) return;
@@ -200,17 +251,28 @@
     if (!elSteeringZone || !elWheelOuter || !elWheelKnob) return;
 
     function handleSteerTouch(touch) {
+      var isPortraitRotated = (window.innerHeight > window.innerWidth);
       var rect = elWheelOuter.getBoundingClientRect();
-      var centerX = rect.left + rect.width / 2;
-      var maxDist = rect.width / 2 - 10;
+      var normalized = 0;
 
-      var deltaX = touch.clientX - centerX;
-      var normalized = Math.max(-1, Math.min(1, deltaX / maxDist));
+      if (isPortraitRotated) {
+        // En portrait rotado 90° horario: el eje visual X corresponde al eje Y de la pantalla (clientY)
+        var centerY = rect.top + rect.height / 2;
+        var maxDistY = rect.height / 2 - 10;
+        var deltaY = touch.clientY - centerY;
+        normalized = Math.max(-1, Math.min(1, deltaY / maxDistY));
+      } else {
+        // En landscape nativo: eje X normal (clientX)
+        var centerX = rect.left + rect.width / 2;
+        var maxDistX = rect.width / 2 - 10;
+        var deltaX = touch.clientX - centerX;
+        normalized = Math.max(-1, Math.min(1, deltaX / maxDistX));
+      }
 
       inputState.turn = Math.round(normalized * 100) / 100;
 
-      var knobX = normalized * (maxDist * 0.7);
-      elWheelKnob.style.transform = 'translate(' + knobX + 'px, 0px)';
+      var knobOffset = normalized * ((rect.width / 2 - 10) * 0.7);
+      elWheelKnob.style.transform = 'translate(' + knobOffset + 'px, 0px)';
     }
 
     function resetSteer() {
@@ -253,7 +315,7 @@
       resetSteer();
     }, false);
 
-    // Soporte con ratón para PC
+    // Soporte con ratón para pruebas en PC
     var isMouseDown = false;
     elSteeringZone.addEventListener('mousedown', function (e) {
       isMouseDown = true;
@@ -347,6 +409,33 @@
       });
     }
 
+    // Botones del Anfitrión (Mando 1)
+    if (elBtnHostStart) {
+      elBtnHostStart.addEventListener('click', function (e) {
+        e.preventDefault();
+        triggerVibration(50);
+        if (window.CloudNet) {
+          window.CloudNet.sendToHost({
+            type: 'host_action',
+            action: 'start'
+          });
+        }
+      });
+    }
+
+    if (elBtnHostMode) {
+      elBtnHostMode.addEventListener('click', function (e) {
+        e.preventDefault();
+        triggerVibration(40);
+        if (window.CloudNet) {
+          window.CloudNet.sendToHost({
+            type: 'host_action',
+            action: 'toggle_mode'
+          });
+        }
+      });
+    }
+
     // Listo
     if (elBtnReady) {
       elBtnReady.addEventListener('click', function (e) {
@@ -356,6 +445,14 @@
       elBtnReady.addEventListener('touchend', function (e) {
         e.preventDefault();
         toggleReady();
+      });
+    }
+
+    // Pantalla Completa
+    if (elBtnFullscreen) {
+      elBtnFullscreen.addEventListener('click', function (e) {
+        e.preventDefault();
+        toggleFullscreen();
       });
     }
 
@@ -397,11 +494,16 @@
     elPlayerName = document.getElementById('player-name');
     elPlayerSymbol = document.getElementById('player-symbol');
     elBtnReady = document.getElementById('btn-ready');
+    elBtnFullscreen = document.getElementById('btn-fullscreen');
     elSteeringZone = document.getElementById('steering-zone');
     elWheelOuter = document.getElementById('wheel-outer');
     elWheelKnob = document.getElementById('wheel-knob');
     elBtnThrust = document.getElementById('btn-thrust');
     elBtnShoot = document.getElementById('btn-shoot');
+
+    elHostPanel = document.getElementById('host-panel');
+    elBtnHostStart = document.getElementById('btn-host-start');
+    elBtnHostMode = document.getElementById('btn-host-mode');
 
     elRoomOverlay = document.getElementById('room-overlay');
     elRoomInput = document.getElementById('room-input');
@@ -411,11 +513,9 @@
     setupSteeringControls();
     setupActionButtons();
 
-    // Si viene el parámetro ?room=XXXX en la URL (por escanear el QR)
     if (currentRoom) {
       connectToRoom(currentRoom);
     } else {
-      // Mostrar pantalla para ingresar el código manualmente
       if (elRoomOverlay) elRoomOverlay.style.display = 'flex';
     }
 

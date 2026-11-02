@@ -22,14 +22,14 @@
   var currentRoomCode = "";
   var uuidToSlot = {};
   var PLAYER_PROFILES = [
-    { slot: 0, name: "Tofe (Naranja)", hull: "#E67E22", sail: "#FFF8E7", stripe: "#2ECC71", symbol: "circle", uuid: "", connected: false, ready: false, score: 0 },
-    { slot: 1, name: "Nobu (Azul)", hull: "#1E60D5", sail: "#82B1FF", stripe: "#0D47A1", symbol: "square", uuid: "", connected: false, ready: false, score: 0 },
-    { slot: 2, name: "Taka (Magenta)", hull: "#D81B60", sail: "#FF80AB", stripe: "#FFD600", symbol: "triangle", uuid: "", connected: false, ready: false, score: 0 },
-    { slot: 3, name: "Waba (Verde)", hull: "#43A047", sail: "#B9F6CA", stripe: "#1B5E20", symbol: "diamond", uuid: "", connected: false, ready: false, score: 0 },
-    { slot: 4, name: "Miki (Amarillo)", hull: "#FDD835", sail: "#FFFDE7", stripe: "#F57F17", symbol: "star", uuid: "", connected: false, ready: false, score: 0 },
-    { slot: 5, name: "Lico (Rosa)", hull: "#FF80AB", sail: "#FCE4EC", stripe: "#C51162", symbol: "heart", uuid: "", connected: false, ready: false, score: 0 },
-    { slot: 6, name: "Pita (Negro)", hull: "#261C1A", sail: "#FFCA28", stripe: "#111111", symbol: "crown", uuid: "", connected: false, ready: false, score: 0 },
-    { slot: 7, name: "Naru (Rojo)", hull: "#E53935", sail: "#FFCDD2", stripe: "#00ACC1", symbol: "bolt", uuid: "", connected: false, ready: false, score: 0 }
+    { slot: 0, name: "Naranja", hull: "#E67E22", sail: "#FFF8E7", stripe: "#2ECC71", symbol: "circle", uuid: "", connected: false, ready: false, score: 0 },
+    { slot: 1, name: "Azul", hull: "#1E60D5", sail: "#82B1FF", stripe: "#0D47A1", symbol: "square", uuid: "", connected: false, ready: false, score: 0 },
+    { slot: 2, name: "Magenta", hull: "#D81B60", sail: "#FF80AB", stripe: "#FFD600", symbol: "triangle", uuid: "", connected: false, ready: false, score: 0 },
+    { slot: 3, name: "Verde", hull: "#43A047", sail: "#B9F6CA", stripe: "#1B5E20", symbol: "diamond", uuid: "", connected: false, ready: false, score: 0 },
+    { slot: 4, name: "Amarillo", hull: "#FDD835", sail: "#FFFDE7", stripe: "#F57F17", symbol: "star", uuid: "", connected: false, ready: false, score: 0 },
+    { slot: 5, name: "Rosa", hull: "#FF80AB", sail: "#FCE4EC", stripe: "#C51162", symbol: "heart", uuid: "", connected: false, ready: false, score: 0 },
+    { slot: 6, name: "Negro", hull: "#261C1A", sail: "#FFCA28", stripe: "#111111", symbol: "crown", uuid: "", connected: false, ready: false, score: 0 },
+    { slot: 7, name: "Rojo", hull: "#E53935", sail: "#FFCDD2", stripe: "#00ACC1", symbol: "bolt", uuid: "", connected: false, ready: false, score: 0 }
   ];
 
   var playersData = [];
@@ -43,6 +43,9 @@
   var particles = [];
   var islands = [];
   var checkpoints = [];
+
+  var currentRound = 0;
+  var TOTAL_ROUNDS = 5;
 
   var countdownTime = 3.8;
   var lastCountdownStep = -1;
@@ -106,6 +109,8 @@
     this.vx = 0;
     this.vy = 0;
     this.ammo = 3;
+    this.health = 3;
+    this.maxHealth = 3;
     this.boost = 1.0;
     this.isAlive = true;
     this.stunTimer = 0;
@@ -211,8 +216,32 @@
     this.vy += dirY * finalForce;
     this.stunTimer = 0.4;
     this.spinVel = (Math.random() - 0.5) * 28;
-    this.flashTimer = 0.18;
+    this.flashTimer = 0.22;
     sendTvAction('vibrate', this.slot, 120);
+
+    // Partículas de impacto
+    for (var p = 0; p < 8; p++) {
+      var pAng = Math.random() * Math.PI * 2;
+      var pSpd = 40 + Math.random() * 90;
+      particles.push({
+        x: this.x,
+        y: this.y,
+        vx: Math.cos(pAng) * pSpd,
+        vy: Math.sin(pAng) * pSpd,
+        radius: 2 + Math.random() * 3,
+        color: '#ffdd44',
+        life: 0.35,
+        maxLife: 0.35
+      });
+    }
+
+    // Sistema de 3 Vidas: cada cañonazo resta 1 vida en partida activa
+    if (currentState !== STATE_LOBBY) {
+      this.health--;
+      if (this.health <= 0) {
+        this.die();
+      }
+    }
   };
 
   Ship.prototype.applyRam = function(dirX, dirY, force) {
@@ -344,7 +373,41 @@
     }
 
     c.restore();
+
+    // 7. Tres corazones de vida flotantes sobre el barco en pantalla
+    if (currentState !== STATE_LOBBY) {
+      var heartSpacing = 14;
+      var startHx = this.x - heartSpacing;
+      var hy = this.y - 32;
+      for (var h = 0; h < 3; h++) {
+        drawMiniHeart(c, startHx + h * heartSpacing, hy, (h < this.health));
+      }
+    }
   };
+
+  function drawMiniHeart(c, x, y, filled) {
+    c.save();
+    c.translate(x, y);
+    c.beginPath();
+    c.moveTo(0, 1.5);
+    c.bezierCurveTo(-4, -3.5, -6, 1.5, 0, 5.5);
+    c.bezierCurveTo(6, 1.5, 4, -3.5, 0, 1.5);
+    c.closePath();
+    if (filled) {
+      c.fillStyle = '#ff2a55';
+      c.fill();
+      c.strokeStyle = '#220008';
+      c.lineWidth = 1.2;
+      c.stroke();
+    } else {
+      c.fillStyle = 'rgba(15, 25, 35, 0.7)';
+      c.fill();
+      c.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      c.lineWidth = 1;
+      c.stroke();
+    }
+    c.restore();
+  }
 
   function drawSymbolOnDeck(c, x, y, type, col, outline) {
     c.fillStyle = col;
@@ -591,13 +654,14 @@
 
   function startBattleRound() {
     currentState = STATE_ARENA;
-    countdownTime = 3.8;
+    countdownTime = 3.5;
     lastCountdownStep = -1;
     roundTimer = 0;
     suddenDeathActive = false;
     currentBounds = { x: arenaBounds.x, y: arenaBounds.y, w: arenaBounds.w, h: arenaBounds.h };
     roundWinner = null;
     roundOverTimer = 0;
+    sendTvAction('state_change', null, 'playing');
 
     initArenaIslands();
     cannonballs = [];
@@ -626,20 +690,21 @@
       var sX = 960 + Math.cos(angle) * radius;
       var sY = 540 + Math.sin(angle) * radius;
       var ship = new Ship(p.slot, sX, sY, angle + Math.PI);
-      ship.stunTimer = 3.8; // congelados en cuenta atrás
+      ship.stunTimer = 0; // Se congelan por la cuenta atrás automáticamente
       activeShips.push(ship);
     }
   }
 
   function startCruiseRound() {
     currentState = STATE_CRUISE;
-    countdownTime = 3.8;
+    countdownTime = 3.5;
     lastCountdownStep = -1;
     roundTimer = 0;
     cruiseCameraY = 540;
     cruiseScrollSpeed = 135;
     roundWinner = null;
     roundOverTimer = 0;
+    sendTvAction('state_change', null, 'playing');
 
     initCruiseCourse();
     cannonballs = [];
@@ -662,12 +727,21 @@
       var p = connected[j];
       var sX = 260 + spacing * (j + 1);
       var ship = new Ship(p.slot, sX, startY, -Math.PI * 0.5);
-      ship.stunTimer = 3.8;
+      ship.stunTimer = 0;
       activeShips.push(ship);
     }
   }
 
+  function startNewMatch() {
+    currentRound = 0;
+    for (var i = 0; i < playersData.length; i++) {
+      playersData[i].score = 0;
+    }
+    startRoundByMode();
+  }
+
   function startRoundByMode() {
+    currentRound++;
     if (selectedMode === MODE_BATTLE) {
       startBattleRound();
     } else {
@@ -785,6 +859,24 @@
           }
         }
       }
+    } else if (msg.type === 'host_action') {
+      if (msg.action === 'start') {
+        if (currentState === STATE_LOBBY || currentState === STATE_PODIUM) {
+          startNewMatch();
+        } else {
+          startRoundByMode();
+        }
+      } else if (msg.action === 'toggle_mode') {
+        selectedMode = (selectedMode === MODE_BATTLE ? MODE_CRUISE : MODE_BATTLE);
+        updateLobbyModeUI();
+        if (window.CloudNet) {
+          window.CloudNet.broadcast({
+            type: 'mode_change',
+            mode: selectedMode,
+            modeName: selectedMode === MODE_BATTLE ? 'MODO BATALLA' : 'CARRERA'
+          });
+        }
+      }
     }
   }
 
@@ -883,16 +975,21 @@
   }
 
   function updateBattle(dt) {
-    // Cuenta regresiva
-    if (countdownTime > 0) {
+    // Cuenta regresiva: 3, 2, 1 congelados -> ¡FUEGO! (libre inmediatamente al sonar)
+    if (countdownTime > 0.5) {
       countdownTime -= dt;
-      var step = Math.ceil(countdownTime);
+      var step = Math.ceil(countdownTime - 0.5);
       if (step !== lastCountdownStep) {
         lastCountdownStep = step;
         if (step > 0 && step <= 3) SoundSynth.playCountdown(false);
-        else if (step <= 0) SoundSynth.playCountdown(true);
       }
       return;
+    } else if (countdownTime > 0) {
+      if (lastCountdownStep !== 0) {
+        lastCountdownStep = 0;
+        SoundSynth.playCountdown(true);
+      }
+      countdownTime -= dt;
     }
 
     if (roundWinner) {
@@ -1037,15 +1134,20 @@
   }
 
   function updateCruise(dt) {
-    if (countdownTime > 0) {
+    if (countdownTime > 0.5) {
       countdownTime -= dt;
-      var step = Math.ceil(countdownTime);
+      var step = Math.ceil(countdownTime - 0.5);
       if (step !== lastCountdownStep) {
         lastCountdownStep = step;
         if (step > 0 && step <= 3) SoundSynth.playCountdown(false);
-        else if (step <= 0) SoundSynth.playCountdown(true);
       }
       return;
+    } else if (countdownTime > 0) {
+      if (lastCountdownStep !== 0) {
+        lastCountdownStep = 0;
+        SoundSynth.playCountdown(true);
+      }
+      countdownTime -= dt;
     }
 
     if (roundWinner) {
@@ -1166,14 +1268,12 @@
   }
 
   function concludeRoundCheck() {
-    // Si alguien llega a 5 puntos -> Podio final
-    for (var i = 0; i < playersData.length; i++) {
-      if (playersData[i].score >= 5) {
-        openPodiumScreen();
-        return;
-      }
+    // Si ya se completaron las 5 rondas -> Podio final del torneo
+    if (currentRound >= TOTAL_ROUNDS) {
+      openPodiumScreen();
+      return;
     }
-    // Si no, reiniciar siguiente ronda con el mismo modo
+    // Si no, iniciar la siguiente ronda de la partida
     startRoundByMode();
   }
 
@@ -1182,6 +1282,7 @@
     podiumAnimTimer = 0;
     SoundSynth.playFanfare();
     spawnConfetti(90);
+    sendTvAction('state_change', null, 'podium');
   }
 
   // RENDERIZADO EN CANVAS 2D
@@ -1210,7 +1311,7 @@
   }
 
   function renderLobby() {
-    // Fondo azul Shipped
+    // Fondo azul Barquitos
     ctx.fillStyle = '#102e4c';
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
@@ -1450,16 +1551,27 @@
       ctx.fillText("⛵", x + 12, 46);
 
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(p.score + "/5", x + 48, 47);
+      ctx.fillText(p.score + " pts", x + 44, 47);
     }
+
+    // Indicador central de Ronda (1 a 5)
+    ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FFE082';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 4;
+    var roundLabel = 'RONDA ' + Math.min(currentRound, TOTAL_ROUNDS) + ' DE ' + TOTAL_ROUNDS;
+    ctx.strokeText(roundLabel, 960, 84);
+    ctx.fillText(roundLabel, 960, 84);
+    ctx.textAlign = 'left';
 
     // Cuenta atrás
     if (countdownTime > 0) {
       var txt = "3";
       var col = "#FF2A2A";
-      if (countdownTime > 2.6) { txt = "3"; col = "#FF2A2A"; }
-      else if (countdownTime > 1.6) { txt = "2"; col = "#FFEA00"; }
-      else if (countdownTime > 0.6) { txt = "1"; col = "#00E676"; }
+      if (countdownTime > 2.5) { txt = "3"; col = "#FF2A2A"; }
+      else if (countdownTime > 1.5) { txt = "2"; col = "#FFEA00"; }
+      else if (countdownTime > 0.5) { txt = "1"; col = "#00E676"; }
       else { txt = (currentState === STATE_CRUISE) ? "¡ZARPAR!" : "¡FUEGO!"; col = "#00E5FF"; }
 
       ctx.font = 'bold 84px sans-serif';
@@ -1666,7 +1778,7 @@
         selectedMode = MODE_CRUISE;
         updateLobbyModeUI();
       } else if (k === 13 || k === 32) { // Enter / Space / OK
-        startRoundByMode();
+        startNewMatch();
       }
     } else if (currentState === STATE_PODIUM) {
       if (k === 37) {
@@ -1676,13 +1788,14 @@
       } else if (k === 13 || k === 32) {
         if (podiumSelectedBtn === 0) {
           // Jugar otra vez
-          for (var p = 0; p < playersData.length; p++) playersData[p].score = 0;
-          startRoundByMode();
+          startNewMatch();
         } else {
           // Volver al lobby
           for (var p2 = 0; p2 < playersData.length; p2++) playersData[p2].score = 0;
+          currentRound = 0;
           currentState = STATE_LOBBY;
           updateLobbyShips();
+          sendTvAction('state_change', null, 'lobby');
         }
       }
     }
@@ -1745,13 +1858,14 @@
     }
     if (bStart) {
       bStart.onclick = function() {
-        startRoundByMode();
+        startNewMatch();
       };
     }
   };
 
-  window.ShippedGame = {
+  window.BarquitosGame = {
     startRound: startRoundByMode,
+    startNewMatch: startNewMatch,
     toggleBirthday: toggleBirthday
   };
 })(window);

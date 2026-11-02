@@ -1,5 +1,5 @@
 /**
- * SHIPPED - Capa de Red en la Nube para Neocities (Sin Computadora)
+ * BARQUITOS - Capa de Red en la Nube (Sin Computadora)
  * Utiliza MQTT seguro sobre WebSockets (WSS) a traves de brokers publicos gratuitos.
  * Compatible al 100% con Tizen 2015 (ES5 estricto).
  */
@@ -79,12 +79,12 @@
         // Suscribirse a los canales de la sala
         if (isHost) {
           // El Host (TV) escucha a todos los mandos de esta sala
-          var subTopic = 'shipped/v1/' + activeRoom + '/in/#';
+          var subTopic = 'barquitos/v1/' + activeRoom + '/in/#';
           client.subscribe(subTopic, { qos: 0 });
         } else {
           // El Mando escucha mensajes personales y difusiones
-          var mySub = 'shipped/v1/' + activeRoom + '/out/' + myId;
-          var broadSub = 'shipped/v1/' + activeRoom + '/broadcast';
+          var mySub = 'barquitos/v1/' + activeRoom + '/out/' + myId;
+          var broadSub = 'barquitos/v1/' + activeRoom + '/broadcast';
           client.subscribe(mySub, { qos: 0 });
           client.subscribe(broadSub, { qos: 0 });
         }
@@ -156,19 +156,19 @@
 
     // Enviar mensaje directo a un jugador
     sendToPlayer: function (playerUuid, data) {
-      var topic = 'shipped/v1/' + activeRoom + '/out/' + playerUuid;
+      var topic = 'barquitos/v1/' + activeRoom + '/out/' + playerUuid;
       publish(topic, data);
     },
 
     // Enviar mensaje al televisor desde el telefono
     sendToHost: function (data) {
-      var topic = 'shipped/v1/' + activeRoom + '/in/' + myId;
+      var topic = 'barquitos/v1/' + activeRoom + '/in/' + myId;
       publish(topic, data);
     },
 
     // Difundir a todos los telefonos de la sala
     broadcast: function (data) {
-      var topic = 'shipped/v1/' + activeRoom + '/broadcast';
+      var topic = 'barquitos/v1/' + activeRoom + '/broadcast';
       publish(topic, data);
     },
 

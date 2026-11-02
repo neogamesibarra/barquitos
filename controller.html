@@ -6,29 +6,23 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>SHIPPED - Mando Móvil Cloud</title>
+  <title>BARQUITOS - Mando Móvil</title>
   <link rel="stylesheet" href="css/controller.css">
 </head>
 <body>
-  <!-- Aviso para orientar en horizontal -->
-  <div id="rotate-prompt" class="rotate-prompt">
-    <div class="rotate-icon">📱🔄</div>
-    <div class="rotate-text">Gira tu teléfono en horizontal para jugar</div>
-  </div>
-
   <!-- Modal para ingresar el código de sala si no se escaneó el QR -->
   <div id="room-overlay" class="room-overlay" style="display: none;">
     <div class="room-dialog">
       <h2>UNIRSE A LA SALA</h2>
-      <p>Escribe el código de 4 caracteres que se muestra en la pantalla de la TV:</p>
+      <p>Escribe el código de 4 letras que aparece en la TV:</p>
       <input id="room-input" type="text" maxlength="4" placeholder="EJ: 8421" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
       <button id="btn-join-room" type="button">ENTRAR AL JUEGO ⚓</button>
     </div>
   </div>
 
-  <!-- Pantalla principal del mando -->
+  <!-- Pantalla principal del mando (Forzada horizontal en cualquier orientación) -->
   <div id="gamepad-container" class="gamepad-container">
-    <!-- Barra superior con información del jugador -->
+    <!-- Barra superior con información del jugador y botón de pantalla completa -->
     <div class="top-bar">
       <div class="status-indicator">
         <span id="conn-dot" class="conn-dot"></span>
@@ -40,9 +34,14 @@
         <span id="player-name" class="player-name">ASIGNANDO BARCO...</span>
       </div>
 
-      <button id="btn-ready" class="ready-btn" type="button">
-        LISTO ✓
-      </button>
+      <div class="top-bar-actions">
+        <button id="btn-fullscreen" class="fullscreen-btn" type="button" title="Pantalla Completa">
+          ⛶
+        </button>
+        <button id="btn-ready" class="ready-btn" type="button">
+          LISTO ✓
+        </button>
+      </div>
     </div>
 
     <!-- Zona de mandos táctiles -->
@@ -60,8 +59,18 @@
         </div>
       </div>
 
-      <!-- MITAD DERECHA: Botones de Acción -->
+      <!-- MITAD DERECHA: Botones de Acción / Panel de Anfitrión Mando 1 -->
       <div class="actions-zone">
+        <!-- Panel Anfitrión (Solo aparece en Mando 1 en Lobby o Podio para iniciar o cambiar modo) -->
+        <div id="host-panel" class="host-panel" style="display: none;">
+          <button id="btn-host-start" class="host-action-btn start-round-btn" type="button">
+            ⚓ INICIAR PARTIDA
+          </button>
+          <button id="btn-host-mode" class="host-action-btn change-mode-btn" type="button">
+            🔄 MODO: BATALLA
+          </button>
+        </div>
+
         <!-- Botón Acelerar / Impulso -->
         <div id="btn-thrust" class="touch-btn thrust-btn">
           <div class="btn-icon">💨</div>
