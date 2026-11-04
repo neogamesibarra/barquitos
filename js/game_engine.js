@@ -8,6 +8,30 @@
   var offsetX = 0;
   var offsetY = 0;
 
+  // Capa de seguridad y compatibilidad para Web Audio API (Tizen 2015)
+  var Sound = {
+    playCannon: function () { if (window.SoundSynth && window.SoundSynth.playCannon) window.SoundSynth.playCannon(); },
+    playHit: function () { if (window.SoundSynth && window.SoundSynth.playHit) window.SoundSynth.playHit(); },
+    playPickup: function () { if (window.SoundSynth && window.SoundSynth.playPickup) window.SoundSynth.playPickup(); },
+    playSplash: function () { if (window.SoundSynth && window.SoundSynth.playSplash) window.SoundSynth.playSplash(); },
+    playCountdown: function (isFinal) { if (window.SoundSynth && window.SoundSynth.playCountdown) window.SoundSynth.playCountdown(isFinal); },
+    playFanfare: function () { if (window.SoundSynth && window.SoundSynth.playFanfare) window.SoundSynth.playFanfare(); },
+    toggleMute: function () { if (window.SoundSynth && window.SoundSynth.toggleMute) return window.SoundSynth.toggleMute(); return false; }
+  };
+
+  var elLobbyUI = null;
+  function setLobbyUIVisible(visible) {
+    if (!elLobbyUI) {
+      elLobbyUI = document.getElementById('lobby-ui');
+    }
+    if (elLobbyUI) {
+      var targetDisplay = visible ? 'block' : 'none';
+      if (elLobbyUI.style.display !== targetDisplay) {
+        elLobbyUI.style.display = targetDisplay;
+      }
+    }
+  }
+
   var STATE_LOBBY = 0;
   var STATE_ARENA = 1;
   var STATE_CRUISE = 2;
@@ -47,7 +71,7 @@
   var currentRound = 0;
   var TOTAL_ROUNDS = 5;
 
-  var countdownTime = 3.8;
+  var countdownTime = 0;
   var lastCountdownStep = -1;
   var roundTimer = 0;
   var suddenDeathActive = false;
@@ -68,17 +92,42 @@
   var podiumAnimTimer = 0;
   var podiumSelectedBtn = 0; // 0: Jugar Otra Vez, 1: Lobby
 
-  // Utilidad para hexágonos regulares
+  // Precomputar vértices trigonométricos para hexágonos regulares (0 allocations a 60 FPS)
+  var HEX_COS = [];
+  var HEX_SIN = [];
+  for (var hi = 0; hi < 6; hi++) {
+    var hAngle = (Math.PI * 2 / 6) * hi - (Math.PI / 6);
+    HEX_COS.push(Math.cos(hAngle));
+    HEX_SIN.push(Math.sin(hAngle));
+  }
+
   function getHexPoints(cx, cy, radius) {
     var pts = [];
     for (var i = 0; i < 6; i++) {
-      var angle = (Math.PI * 2 / 6) * i - (Math.PI / 6);
       pts.push({
-        x: cx + Math.cos(angle) * radius,
-        y: cy + Math.sin(angle) * radius
+        x: cx + HEX_COS[i] * radius,
+        y: cy + HEX_SIN[i] * radius
       });
     }
     return pts;
+  }
+
+  function drawHexagon(c, cx, cy, radius, fillCol, strokeCol, strokeW) {
+    c.beginPath();
+    c.moveTo(cx + HEX_COS[0] * radius, cy + HEX_SIN[0] * radius);
+    for (var i = 1; i < 6; i++) {
+      c.lineTo(cx + HEX_COS[i] * radius, cy + HEX_SIN[i] * radius);
+    }
+    c.closePath();
+    if (fillCol) {
+      c.fillStyle = fillCol;
+      c.fill();
+    }
+    if (strokeCol) {
+      c.strokeStyle = strokeCol;
+      c.lineWidth = strokeW || 2;
+      c.stroke();
+    }
   }
 
   function drawPolygon(pts, fillCol, strokeCol, strokeW) {
@@ -183,7 +232,7 @@
         this.vx -= fwdX * 180;
         this.vy -= fwdY * 180;
 
-        SoundSynth.playCannon();
+        Sound.playCannon();
         var bX = this.x + fwdX * 32;
         var bY = this.y + fwdY * 32;
         cannonballs.push(new Cannonball(bX, bY, fwdX, fwdY, this.slot));
@@ -212,7 +261,7 @@
 
   Ship.prototype.applyHit = function(dirX, dirY, force) {
     if (!this.isAlive) return;
-    SoundSynth.playHit();
+    Sound.playHit();
     var finalForce = (this.ammo === 0) ? force * 2.0 : force;
     this.vx += dirX * finalForce;
     this.vy += dirY * finalForce;
@@ -248,7 +297,7 @@
 
   Ship.prototype.applyRam = function(dirX, dirY, force) {
     if (!this.isAlive) return;
-    SoundSynth.playHit();
+    Sound.playHit();
     this.vx += dirX * force;
     this.vy += dirY * force;
     this.stunTimer = 0.3;
@@ -262,7 +311,7 @@
     this.ammo = 3; // Recargar 3 balas completas
     this.shootInput = false; // Evitar que dispare al recoger la caja
     this.shootCooldown = 0.35; // Pausa de seguridad para que no dispare automáticamente
-    SoundSynth.playPickup();
+    Sound.playPickup();
     sendTvAction('vibrate', this.slot, 40);
     return true;
   };
@@ -270,7 +319,7 @@
   Ship.prototype.die = function() {
     if (!this.isAlive) return;
     this.isAlive = false;
-    SoundSynth.playSplash();
+    Sound.playSplash();
     sendTvAction('vibrate', this.slot, 300);
 
     // Explosión de partículas con el color del barco
@@ -835,11 +884,9 @@
 
       updateLobbyShips();
     } else if (msg.type === 'ready') {
-      var rSlot = -1;
       for (var r = 0; r < playersData.length; r++) {
         if (playersData[r].uuid === msg.uuid) {
           playersData[r].ready = !!msg.ready;
-          rSlot = r;
           break;
         }
       }
@@ -953,7 +1000,10 @@
       pt.y += pt.vy * dt;
       if (pt.gravity) pt.vy += pt.gravity * dt;
       pt.life -= dt;
-      if (pt.life <= 0) particles.splice(p, 1);
+      if (pt.life <= 0) {
+        particles[p] = particles[particles.length - 1];
+        particles.pop();
+      }
     }
 
     if (currentState === STATE_LOBBY) {
@@ -985,13 +1035,13 @@
       var step = Math.ceil(countdownTime - 0.5);
       if (step !== lastCountdownStep) {
         lastCountdownStep = step;
-        if (step > 0 && step <= 3) SoundSynth.playCountdown(false);
+        if (step > 0 && step <= 3) Sound.playCountdown(false);
       }
       return;
     } else if (countdownTime > 0) {
       if (lastCountdownStep !== 0) {
         lastCountdownStep = 0;
-        SoundSynth.playCountdown(true);
+        Sound.playCountdown(true);
       }
       countdownTime -= dt;
     }
@@ -1010,7 +1060,7 @@
     if (roundTimer >= 45.0) {
       if (!suddenDeathActive) {
         suddenDeathActive = true;
-        SoundSynth.playHit();
+        Sound.playHit();
       }
       var shrink = 24.0 * dt;
       currentBounds.x += shrink;
@@ -1030,17 +1080,22 @@
         ship.die();
       }
 
+      // Si el barco está destruido, saltar colisiones físicas y recogida de objetos
+      if (!ship.isAlive) continue;
+
       // Colisión con islas hexagonales
       for (var i = 0; i < islands.length; i++) {
         var isl = islands[i];
         var dX = ship.x - isl.x;
         var dY = ship.y - isl.y;
-        var dist = Math.sqrt(dX * dX + dY * dY);
-        if (dist < isl.rad + 18) {
+        var minDist = isl.rad + 18;
+        var distSq = dX * dX + dY * dY;
+        if (distSq < minDist * minDist) {
+          var dist = Math.sqrt(distSq);
           var nx = dX / (dist || 1);
           var ny = dY / (dist || 1);
-          ship.x = isl.x + nx * (isl.rad + 18);
-          ship.y = isl.y + ny * (isl.rad + 18);
+          ship.x = isl.x + nx * minDist;
+          ship.y = isl.y + ny * minDist;
           ship.vx = nx * 120;
           ship.vy = ny * 120;
           ship.applyRam(nx, ny, 140);
@@ -1050,11 +1105,12 @@
       // Colisión entre barcos
       for (var s2 = s + 1; s2 < activeShips.length; s2++) {
         var ship2 = activeShips[s2];
-        if (!ship.isAlive || !ship2.isAlive) continue;
+        if (!ship2.isAlive) continue;
         var cDx = ship2.x - ship.x;
         var cDy = ship2.y - ship.y;
-        var cDist = Math.sqrt(cDx * cDx + cDy * cDy);
-        if (cDist < 36) {
+        var cDistSq = cDx * cDx + cDy * cDy;
+        if (cDistSq < 1296) { // 36 * 36
+          var cDist = Math.sqrt(cDistSq);
           var cNx = cDx / (cDist || 1);
           var cNy = cDy / (cDist || 1);
           if (ship.isRamming) ship2.applyRam(cNx, cNy, 460);
@@ -1071,9 +1127,10 @@
         var crate = ammoCrates[c];
         var acDx = crate.x - ship.x;
         var acDy = crate.y - ship.y;
-        if (Math.sqrt(acDx * acDx + acDy * acDy) < 28) {
+        if (acDx * acDx + acDy * acDy < 784) { // 28 * 28
           if (ship.collectAmmo()) {
-            ammoCrates.splice(c, 1);
+            ammoCrates[c] = ammoCrates[ammoCrates.length - 1];
+            ammoCrates.pop();
           }
         }
       }
@@ -1084,7 +1141,8 @@
       var ball = cannonballs[b];
       ball.update(dt);
       if (ball.isDead) {
-        cannonballs.splice(b, 1);
+        cannonballs[b] = cannonballs[cannonballs.length - 1];
+        cannonballs.pop();
         continue;
       }
 
@@ -1094,10 +1152,11 @@
         if (!targetShip.isAlive || targetShip.slot === ball.shooterSlot) continue;
         var bDx = targetShip.x - ball.x;
         var bDy = targetShip.y - ball.y;
-        if (Math.sqrt(bDx * bDx + bDy * bDy) < 22) {
+        if (bDx * bDx + bDy * bDy < 484) { // 22 * 22
           targetShip.applyHit(ball.dx, ball.dy, 550);
           ball.isDead = true;
-          cannonballs.splice(b, 1);
+          cannonballs[b] = cannonballs[cannonballs.length - 1];
+          cannonballs.pop();
           break;
         }
       }
@@ -1108,8 +1167,8 @@
       ammoCrates[cr].update(dt);
     }
 
-    // Aparición periódica de cajas de munición
-    if (Math.random() < 0.005 && ammoCrates.length < 5) {
+    // Aparición periódica de cajas de munición (consistente e independiente de los FPS)
+    if (Math.random() < (0.35 * dt) && ammoCrates.length < 5) {
       ammoCrates.push(new AmmoCrate(
         currentBounds.x + 80 + Math.random() * (currentBounds.w - 160),
         currentBounds.y + 80 + Math.random() * (currentBounds.h - 160)
@@ -1130,7 +1189,7 @@
       if (alive.length === 1) {
         roundWinner = alive[0].data;
         playersData[alive[0].slot].score++;
-        SoundSynth.playFanfare();
+        Sound.playFanfare();
       } else {
         roundWinner = { name: "¡EMPATE!", hull: "#ffffff" };
       }
@@ -1143,13 +1202,13 @@
       var step = Math.ceil(countdownTime - 0.5);
       if (step !== lastCountdownStep) {
         lastCountdownStep = step;
-        if (step > 0 && step <= 3) SoundSynth.playCountdown(false);
+        if (step > 0 && step <= 3) Sound.playCountdown(false);
       }
       return;
     } else if (countdownTime > 0) {
       if (lastCountdownStep !== 0) {
         lastCountdownStep = 0;
-        SoundSynth.playCountdown(true);
+        Sound.playCountdown(true);
       }
       countdownTime -= dt;
     }
@@ -1187,9 +1246,12 @@
         if (ship.y <= finishLineY) {
           roundWinner = ship.data;
           playersData[ship.slot].score++;
-          SoundSynth.playFanfare();
+          Sound.playFanfare();
           return;
         }
+      } else {
+        // Barco destruido: no procesar colisiones con islas ni recogida de objetos
+        continue;
       }
 
       // Colisión con islas en Cruise
@@ -1198,25 +1260,28 @@
         if (Math.abs(isl.y - ship.y) > 120) continue;
         var dX = ship.x - isl.x;
         var dY = ship.y - isl.y;
-        var dist = Math.sqrt(dX * dX + dY * dY);
-        if (dist < isl.rad + 18) {
+        var minDist = isl.rad + 18;
+        var distSq = dX * dX + dY * dY;
+        if (distSq < minDist * minDist) {
+          var dist = Math.sqrt(distSq);
           var nx = dX / (dist || 1);
           var ny = dY / (dist || 1);
-          ship.x = isl.x + nx * (isl.rad + 18);
-          ship.y = isl.y + ny * (isl.rad + 18);
+          ship.x = isl.x + nx * minDist;
+          ship.y = isl.y + ny * minDist;
           ship.vx = nx * 100;
           ship.vy = ny * 100;
         }
       }
 
-      // Colisión con cajas
+      // Colisión con cajas de munición
       for (var c = ammoCrates.length - 1; c >= 0; c--) {
         var crate = ammoCrates[c];
         var acDx = crate.x - ship.x;
         var acDy = crate.y - ship.y;
-        if (Math.sqrt(acDx * acDx + acDy * acDy) < 28) {
+        if (acDx * acDx + acDy * acDy < 784) { // 28 * 28
           if (ship.collectAmmo()) {
-            ammoCrates.splice(c, 1);
+            ammoCrates[c] = ammoCrates[ammoCrates.length - 1];
+            ammoCrates.pop();
           }
         }
       }
@@ -1238,7 +1303,8 @@
       var ball = cannonballs[b];
       ball.update(dt);
       if (ball.isDead) {
-        cannonballs.splice(b, 1);
+        cannonballs[b] = cannonballs[cannonballs.length - 1];
+        cannonballs.pop();
         continue;
       }
       for (var sh = 0; sh < activeShips.length; sh++) {
@@ -1246,10 +1312,11 @@
         if (!targetShip.isAlive || targetShip.slot === ball.shooterSlot) continue;
         var bDx = targetShip.x - ball.x;
         var bDy = targetShip.y - ball.y;
-        if (Math.sqrt(bDx * bDx + bDy * bDy) < 22) {
+        if (bDx * bDx + bDy * bDy < 484) { // 22 * 22
           targetShip.applyHit(ball.dx, ball.dy, 550);
           ball.isDead = true;
-          cannonballs.splice(b, 1);
+          cannonballs[b] = cannonballs[cannonballs.length - 1];
+          cannonballs.pop();
           break;
         }
       }
@@ -1264,7 +1331,7 @@
       if (alive.length === 1) {
         roundWinner = alive[0].data;
         playersData[alive[0].slot].score++;
-        SoundSynth.playFanfare();
+        Sound.playFanfare();
       } else {
         roundWinner = { name: "¡TODOS ENCALLARON!", hull: "#ffffff" };
       }
@@ -1284,7 +1351,7 @@
   function openPodiumScreen() {
     currentState = STATE_PODIUM;
     podiumAnimTimer = 0;
-    SoundSynth.playFanfare();
+    Sound.playFanfare();
     spawnConfetti(90);
     sendTvAction('state_change', null, 'podium');
   }
@@ -1348,13 +1415,11 @@
     }
 
     // Actualizar UI del lobby HTML
-    var lobbyUI = document.getElementById('lobby-ui');
-    if (lobbyUI) lobbyUI.style.display = 'block';
+    setLobbyUIVisible(true);
   }
 
   function renderBattle() {
-    var lobbyUI = document.getElementById('lobby-ui');
-    if (lobbyUI) lobbyUI.style.display = 'none';
+    setLobbyUIVisible(false);
 
     // 1. Mar azul brillante (#24A0DE)
     ctx.fillStyle = '#24A0DE';
@@ -1395,8 +1460,7 @@
   }
 
   function renderCruise() {
-    var lobbyUI = document.getElementById('lobby-ui');
-    if (lobbyUI) lobbyUI.style.display = 'none';
+    setLobbyUIVisible(false);
 
     ctx.save();
     ctx.translate(0, 540 - cruiseCameraY);
@@ -1465,8 +1529,11 @@
     var hexSize = 95;
     var hDist = hexSize * 1.5;
     var vDist = hexSize * 1.732;
+    var r = hexSize * 0.95;
+
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
     ctx.lineWidth = 2;
+    ctx.beginPath();
 
     var startRow = Math.floor((centerY - 650) / vDist) - 1;
     var endRow = Math.floor((centerY + 650) / vDist) + 1;
@@ -1475,10 +1542,14 @@
       for (var row = startRow; row <= endRow; row++) {
         var cx = col * hDist;
         var cy = row * vDist + (Math.abs(col) % 2 === 1 ? vDist * 0.5 : 0);
-        var pts = getHexPoints(cx, cy, hexSize * 0.95);
-        drawPolygon(pts, null, 'rgba(255, 255, 255, 0.06)', 2);
+        ctx.moveTo(cx + HEX_COS[0] * r, cy + HEX_SIN[0] * r);
+        for (var i = 1; i < 6; i++) {
+          ctx.lineTo(cx + HEX_COS[i] * r, cy + HEX_SIN[i] * r);
+        }
+        ctx.closePath();
       }
     }
+    ctx.stroke();
   }
 
   function renderOceanEdges(centerY) {
@@ -1505,16 +1576,13 @@
 
   function renderHexIsland(x, y, rad) {
     // 1. Roca marrón (#6D5950)
-    var rockPts = getHexPoints(x, y, rad);
-    drawPolygon(rockPts, '#6D5950', '#45362F', 3.5);
+    drawHexagon(ctx, x, y, rad, '#6D5950', '#45362F', 3.5);
 
     // 2. Anillo intermedio claro (#8D776C)
-    var midPts = getHexPoints(x, y, rad * 0.78);
-    drawPolygon(midPts, '#8D776C', null, 0);
+    drawHexagon(ctx, x, y, rad * 0.78, '#8D776C', null, 0);
 
     // 3. Interior verde brillante (#68D333)
-    var greenPts = getHexPoints(x, y, rad * 0.54);
-    drawPolygon(greenPts, '#68D333', null, 0);
+    drawHexagon(ctx, x, y, rad * 0.54, '#68D333', null, 0);
   }
 
   function renderParticles() {
@@ -1604,8 +1672,7 @@
   }
 
   function renderPodium() {
-    var lobbyUI = document.getElementById('lobby-ui');
-    if (lobbyUI) lobbyUI.style.display = 'none';
+    setLobbyUIVisible(false);
 
     // Fondo podio
     ctx.fillStyle = '#1A4B75';
@@ -1748,7 +1815,7 @@
   function toggleBirthday() {
     isBirthdayVisible = !isBirthdayVisible;
     if (isBirthdayVisible) {
-      SoundSynth.playFanfare();
+      Sound.playFanfare();
       spawnConfetti(120);
     }
   }
@@ -1769,7 +1836,7 @@
 
     // Tecla M: Silenciar música
     if (k === 77) {
-      SoundSynth.toggleMute();
+      Sound.toggleMute();
       return;
     }
 
@@ -1838,6 +1905,8 @@
     canvas = document.getElementById('game-canvas');
     if (!canvas) return;
     ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    elLobbyUI = document.getElementById('lobby-ui');
     resizeCanvas();
 
     connectCloudNet();

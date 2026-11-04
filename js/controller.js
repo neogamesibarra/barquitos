@@ -86,6 +86,17 @@
 
   var touchSteerId = null;
 
+  var SYMBOL_GLYPHS = {
+    circle: '●',
+    square: '■',
+    triangle: '▲',
+    diamond: '◆',
+    star: '★',
+    heart: '♥',
+    crown: '👑',
+    bolt: '⚡'
+  };
+
   function connectToRoom(roomCode) {
     currentRoom = roomCode.trim().toUpperCase();
     if (!currentRoom) return;
@@ -132,7 +143,7 @@
         elPlayerName.textContent = 'JUGADOR ' + (mySlot + 1) + ' (' + msg.name.toUpperCase() + ')';
       }
       if (elPlayerSymbol && msg.symbol) {
-        elPlayerSymbol.textContent = msg.symbol;
+        elPlayerSymbol.textContent = SYMBOL_GLYPHS[msg.symbol] || '●';
       }
       if (elContainer && msg.hull) {
         elContainer.style.backgroundColor = msg.hull;
@@ -207,19 +218,19 @@
   }
 
   function updateLayoutDimensions() {
-    var winW = window.innerWidth || document.documentElement.clientWidth || screen.width;
-    var winH = window.innerHeight || document.documentElement.clientHeight || screen.height;
+    var winW = window.innerWidth || document.documentElement.clientWidth;
+    var winH = window.innerHeight || document.documentElement.clientHeight;
+    if (!winW || !winH) return;
     var isPortrait = (winH > winW);
 
-    var doc = window.document;
     var container = document.getElementById('gamepad-container');
     if (!container) return;
 
-    // Forzar ancho y alto en html y body para que no queden valores heredados de portrait
-    doc.documentElement.style.width = winW + 'px';
-    doc.documentElement.style.height = winH + 'px';
-    doc.body.style.width = winW + 'px';
-    doc.body.style.height = winH + 'px';
+    // Limpiar estilos forzados en html y body para permitir redimensionamiento natural
+    document.documentElement.style.width = '';
+    document.documentElement.style.height = '';
+    document.body.style.width = '';
+    document.body.style.height = '';
 
     if (isPortrait) {
       // Teléfono vertical: rotar 90° horario
@@ -237,32 +248,26 @@
       container.style.transform = 'rotate(90deg)';
       container.style.transformOrigin = 'top left';
     } else {
-      // Modo horizontal (landscape) nativo o bloqueado en fullscreen:
-      // Sin rotación, anclado al tamaño exacto de la pantalla sin desbordar
+      // Modo horizontal (landscape) nativo o tras pantalla completa:
+      // Sin rotación, anclado al 100% exacto de la pantalla sin desbordar
       container.style.position = 'fixed';
       container.style.top = '0px';
       container.style.left = '0px';
       container.style.right = '0px';
       container.style.bottom = '0px';
-      container.style.width = winW + 'px';
-      container.style.height = winH + 'px';
-      container.style.maxWidth = winW + 'px';
-      container.style.maxHeight = winH + 'px';
+      container.style.width = '100%';
+      container.style.height = '100%';
+      container.style.maxWidth = '100%';
+      container.style.maxHeight = '100%';
       container.style.transform = 'none';
       container.style.transformOrigin = 'initial';
     }
 
-    // Ajustar el alto exacto de la zona de controles táctiles en píxeles
+    // Dejar que Flexbox gestione el alto exacto de la zona de controles táctiles sin desbordar
     var controlsArea = document.querySelector('.controls-area');
-    var topBar = document.querySelector('.top-bar');
-    if (controlsArea && topBar) {
-      var topBarH = topBar.offsetHeight || 44;
-      var totalH = isPortrait ? winW : winH;
-      var availH = totalH - topBarH - 20;
-      if (availH > 100) {
-        controlsArea.style.height = availH + 'px';
-        controlsArea.style.maxHeight = availH + 'px';
-      }
+    if (controlsArea) {
+      controlsArea.style.height = '';
+      controlsArea.style.maxHeight = '';
     }
 
     var overlay = document.getElementById('room-overlay');
@@ -283,8 +288,8 @@
         overlay.style.left = '0px';
         overlay.style.right = '0px';
         overlay.style.bottom = '0px';
-        overlay.style.width = winW + 'px';
-        overlay.style.height = winH + 'px';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
         overlay.style.transform = 'none';
         overlay.style.transformOrigin = 'initial';
       }

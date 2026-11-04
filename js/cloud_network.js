@@ -20,12 +20,16 @@
   var isHost = false;
   var onMessageCb = null;
   var onStatusCb = null;
+  var savedCallbacks = null;
 
   function generateId(prefix) {
     return prefix + '_' + Math.random().toString(36).substr(2, 8) + '_' + Date.now().toString(36);
   }
 
   function connect(callbacks) {
+    if (callbacks) {
+      savedCallbacks = callbacks;
+    }
     if (typeof Paho === 'undefined' || !Paho.MQTT) {
       if (onStatusCb) onStatusCb('error', 'Biblioteca Paho MQTT no cargada');
       return;
@@ -47,7 +51,7 @@
       isConnected = false;
       if (onStatusCb) onStatusCb('offline', 'Conexion perdida. Reconectando...');
       setTimeout(function () {
-        connect(callbacks);
+        connect(savedCallbacks);
       }, 2000);
     };
 
@@ -109,7 +113,7 @@
   function fallbackConnect() {
     currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
     setTimeout(function () {
-      connect();
+      connect(savedCallbacks);
     }, 1500);
   }
 

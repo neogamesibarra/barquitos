@@ -261,8 +261,9 @@ html, body {
 /* Zona de Mandos Táctiles */
 .controls-area {
   display: flex;
-  flex: 1;
+  flex: 1 1 0%;
   min-height: 0;
+  height: 100%;
   flex-direction: row;
   align-items: stretch;
   gap: 12px;
@@ -272,7 +273,8 @@ html, body {
 
 /* MITAD IZQUIERDA: Timón */
 .steering-zone {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
   min-height: 0;
   height: 100%;
   background: rgba(0, 0, 0, 0.35);
@@ -285,6 +287,7 @@ html, body {
   position: relative;
   overflow: hidden;
   box-sizing: border-box;
+  padding: 20px 8px;
 }
 
 .zone-label {
@@ -349,7 +352,8 @@ html, body {
 
 /* MITAD DERECHA: Botones */
 .actions-zone {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
   min-height: 0;
   height: 100%;
   display: flex;
@@ -361,7 +365,8 @@ html, body {
 }
 
 .touch-btn {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
   height: 100%;
   border-radius: 14px;
   display: flex;
@@ -438,13 +443,14 @@ html, body {
   background: rgba(10, 20, 30, 0.95);
   border: 2px solid #00e5ff;
   border-radius: 14px;
-  padding: 10px;
+  padding: 8px;
   box-sizing: border-box;
   overflow: hidden;
 }
 
 .host-action-btn {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
   height: 100%;
   border: none;
   border-radius: 10px;
@@ -475,4 +481,80 @@ html, body {
   background: linear-gradient(135deg, #1b4965 0%, #00b4d8 100%);
   border: 2px solid #90e0ef;
   font-size: 15px;
+}
+
+/* Ajustes responsivos para pantallas con poca altura (modo horizontal con barras o pantalla pequeña) */
+@media (max-height: 420px), (max-width: 720px) {
+  .top-bar {
+    height: 38px;
+    margin-bottom: 6px;
+    padding: 0 8px;
+  }
+  .player-badge {
+    padding: 2px 8px;
+    font-size: 12px;
+  }
+  .ready-btn, .fullscreen-btn {
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+  .steering-zone {
+    padding: 16px 6px;
+  }
+  .wheel-outer {
+    width: 135px;
+    height: 135px;
+  }
+  .wheel-knob {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+  }
+  .btn-icon {
+    font-size: 30px;
+    margin-bottom: 2px;
+  }
+  .btn-label {
+    font-size: 15px;
+  }
+  .btn-sublabel {
+    font-size: 10px;
+  }
+  .host-action-btn {
+    font-size: 14px;
+    padding: 4px;
+  }
+}
+
+@media (max-height: 340px) {
+  .top-bar {
+    height: 32px;
+    margin-bottom: 4px;
+  }
+  .steering-zone {
+    padding: 12px 4px;
+  }
+  .wheel-outer {
+    width: 110px;
+    height: 110px;
+  }
+  .wheel-knob {
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+  }
+  .btn-icon {
+    font-size: 22px;
+    margin-bottom: 0;
+  }
+  .btn-label {
+    font-size: 13px;
+  }
+  .btn-sublabel {
+    display: none;
+  }
+  .host-action-btn {
+    font-size: 12px;
+  }
+}
 }
