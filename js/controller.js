@@ -84,6 +84,16 @@
   var elRoomInput = null;
   var elBtnJoin = null;
 
+  var elLobbyConfigBar = null;
+  var elInputNickname = null;
+  var elTeamSelector = null;
+  var elBtnTeamBlue = null;
+  var elBtnTeamRed = null;
+
+  var currentMode = 0; // 0: Clásico, 1: Equipos, 2: Horda
+  var myTeam = 'blue';
+  var myCustomName = '';
+
   var touchSteerId = null;
 
   var SYMBOL_GLYPHS = {
@@ -115,10 +125,12 @@
           if (elConnDot) elConnDot.className = 'conn-dot online';
           if (elConnText) elConnText.textContent = 'Sala: ' + currentRoom;
 
-          // Enviar solicitud de unirse a la partida
+          // Enviar solicitud de unirse a la partida con apodo y equipo
           window.CloudNet.sendToHost({
             type: 'join',
-            uuid: playerUUID
+            uuid: playerUUID,
+            name: myCustomName,
+            team: myTeam
           });
         },
         onStatus: function (status, text) {
@@ -138,9 +150,12 @@
     if (msg.type === 'init') {
       mySlot = msg.slot;
       isReady = !!msg.ready;
+      if (msg.mode !== undefined) currentMode = msg.mode;
+      if (msg.team) myTeam = msg.team;
 
+      var displayName = msg.customName || ('JUGADOR ' + (mySlot + 1));
       if (elPlayerName) {
-        elPlayerName.textContent = 'JUGADOR ' + (mySlot + 1) + ' (' + msg.name.toUpperCase() + ')';
+        elPlayerName.textContent = displayName.toUpperCase() + ' (' + msg.name.toUpperCase() + ')';
       }
       if (elPlayerSymbol && msg.symbol) {
         elPlayerSymbol.textContent = SYMBOL_GLYPHS[msg.symbol] || '●';
@@ -149,19 +164,58 @@
         elContainer.style.backgroundColor = msg.hull;
       }
 
+      updateTeamButtonsUI();
       updateReadyUI();
       updateHostControls();
+      updateLobbyConfigBarVisibility();
     } else if (msg.type === 'state_change') {
       currentGameState = msg.state;
       updateHostControls();
+      updateLobbyConfigBarVisibility();
     } else if (msg.type === 'mode_change') {
-      if (elBtnHostMode) {
-        elBtnHostMode.textContent = '🔄 MODO: ' + (msg.mode === 0 ? 'BATALLA' : 'CARRERA');
-      }
+      currentMode = msg.mode;
+      updateHostModeBtnText();
+      updateTeamButtonsUI();
+    } else if (msg.type === 'powerup') {
+      triggerVibration([70, 50, 70]);
     } else if (msg.type === 'vibrate') {
       triggerVibration(msg.duration || 80);
     } else if (msg.type === 'error') {
       alert(msg.message || 'Error al conectar');
+    }
+  }
+
+  function updateHostModeBtnText() {
+    if (!elBtnHostMode) return;
+    var modeLabels = ['⚔️ CLÁSICO', '🚩 EQUIPOS', '💀 HORDA'];
+    elBtnHostMode.textContent = '🔄 ' + (modeLabels[currentMode] || 'MODO');
+  }
+
+  function updateTeamButtonsUI() {
+    if (!elTeamSelector) return;
+    // El selector de equipo solo se muestra si el modo es 1 (Batalla por Equipos)
+    if (currentMode === 1 && (currentGameState === 'lobby' || currentGameState === 'podium')) {
+      elTeamSelector.style.display = 'flex';
+    } else {
+      elTeamSelector.style.display = 'none';
+    }
+
+    if (elBtnTeamBlue) {
+      elBtnTeamBlue.className = 'team-choice-btn blue' + (myTeam === 'blue' ? ' active' : '');
+    }
+    if (elBtnTeamRed) {
+      elBtnTeamRed.className = 'team-choice-btn red' + (myTeam === 'red' ? ' active' : '');
+    }
+  }
+
+  function updateLobbyConfigBarVisibility() {
+    if (!elLobbyConfigBar) return;
+    // Ocultar barra de configuración durante la ronda de juego
+    if (currentGameState === 'playing') {
+      elLobbyConfigBar.style.display = 'none';
+    } else {
+      elLobbyConfigBar.style.display = 'flex';
+      updateTeamButtonsUI();
     }
   }
 
@@ -176,6 +230,7 @@
       if (elBtnHostStart) {
         elBtnHostStart.textContent = (currentGameState === 'podium') ? '⚓ OTRA PARTIDA' : '⚓ INICIAR PARTIDA';
       }
+      updateHostModeBtnText();
     } else {
       // Durante la ronda activa o en mandos 2-8: botones táctiles normales de acción
       elHostPanel.style.display = 'none';
@@ -184,10 +239,10 @@
     }
   }
 
-  function triggerVibration(ms) {
+  function triggerVibration(pattern) {
     if (window.navigator && window.navigator.vibrate) {
       try {
-        window.navigator.vibrate(ms);
+        window.navigator.vibrate(pattern);
       } catch (e) {}
     }
   }
@@ -309,10 +364,25 @@
           if (p && p.catch) p.catch(function () {});
         } catch (e) {}
       }
+      try {
+        if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+          var lockP = window.screen.orientation.lock('landscape');
+          if (lockP && lockP.catch) lockP.catch(function () {});
+        } else if (window.screen && window.screen.lockOrientation) {
+          window.screen.lockOrientation('landscape');
+        }
+      } catch (eOri) {}
     } else {
       if (exit) {
         try { exit.call(doc); } catch (e2) {}
       }
+      try {
+        if (window.screen && window.screen.orientation && window.screen.orientation.unlock) {
+          window.screen.orientation.unlock();
+        } else if (window.screen && window.screen.unlockOrientation) {
+          window.screen.unlockOrientation();
+        }
+      } catch (eUn) {}
     }
 
     var delays = [20, 60, 120, 250, 400, 600, 850];
@@ -605,6 +675,65 @@
     elRoomOverlay = document.getElementById('room-overlay');
     elRoomInput = document.getElementById('room-input');
     elBtnJoin = document.getElementById('btn-join-room');
+
+    elLobbyConfigBar = document.getElementById('lobby-config-bar');
+    elInputNickname = document.getElementById('input-nickname');
+    elTeamSelector = document.getElementById('team-selector');
+    elBtnTeamBlue = document.getElementById('btn-team-blue');
+    elBtnTeamRed = document.getElementById('btn-team-red');
+
+    // Recuperar apodo guardado previamente
+    try {
+      myCustomName = window.localStorage.getItem('barquitos_nickname') || '';
+      if (elInputNickname && myCustomName) {
+        elInputNickname.value = myCustomName;
+      }
+    } catch (e) {}
+
+    // Sincronizar cambio de apodo en tiempo real
+    if (elInputNickname) {
+      function syncNickname() {
+        var name = (elInputNickname.value || '').trim().substr(0, 12);
+        myCustomName = name;
+        try { window.localStorage.setItem('barquitos_nickname', name); } catch(e){}
+        if (window.CloudNet && window.CloudNet.isConnected()) {
+          window.CloudNet.sendToHost({
+            type: 'set_name',
+            uuid: playerUUID,
+            name: name
+          });
+        }
+      }
+      elInputNickname.addEventListener('input', syncNickname, false);
+      elInputNickname.addEventListener('change', syncNickname, false);
+    }
+
+    // Selección de equipo (Batalla por Equipos)
+    function chooseTeam(team) {
+      myTeam = team;
+      updateTeamButtonsUI();
+      triggerVibration(40);
+      if (window.CloudNet && window.CloudNet.isConnected()) {
+        window.CloudNet.sendToHost({
+          type: 'set_team',
+          uuid: playerUUID,
+          team: team
+        });
+      }
+    }
+
+    if (elBtnTeamBlue) {
+      elBtnTeamBlue.addEventListener('click', function(e) {
+        e.preventDefault();
+        chooseTeam('blue');
+      }, false);
+    }
+    if (elBtnTeamRed) {
+      elBtnTeamRed.addEventListener('click', function(e) {
+        e.preventDefault();
+        chooseTeam('red');
+      }, false);
+    }
 
     preventPageZoom();
     updateLayoutDimensions();

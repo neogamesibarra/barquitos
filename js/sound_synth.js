@@ -235,6 +235,108 @@
 
         timeCursor += n.d + n.pause;
       }
+    },
+
+    // Impacto seco contra roca / isla
+    playIslandThud: function() {
+      if (!ctx || isMuted || masterVolume <= 0.01) return;
+      initAudio();
+      var now = ctx.currentTime;
+
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(160, now);
+      osc.frequency.exponentialRampToValueAtTime(30, now + 0.15);
+
+      gain.gain.setValueAtTime(0.75 * masterVolume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+
+      var noiseBuf = createNoiseBuffer(0.08);
+      if (noiseBuf) {
+        var noise = ctx.createBufferSource();
+        var noiseGain = ctx.createGain();
+        noise.buffer = noiseBuf;
+        noiseGain.gain.setValueAtTime(0.4 * masterVolume, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        noise.connect(noiseGain);
+        noiseGain.connect(ctx.destination);
+        noise.start(now);
+      }
+    },
+
+    // Chime mágico para recolección de mejoras globales (Pack-a-Punch / Power-ups)
+    playPowerup: function() {
+      if (!ctx || isMuted || masterVolume <= 0.01) return;
+      initAudio();
+      var now = ctx.currentTime;
+
+      var notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+      for (var i = 0; i < notes.length; i++) {
+        var t = now + i * 0.07;
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(notes[i], t);
+
+        gain.gain.setValueAtTime(0.5 * masterVolume, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.23);
+      }
+    },
+
+    // Cuerno pirata al inicio de cada oleada en Horda Zombie
+    playWaveStart: function() {
+      if (!ctx || isMuted || masterVolume <= 0.01) return;
+      initAudio();
+      var now = ctx.currentTime;
+
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(174.61, now); // F3
+      osc.frequency.linearRampToValueAtTime(196.00, now + 0.25); // G3
+      osc.frequency.exponentialRampToValueAtTime(164.81, now + 0.85); // E3
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.6 * masterVolume, now + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.92);
+    },
+
+    // Cuerno de guerra oscuro para advertencia del Galeón Jefe Final
+    playBossAlert: function() {
+      if (!ctx || isMuted || masterVolume <= 0.01) return;
+      initAudio();
+      var now = ctx.currentTime;
+
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(98.00, now); // G2 muy grave
+      osc.frequency.exponentialRampToValueAtTime(82.41, now + 1.3); // E2
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.85 * masterVolume, now + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 1.42);
     }
   };
 

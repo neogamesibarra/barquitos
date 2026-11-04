@@ -258,12 +258,93 @@ html, body {
   box-shadow: 0 0 10px rgba(46, 204, 113, 0.6);
 }
 
+/* Barra de Configuración de Capitán en Lobby */
+.lobby-config-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(10, 20, 32, 0.75);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  border-radius: 8px;
+  padding: 4px 10px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.nickname-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.nickname-icon {
+  font-size: 14px;
+}
+
+.nickname-box input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #37474f;
+  border-radius: 6px;
+  color: #00e5ff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 8px;
+  outline: none;
+  letter-spacing: 0.5px;
+}
+
+.nickname-box input:focus {
+  border-color: #00e5ff;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+}
+
+.team-selector {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.team-choice-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  color: #ffffff;
+  opacity: 0.7;
+  transition: all 0.15s ease;
+}
+
+.team-choice-btn.blue {
+  background: #1565c0;
+  border: 1px solid #42a5f5;
+}
+
+.team-choice-btn.red {
+  background: #c62828;
+  border: 1px solid #ef5350;
+}
+
+.team-choice-btn.active {
+  opacity: 1;
+  box-shadow: 0 0 10px #ffffff;
+  transform: scale(1.04);
+}
+
 /* Zona de Mandos Táctiles */
 .controls-area {
   display: flex;
   flex: 1 1 0%;
   min-height: 0;
-  height: 100%;
+  height: auto;
+  max-height: 100%;
   flex-direction: row;
   align-items: stretch;
   gap: 12px;
@@ -276,7 +357,8 @@ html, body {
   flex: 1 1 0%;
   min-width: 0;
   min-height: 0;
-  height: 100%;
+  height: auto;
+  max-height: 100%;
   background: rgba(0, 0, 0, 0.35);
   border-radius: 14px;
   border: 2px solid rgba(255, 255, 255, 0.15);
@@ -287,7 +369,7 @@ html, body {
   position: relative;
   overflow: hidden;
   box-sizing: border-box;
-  padding: 20px 8px;
+  padding: 10px 8px;
 }
 
 .zone-label {
@@ -355,7 +437,8 @@ html, body {
   flex: 1 1 0%;
   min-width: 0;
   min-height: 0;
-  height: 100%;
+  height: auto;
+  max-height: 100%;
   display: flex;
   flex-direction: row;
   gap: 12px;

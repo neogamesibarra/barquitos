@@ -2,65 +2,98 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>BARQUITOS - Multijugador Web en la Nube</title>
-  <link rel="stylesheet" href="css/landing.css">
+  <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
+  <link rel="stylesheet" href="css/tv.css?v=6">
 </head>
 <body>
-  <div class="landing-card">
-    <h1 class="title">BARQUITOS</h1>
-    <p class="tagline">Juego Multijugador Local para Smart TV y Teléfonos Móviles</p>
-    <p class="subtitle">¡Sin computadoras, sin instalar nada, 100% en el navegador!</p>
-
-    <div class="role-selector">
-      <a href="tv.html" class="role-btn btn-tv">
-        <span class="icon">📺</span>
-        <span class="btn-text">
-          <strong>ABRIR PANTALLA DE JUEGO</strong>
-          <small>Para Smart TVs (Samsung Tizen, LG WebOS, Android TV o PC)</small>
-        </span>
-      </a>
-
-      <a href="controller.html" class="role-btn btn-controller">
-        <span class="icon">📱</span>
-        <span class="btn-text">
-          <strong>ABRIR MANDO MÓVIL</strong>
-          <small>Para tu teléfono Android o iPhone</small>
-        </span>
-      </a>
-    </div>
-
-    <div class="instructions">
-      <h3>¿Cómo jugar en tu Smart TV sin computadora?</h3>
-      <ol>
-        <li>Abre la aplicación <strong>"Navegador Web"</strong> de tu Smart TV e ingresa a esta misma página.</li>
-        <li>Selecciona <strong>"Abrir Pantalla de Juego"</strong>. La TV generará un Código de Sala y un Código QR.</li>
-        <li>Cada jugador escanea el QR con la cámara de su teléfono móvil para unirse con su barco.</li>
-        <li>¡Toma el timón y compite con hasta 8 jugadores!</li>
-      </ol>
-    </div>
-  </div>
-
   <script>
-    // Detección automática en ES5 para redirigir si se abre desde la TV o con código de sala
+    // Si se accede con código de sala (?room=XXXX), redirigir directamente al mando móvil
     (function() {
-      var query = window.location.search;
-      if (query && query.indexOf('room=') !== -1) {
-        window.location.replace('controller.html' + query);
-        return;
-      }
-
-      var ua = (navigator.userAgent || '').toLowerCase();
-      var isTV = ua.indexOf('tizen') !== -1 ||
-                 ua.indexOf('smart-tv') !== -1 ||
-                 ua.indexOf('googletv') !== -1 ||
-                 ua.indexOf('appletv') !== -1 ||
-                 ua.indexOf('webos') !== -1;
-
-      if (isTV) {
-        window.location.replace('tv.html');
+      var q = window.location.search;
+      if (q && q.indexOf('room=') !== -1) {
+        window.location.replace('controller.html' + q);
       }
     })();
   </script>
+
+  <!-- Canvas principal renderizado en Canvas 2D a 60 FPS (100% altura y anchura) -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Overlay UI del Lobby Principal -->
+  <div id="lobby-ui" class="lobby-container">
+    <div class="lobby-header">
+      <h1 class="game-title">BARQUITOS</h1>
+      <p class="game-subtitle">MULTIJUGADOR EN LA NUBE - HASTA 8 JUGADORES</p>
+      <div id="cloud-status" class="status-tag connecting">Conectando a la nube...</div>
+    </div>
+
+    <div class="lobby-content">
+      <!-- Tarjeta del Código QR y Código de Sala -->
+      <div class="qr-card">
+        <div class="room-banner">
+          <span class="room-label">CÓDIGO DE SALA:</span>
+          <span id="room-code-text" class="room-code">----</span>
+        </div>
+
+        <div class="qr-box">
+          <canvas id="qr-canvas" width="230" height="230"></canvas>
+        </div>
+        <p class="qr-instructions">Escanea el QR con la cámara de tu teléfono</p>
+        <p class="qr-subinstructions">¡No requiere instalar apps ni usar computadora!</p>
+        <div class="url-badge">
+          O abre en el navegador: <strong id="url-text">Generando enlace...</strong>
+        </div>
+      </div>
+
+      <!-- Selector de Modos de Juego (3 Modos) -->
+      <div class="controls-card">
+        <h3 class="section-title">SELECCIÓN DE MODO</h3>
+        <div class="mode-buttons-row">
+          <button id="btn-mode-battle" class="mode-btn active" type="button">
+            <span class="mode-icon">⚔️</span>
+            <span class="mode-name">TODOS CONTRA TODOS</span>
+            <span class="mode-desc">10 Rondas - Combate naval libre sin piedad. ¡El último barco a flote gana!</span>
+          </button>
+
+          <button id="btn-mode-teams" class="mode-btn" type="button">
+            <span class="mode-icon">🚩</span>
+            <span class="mode-name">BATALLA POR EQUIPOS</span>
+            <span class="mode-desc">10 Rondas - Azul vs Rojo. Fuego amigo desactivado y puntajes por bando.</span>
+          </button>
+
+          <button id="btn-mode-horde" class="mode-btn" type="button">
+            <span class="mode-icon">💀</span>
+            <span class="mode-name">HORDA PIRATA (ZOMBIES)</span>
+            <span class="mode-desc">Supervivencia cooperativa por oleadas infinitas, mejoras Pack-a-Punch y Jefes.</span>
+          </button>
+        </div>
+
+        <button id="btn-start-game" class="start-btn" type="button">
+          ⚓ INICIAR PARTIDA ⚓
+        </button>
+
+        <div class="remote-legend">
+          <div class="legend-item"><span class="key-badge">OK / ENTER</span> Iniciar partida</div>
+          <div class="legend-item"><span class="key-badge">◀ / ▶</span> Cambiar modo</div>
+          <div class="legend-item"><span class="key-badge">AZUL / P</span> 🎂 Mensaje Sorpresa</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enlace discreto para probar mando en la misma máquina si es necesario -->
+    <div class="direct-controller-hint">
+      ¿Estás en un teléfono? <a href="controller.html" class="controller-link">Abrir Mando Móvil aquí 📱</a>
+    </div>
+  </div>
+
+  <!-- Scripts en orden de dependencia estricta ES5 (Compatible con Tizen 2015) -->
+  <script src="js/paho-mqtt.min.js"></script>
+  <script src="js/cloud_network.js?v=6"></script>
+  <script src="js/qrcode.min.js"></script>
+  <script src="js/sound_synth.js?v=6"></script>
+  <script src="js/tizen_keys.js?v=6"></script>
+  <script src="js/game_engine.js?v=6"></script>
 </body>
 </html>

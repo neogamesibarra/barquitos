@@ -1,43 +1,67 @@
-# BARQUITOS - Multijugador Web en la Nube (GitHub Pages / Neocities)
+# ⛵ BARQUITOS - ¡Batallas Navales Multijugador en Pantalla Grande!
 
-Esta edición especial de **BARQUITOS** está preparada para ejecutarse en GitHub Pages o Neocities (alojamiento web estático 100% gratuito). Permite jugar abriendo la página web directamente desde la Smart TV Samsung Tizen (o cualquier televisor) y usar los teléfonos móviles como mandos **sin necesidad de computadoras en casa**. Cada partida consta de **5 rondas**.
+¡Bienvenido a **BARQUITOS**, el juego de combate naval donde tu televisor o monitor se convierte en el campo de batalla y los celulares de tus amigos en los timones de mando! 
 
----
-
-## ⚡ ¿Cómo funciona sin computadora?
-
-Normalmente, los juegos multijugador web requieren un servidor local ejecutándose en una PC. GitHub Pages y Neocities solo alojan archivos estáticos (HTML/CSS/JS) y no ejecutan servidores Node.js ni Python.
-
-Para resolver esto:
-1. **La TV actúa como Anfitrión (Host):** Todo el motor de física, colisiones y dibujo en Canvas 2D corre directamente en el navegador de la Smart TV en JavaScript ES5 estricto.
-2. **Red en la Nube mediante MQTT sobre WebSockets Seguros (WSS):**
-   - El juego se conecta a brokers MQTT públicos seguros (`broker.hivemq.com` / `broker.emqx.io`) a través de `wss://`.
-   - La TV genera automáticamente un **Código de Sala** único de 4 caracteres (ejemplo: `8421`) y dibuja su **Código QR** correspondiente.
-   - Los teléfonos móviles (2 a 8 jugadores) se conectan al canal de la sala instantáneamente al escanear el QR o ingresar el código.
-   - Latencia ultra baja (~30-50 ms), ideal para partidas multijugador fluidas.
-3. **Estructura del Torneo:**
-   - Cada partida consta de **5 rondas**.
-   - En la pantalla se muestra el progreso de la ronda actual (`RONDA X DE 5`) y los puntos acumulados por cada jugador.
-   - Al finalizar la 5ta ronda, se celebra la ceremonia del podio proclamando al campeón.
+Sin descargas, sin aplicaciones pesadas y sin configuraciones complicadas: solo abre el juego en tu pantalla, escanea el código QR con tu celular y ¡que comience la batalla! 🌊💣
 
 ---
 
-## 🎮 Cómo Jugar desde la Smart TV
+## 🚀 Cómo Jugar en 3 Sencillos Pasos
 
-1. **En tu televisor (Samsung Tizen 2015 o cualquier Smart TV):**
-   - Abre la aplicación **"Navegador Web"**.
-   - Entra al enlace del juego:
-     ```
-     https://neogamesibarra.github.io/barquitos/tv.html
-     ```
-   - Pulsa el botón de **Pantalla Completa** del navegador.
-   - En pantalla aparecerá el gran título **BARQUITOS**, el **Código de Sala (ej. 8421)** y el **Código QR**.
+### 1. Abre el Juego en la Pantalla Grande 📺
+Entra al juego desde el navegador de tu Smart TV (Samsung Tizen o cualquier televisor), computadora o proyector:
+👉 **[https://neogamesibarra.github.io/barquitos/](https://neogamesibarra.github.io/barquitos/)**
 
-2. **En los teléfonos móviles (2 a 8 jugadores):**
-   - Cada jugador escanea el código QR con la cámara de su teléfono móvil (iPhone o Android).
-   - El mando táctil se abrirá automáticamente en pantalla completa horizontal, y el fondo se pintará del **color exacto de su barco**.
-   - *(Si alguien no puede escanear el QR, puede entrar directamente a `https://neogamesibarra.github.io/barquitos/controller.html` e ingresar el código de 4 caracteres de la sala).*
+Coloca el navegador en **Pantalla Completa** para disfrutar de toda la acción. En pantalla verás el código de sala y un **Código QR**.
 
-3. **Controles y Menús:**
-   - El **Jugador 1 (Anfitrión)** tiene controles en su teléfono para cambiar de modo e iniciar la partida o volver a jugar desde el podio.
-   - También se puede presionar **OK / ENTER** en el control remoto de la TV para iniciar la partida.
+### 2. Conecta tu Celular como Mando 📱
+- Abre la cámara de tu teléfono (iPhone o Android) y **escanea el código QR**.
+- Se abrirá automáticamente el mando virtual táctil con el color asignado a tu barco.
+- *(Opcional)*: Escribe tu propio **Apodo de Capitán** en la casilla del mando.
+- Pulsa el botón **LISTO ✓**.
+
+### 3. ¡A Navegar y Combatir! ⚔️
+El Capitán del **Mando 1** (o usando el control remoto de la tele) puede seleccionar el modo de juego y presionar **INICIAR PARTIDA**.
+
+---
+
+## 🎮 Modos de Juego
+
+### ⚔️ 1. Todos contra Todos (Torneo a 10 Rondas)
+¡El clásico combate naval de supervivencia!
+- Hasta 8 capitanes en el agua luchando por ser el último barco a flote.
+- Cada impacto de cañón resta una vida (3 vidas por ronda).
+- ¡Cuidado con encallar contra las islas o salir del perímetro letal del océano!
+- El torneo dura **10 intensas rondas**; al finalizar, se corona al gran campeón en el Podio.
+
+### 🚩 2. Batalla por Equipos (10 Rondas)
+Estrategia y combate en escuadra: **Equipo Azul 🔵 vs. Equipo Rojo 🔴**.
+- Antes de iniciar la partida, cada jugador puede tocar el botón de su equipo favorito en su celular.
+- **Fuego amigo desactivado:** ¡Tus cañones no dañarán a tus compañeros de equipo!
+- Suma puntos por equipo en cada ronda ganada a lo largo de las 10 rondas del campeonato.
+
+### 💀 3. Horda Pirata (Supervivencia Cooperativa)
+¡Inspirado en el modo Zombies, todos los jugadores son aliados contra la flota de Barcos Piratas Fantasma!
+- **Oleadas Infinitas:** En cada oleada aparecen más barcos piratas con mayor velocidad y puntería.
+- **☠️ Galeón Jefe cada 10 Rondas:** En las oleadas 10, 20, 30... surgirá un colosal Galeón Jefe Pirata con ataques en abanico y ráfagas laterales. ¡Concéntrense en derrotarlo!
+- **⭐ Mejoras Globales y Acumulables (Power-ups):**
+  Al destruir barcos piratas aparecerán cajas de botín flotantes. Cuando **cualquier** jugador recoge una mejora, **¡se aplica inmediatamente a todo el equipo!**:
+  - 💚 **Reparación Total:** Restaura todas las vidas de la flota y revive a todos los capitanes caídos.
+  - 📦 **Bodega Ampliada:** Aumenta permanentemente la capacidad máxima de munición.
+  - ⚡ **Munición Máxima:** Rellena al 100% las balas de todos los barcos al instante.
+  - 💥 **Pack-a-Punch:** Mejora el armamento (disparo doble, triple o cañonazos de alto impacto).
+  - 🛡️ **Casco Reforzado:** Aumenta permanentemente la resistencia y vidas máximas de los barcos.
+
+---
+
+## 🕹️ Controles del Mando Móvil
+
+- **Timón Táctil (Izquierda):** Desliza el dedo sobre el timón virtual para girar el barco suavemente a babor (izquierda) o estribor (derecha).
+- **Acelerar / Impulso 💨:** Mantén presionado para desplegar velas y ganar velocidad de embestida.
+- **Disparar Cañón 💣:** Dispara una salva de cañonazos hacia adelante.
+- **Recoger Munición:** Pasa por encima de las cajas flotantes en el mar para recargar tus cañones.
+- **Pantalla Completa ⛶:** Toca el botón superior para jugar cómodamente en posición horizontal con vibración táctil.
+
+---
+
+*¡Reúne a tus amigos, enciende la pantalla y demuestra quién es el verdadero rey de los mares!* ⚓🌊

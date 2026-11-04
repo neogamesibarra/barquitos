@@ -335,3 +335,27 @@ html, body {
   margin-right: 5px;
   border: 1px solid #546e7a;
 }
+
+.direct-controller-hint {
+  margin-top: 18px;
+  font-size: 14px;
+  color: #90a4ae;
+  text-align: center;
+}
+
+.controller-link {
+  color: #00e5ff;
+  text-decoration: none;
+  font-weight: bold;
+  margin-left: 6px;
+  padding: 4px 10px;
+  background: rgba(0, 229, 255, 0.12);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.controller-link:hover {
+  background: rgba(0, 229, 255, 0.25);
+  color: #ffffff;
+}

@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
   <title>BARQUITOS - Mando Móvil</title>
-  <link rel="stylesheet" href="css/controller.css?v=5">
+  <link rel="stylesheet" href="css/controller.css?v=6">
 </head>
 <body>
   <!-- Modal para ingresar el código de sala si no se escaneó el QR -->
@@ -41,6 +41,18 @@
         <button id="btn-ready" class="ready-btn" type="button">
           LISTO ✓
         </button>
+      </div>
+    </div>
+
+    <!-- Barra de configuración de Capitán en Lobby (Nombre personalizado y Elección de Equipo) -->
+    <div id="lobby-config-bar" class="lobby-config-bar">
+      <div class="nickname-box">
+        <span class="nickname-icon">✏️</span>
+        <input id="input-nickname" type="text" maxlength="12" placeholder="Tu Apodo (Opcional)" autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div id="team-selector" class="team-selector" style="display: none;">
+        <button id="btn-team-blue" class="team-choice-btn blue" type="button">🔵 EQUIPO AZUL</button>
+        <button id="btn-team-red" class="team-choice-btn red" type="button">🔴 EQUIPO ROJO</button>
       </div>
     </div>
 
@@ -90,7 +102,7 @@
 
   <!-- Scripts en orden de dependencia en ES5 estricto -->
   <script src="js/paho-mqtt.min.js"></script>
-  <script src="js/cloud_network.js?v=5"></script>
-  <script src="js/controller.js?v=5"></script>
+  <script src="js/cloud_network.js?v=6"></script>
+  <script src="js/controller.js?v=6"></script>
 </body>
 </html>
