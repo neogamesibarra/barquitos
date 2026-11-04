@@ -153,6 +153,22 @@
       if (msg.mode !== undefined) currentMode = msg.mode;
       if (msg.team) myTeam = msg.team;
 
+      // Si el jugador tenía una preferencia de equipo guardada localmente, re-sincronizar con el anfitrión
+      try {
+        var localTeam = window.localStorage.getItem('barquitos_team');
+        if ((localTeam === 'red' || localTeam === 'blue') && localTeam !== myTeam) {
+          myTeam = localTeam;
+          if (window.CloudNet && window.CloudNet.isConnected()) {
+            window.CloudNet.sendToHost({
+              type: 'set_team',
+              uuid: playerUUID,
+              slot: mySlot,
+              team: myTeam
+            });
+          }
+        }
+      } catch (eTeamInit) {}
+
       var displayName = msg.customName || ('JUGADOR ' + (mySlot + 1));
       if (elPlayerName) {
         elPlayerName.textContent = displayName.toUpperCase() + ' (' + msg.name.toUpperCase() + ')';
@@ -168,6 +184,11 @@
       updateReadyUI();
       updateHostControls();
       updateLobbyConfigBarVisibility();
+    } else if (msg.type === 'team_confirmed') {
+      if (msg.team) {
+        myTeam = msg.team;
+        updateTeamButtonsUI();
+      }
     } else if (msg.type === 'state_change') {
       currentGameState = msg.state;
       updateHostControls();
@@ -281,11 +302,12 @@
     var container = document.getElementById('gamepad-container');
     if (!container) return;
 
-    // Limpiar estilos forzados en html y body para permitir redimensionamiento natural
-    document.documentElement.style.width = '';
-    document.documentElement.style.height = '';
-    document.body.style.width = '';
-    document.body.style.height = '';
+    document.documentElement.style.width = '100%';
+    document.documentElement.style.height = '100%';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    document.body.style.overflow = 'hidden';
 
     if (isPortrait) {
       // Teléfono vertical: rotar 90° horario
@@ -304,21 +326,20 @@
       container.style.transformOrigin = 'top left';
     } else {
       // Modo horizontal (landscape) nativo o tras pantalla completa:
-      // Sin rotación, anclado al 100% exacto de la pantalla sin desbordar
+      // Sin rotación, anclado exactamente al tamaño visible en píxeles para jamás desbordar
       container.style.position = 'fixed';
       container.style.top = '0px';
       container.style.left = '0px';
       container.style.right = '0px';
       container.style.bottom = '0px';
-      container.style.width = '100%';
-      container.style.height = '100%';
-      container.style.maxWidth = '100%';
-      container.style.maxHeight = '100%';
+      container.style.width = winW + 'px';
+      container.style.height = winH + 'px';
+      container.style.maxWidth = winW + 'px';
+      container.style.maxHeight = winH + 'px';
       container.style.transform = 'none';
       container.style.transformOrigin = 'initial';
     }
 
-    // Dejar que Flexbox gestione el alto exacto de la zona de controles táctiles sin desbordar
     var controlsArea = document.querySelector('.controls-area');
     if (controlsArea) {
       controlsArea.style.height = '';
@@ -343,8 +364,8 @@
         overlay.style.left = '0px';
         overlay.style.right = '0px';
         overlay.style.bottom = '0px';
-        overlay.style.width = '100%';
-        overlay.style.height = '100%';
+        overlay.style.width = winW + 'px';
+        overlay.style.height = winH + 'px';
         overlay.style.transform = 'none';
         overlay.style.transformOrigin = 'initial';
       }
@@ -385,7 +406,7 @@
       } catch (eUn) {}
     }
 
-    var delays = [20, 60, 120, 250, 400, 600, 850];
+    var delays = [20, 60, 120, 250, 400, 600, 850, 1200, 1600];
     for (var d = 0; d < delays.length; d++) {
       setTimeout(updateLayoutDimensions, delays[d]);
     }
@@ -438,7 +459,8 @@
 
       inputState.turn = Math.round(normalized * 100) / 100;
 
-      var knobOffset = normalized * ((rect.width / 2 - 10) * 0.7);
+      var maxTravel = isPortraitRotated ? ((rect.height / 2 - 10) * 0.7) : ((rect.width / 2 - 10) * 0.7);
+      var knobOffset = normalized * maxTravel;
       elWheelKnob.style.transform = 'translate(' + knobOffset + 'px, 0px)';
     }
 
@@ -709,31 +731,44 @@
     }
 
     // Selección de equipo (Batalla por Equipos)
+    try {
+      var savedTeam = window.localStorage.getItem('barquitos_team');
+      if (savedTeam === 'blue' || savedTeam === 'red') {
+        myTeam = savedTeam;
+      }
+    } catch (eTeamLoad) {}
+
     function chooseTeam(team) {
       myTeam = team;
+      try { window.localStorage.setItem('barquitos_team', team); } catch(e){}
       updateTeamButtonsUI();
       triggerVibration(40);
       if (window.CloudNet && window.CloudNet.isConnected()) {
         window.CloudNet.sendToHost({
           type: 'set_team',
           uuid: playerUUID,
+          slot: mySlot,
           team: team
         });
       }
     }
 
-    if (elBtnTeamBlue) {
-      elBtnTeamBlue.addEventListener('click', function(e) {
-        e.preventDefault();
-        chooseTeam('blue');
-      }, false);
+    function bindTeamButton(btn, team) {
+      if (!btn) return;
+      var lastTouch = 0;
+      function handleTeamTap(e) {
+        var now = Date.now();
+        if (now - lastTouch < 300) return;
+        lastTouch = now;
+        if (e && e.preventDefault) e.preventDefault();
+        chooseTeam(team);
+      }
+      btn.addEventListener('touchend', handleTeamTap, false);
+      btn.addEventListener('click', handleTeamTap, false);
     }
-    if (elBtnTeamRed) {
-      elBtnTeamRed.addEventListener('click', function(e) {
-        e.preventDefault();
-        chooseTeam('red');
-      }, false);
-    }
+
+    bindTeamButton(elBtnTeamBlue, 'blue');
+    bindTeamButton(elBtnTeamRed, 'red');
 
     preventPageZoom();
     updateLayoutDimensions();
@@ -744,14 +779,26 @@
     window.addEventListener('orientationchange', function () {
       setTimeout(updateLayoutDimensions, 50);
       setTimeout(updateLayoutDimensions, 250);
+      setTimeout(updateLayoutDimensions, 600);
     }, false);
+    if (window.screen && window.screen.orientation) {
+      try {
+        window.screen.orientation.addEventListener('change', function () {
+          setTimeout(updateLayoutDimensions, 50);
+          setTimeout(updateLayoutDimensions, 250);
+          setTimeout(updateLayoutDimensions, 600);
+        });
+      } catch (eOriListener) {}
+    }
     document.addEventListener('fullscreenchange', function () {
       setTimeout(updateLayoutDimensions, 50);
       setTimeout(updateLayoutDimensions, 250);
+      setTimeout(updateLayoutDimensions, 600);
     }, false);
     document.addEventListener('webkitfullscreenchange', function () {
       setTimeout(updateLayoutDimensions, 50);
       setTimeout(updateLayoutDimensions, 250);
+      setTimeout(updateLayoutDimensions, 600);
     }, false);
 
     if (currentRoom) {
