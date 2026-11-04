@@ -1405,21 +1405,36 @@
   // Conexión CloudNet
   function connectCloudNet() {
     currentRoomCode = generateRoomCode();
-    var roomDisplay = document.getElementById("room-code-display");
+    var roomDisplay = document.getElementById("room-code-text") || document.getElementById("room-code-display");
     if (roomDisplay) roomDisplay.textContent = currentRoomCode;
+
+    var updateStatusUI = function(status, msg) {
+      var stLabel = document.getElementById("cloud-status") || document.getElementById("server-status");
+      if (stLabel) {
+        if (status === "online" || status === "connected") {
+          stLabel.className = "status-tag online";
+          stLabel.textContent = "● CONECTADO A LA NUBE";
+        } else if (status === "offline" || status === "error") {
+          stLabel.className = "status-tag offline";
+          stLabel.textContent = "○ " + (msg || "DESCONECTADO").toUpperCase();
+        } else {
+          stLabel.className = "status-tag connecting";
+          stLabel.textContent = "Conectando a la nube...";
+        }
+      }
+    };
 
     if (window.CloudNet) {
       window.CloudNet.initHost(currentRoomCode, {
         onReady: function() {
           console.log("[TV] Host iniciado en sala:", currentRoomCode);
+          var rd = document.getElementById("room-code-text") || document.getElementById("room-code-display");
+          if (rd) rd.textContent = currentRoomCode;
+          updateStatusUI("online");
           generateLobbyQR();
         },
         onStatus: function(status, msg) {
-          var stLabel = document.getElementById("server-status");
-          if (stLabel) {
-            stLabel.textContent = (status === "connected") ? "● CONECTADO A LA NUBE" : "○ " + msg.toUpperCase();
-            stLabel.style.color = (status === "connected") ? "#00E676" : "#FFEA00";
-          }
+          updateStatusUI(status, msg);
         },
         onMessage: function(topic, msg) {
           handleIncomingMessage(msg);
@@ -1455,18 +1470,27 @@
       }
 
       playersData[slot].connected = true;
+      if (msg.name && typeof msg.name === "string") {
+        var jName = msg.name.trim().substring(0, 12);
+        if (jName.length > 0) playersData[slot].customName = jName;
+      }
+      if (msg.team && (msg.team === "red" || msg.team === "blue")) {
+        playersData[slot].team = msg.team;
+      }
 
       if (window.CloudNet) {
         window.CloudNet.sendToPlayer(uuid, {
           type: "init",
           slot: slot,
-          name: playersData[slot].customName || playersData[slot].name,
+          name: playersData[slot].name,
+          customName: playersData[slot].customName,
           hull: playersData[slot].hull,
           sail: playersData[slot].sail,
           stripe: playersData[slot].stripe,
           symbol: playersData[slot].symbol,
           ready: playersData[slot].ready,
-          team: playersData[slot].team
+          team: playersData[slot].team,
+          mode: selectedMode
         });
       }
 
