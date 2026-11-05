@@ -58,6 +58,7 @@ Estrategia y combate en escuadra: **Equipo Azul 🔵 vs. Equipo Rojo 🔴**.
 
 - **Timón Táctil (Izquierda):** Desliza el dedo sobre el timón virtual para girar el barco suavemente a babor (izquierda) o estribor (derecha).
 - **Acelerar / Impulso 💨:** Mantén presionado para desplegar velas y ganar velocidad de embestida.
+- **Espolón Metálico Frontal (Embestida con Velocidad) 🛡️⚔️:** Todos los barcos cuentan con una afilada punta de acero al frente. Si aceleras a gran velocidad y embistes de frente a un barco rival o a los barcos de la Horda Pirata (incluido el Galeón Jefe), le causarás la mitad del daño de una bala (0.5 de vida) con chispas metálicas, retroceso y vibración.
 - **Disparar Cañón 💣:** Dispara una salva de cañonazos hacia adelante.
 - **Recoger Munición:** Pasa por encima de las cajas flotantes en el mar para recargar tus cañones.
 - **Pantalla Completa ⛶:** Toca el botón superior para jugar cómodamente en posición horizontal con vibración táctil.

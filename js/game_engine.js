@@ -170,6 +170,7 @@
     this.shootCooldown = 0;
     this.flashTimer = 0;
     this.isRamming = false;
+    this.ramCooldown = 0;
     this.kills = 0;
     this.turnInput = 0;
     this.thrustInput = false;
@@ -182,6 +183,7 @@
     if (this.stunTimer > 0) this.stunTimer -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.flashTimer > 0) this.flashTimer -= dt;
+    if (this.ramCooldown > 0) this.ramCooldown -= dt;
 
     if (this.thrustInput && this.boost > 0.05 && this.stunTimer <= 0) {
       this.boost = Math.max(0, this.boost - 0.40 * dt);
@@ -283,7 +285,7 @@
     if (!this.isAlive) return;
     Sound.playHit();
     triggerScreenShake(0.18, 5);
-    var damage = dmg || 1;
+    var damage = (dmg !== undefined) ? dmg : 1;
     var finalForce = (this.ammo === 0) ? force * 2.0 : force;
     this.vx += dirX * finalForce;
     this.vy += dirY * finalForce;
@@ -387,6 +389,70 @@
     c.lineWidth = 3;
     c.stroke();
 
+    // 1b. Espolón metálico frontal puntiagudo (Ariete de acero)
+    // Collar metálico de la base
+    c.beginPath();
+    c.rect(23, -7, 4, 14);
+    c.fillStyle = (this.flashTimer > 0) ? "#ffffff" : "#37474f";
+    c.fill();
+    c.strokeStyle = outlineCol;
+    c.lineWidth = 1.5;
+    c.stroke();
+
+    // Remaches dorados del collar
+    c.fillStyle = (this.flashTimer > 0) ? "#ffffff" : "#ffd54f";
+    c.fillRect(24, -5, 2, 2);
+    c.fillRect(24, 3, 2, 2);
+
+    // Faceta superior iluminada (acero plateado)
+    c.beginPath();
+    c.moveTo(26, -7);
+    c.lineTo(44, 0);
+    c.lineTo(26, 0);
+    c.closePath();
+    c.fillStyle = (this.flashTimer > 0) ? "#ffffff" : "#cfd8dc";
+    c.fill();
+
+    // Faceta inferior sombreada (acero oscuro)
+    c.beginPath();
+    c.moveTo(26, 0);
+    c.lineTo(44, 0);
+    c.lineTo(26, 7);
+    c.closePath();
+    c.fillStyle = (this.flashTimer > 0) ? "#ffffff" : "#78909c";
+    c.fill();
+
+    // Contorno exterior afilado
+    c.beginPath();
+    c.moveTo(26, -7);
+    c.lineTo(44, 0);
+    c.lineTo(26, 7);
+    c.closePath();
+    c.strokeStyle = outlineCol;
+    c.lineWidth = 2;
+    c.stroke();
+
+    // Cresta central afilada
+    c.beginPath();
+    c.moveTo(26, 0);
+    c.lineTo(43, 0);
+    c.strokeStyle = (this.flashTimer > 0) ? "#ffffff" : "#eceff1";
+    c.lineWidth = 1.2;
+    c.stroke();
+
+    // Destello de energía en la punta si está embistiendo con velocidad
+    var fwdSpdDraw = this.vx * Math.cos(this.rotation) + this.vy * Math.sin(this.rotation);
+    if (this.isRamming || fwdSpdDraw > 130) {
+      c.beginPath();
+      c.arc(44, 0, 4.5, 0, Math.PI * 2);
+      c.fillStyle = "rgba(0, 229, 255, 0.75)";
+      c.fill();
+      c.beginPath();
+      c.arc(44, 0, 2, 0, Math.PI * 2);
+      c.fillStyle = "#ffffff";
+      c.fill();
+    }
+
     // 2. Cañones laterales
     c.strokeStyle = outlineCol;
     c.lineWidth = 3.5;
@@ -469,27 +535,58 @@
       var startHx = this.x - totalHw / 2;
       var hy = this.y - 28;
       for (var h = 0; h < this.maxHealth; h++) {
-        drawMiniHeart(c, startHx + h * heartSpacing, hy, (h < this.health));
+        var heartState = Math.max(0, Math.min(1, this.health - h));
+        drawMiniHeart(c, startHx + h * heartSpacing, hy, heartState);
       }
       c.restore();
     }
   };
 
-  function drawMiniHeart(c, x, y, filled) {
+  function drawMiniHeart(c, x, y, fillState) {
     c.save();
     c.translate(x, y);
-    c.beginPath();
-    c.moveTo(0, 1.5);
-    c.bezierCurveTo(-4, -3.5, -6, 1.5, 0, 5.5);
-    c.bezierCurveTo(6, 1.5, 4, -3.5, 0, 1.5);
-    c.closePath();
-    if (filled) {
+
+    function makeHeart() {
+      c.beginPath();
+      c.moveTo(0, 1.5);
+      c.bezierCurveTo(-4, -3.5, -6, 1.5, 0, 5.5);
+      c.bezierCurveTo(6, 1.5, 4, -3.5, 0, 1.5);
+      c.closePath();
+    }
+
+    var isFull = (fillState === true || fillState >= 0.99);
+    var isHalf = (!isFull && fillState >= 0.49);
+
+    if (isFull) {
+      makeHeart();
       c.fillStyle = "#ff2a55";
       c.fill();
       c.strokeStyle = "#220008";
       c.lineWidth = 1.2;
       c.stroke();
+    } else if (isHalf) {
+      // Fondo oscuro
+      makeHeart();
+      c.fillStyle = "rgba(15, 25, 35, 0.7)";
+      c.fill();
+
+      // Recorte de la mitad izquierda roja (clipping)
+      c.save();
+      c.beginPath();
+      c.rect(-10, -10, 10, 20);
+      c.clip();
+      makeHeart();
+      c.fillStyle = "#ff2a55";
+      c.fill();
+      c.restore();
+
+      // Borde exterior
+      makeHeart();
+      c.strokeStyle = "#ff2a55";
+      c.lineWidth = 1.2;
+      c.stroke();
     } else {
+      makeHeart();
       c.fillStyle = "rgba(15, 25, 35, 0.7)";
       c.fill();
       c.strokeStyle = "rgba(255, 255, 255, 0.35)";
@@ -732,10 +829,10 @@
     this.vx = 0;
     this.vy = 0;
     this.wave = wave || 1;
-    this.maxHealth = 1 + Math.floor(wave / 4);
+    this.maxHealth = 1 + Math.floor(wave / 5);
     this.health = this.maxHealth;
-    this.speed = 130 + Math.min(100, wave * 7);
-    this.shootCooldown = 1.2 + Math.random() * 2.0;
+    this.speed = 90 + Math.min(60, wave * 4);
+    this.shootCooldown = 2.5 + Math.random() * 2.5;
     this.isAlive = true;
     this.flashTimer = 0;
   }
@@ -792,7 +889,7 @@
 
     // Disparar a los jugadores
     if (nearest && nearDistSq < 302500 && this.shootCooldown <= 0) { // 550^2
-      this.shootCooldown = Math.max(1.4, 3.2 - this.wave * 0.12) + Math.random() * 0.5;
+      this.shootCooldown = Math.max(2.5, 5.0 - this.wave * 0.08) + Math.random() * 1.0;
       var bX = this.x + fwdX * 28;
       var bY = this.y + fwdY * 28;
       cannonballs.push(new Cannonball(bX, bY, fwdX, fwdY, -1, true, 1));
@@ -808,7 +905,7 @@
   PirateShip.prototype.applyHit = function(dirX, dirY, force, dmg) {
     if (!this.isAlive) return;
     Sound.playHit();
-    this.health -= (dmg || 1);
+    this.health -= (dmg !== undefined ? dmg : 1);
     this.flashTimer = 0.18;
     this.vx += dirX * (force || 300);
     this.vy += dirY * (force || 300);
@@ -836,10 +933,10 @@
       });
     }
 
-    // 35% de probabilidad de soltar Botín de Mejora
-    if (Math.random() < 0.35) {
+    // 50% de probabilidad de soltar Botín de Mejora, 30% de munición
+    if (Math.random() < 0.50) {
       hordePowerups.push(new HordePowerup(this.x, this.y));
-    } else if (Math.random() < 0.50) {
+    } else if (Math.random() < 0.60) {
       ammoCrates.push(new AmmoCrate(this.x, this.y));
     }
   };
@@ -881,7 +978,7 @@
     c.restore();
 
     // Barra de salud pequeña si tiene más de 1 vida
-    if (this.maxHealth > 1) {
+    if (this.maxHealth > 1 || this.health < this.maxHealth) {
       var bw = 28;
       var bh = 4;
       var bx = this.x - bw / 2;
@@ -901,10 +998,10 @@
     this.vx = 0;
     this.vy = 0;
     this.wave = wave;
-    this.maxHealth = 30 + Math.floor(wave / 10) * 20;
+    this.maxHealth = 20 + Math.floor(wave / 10) * 10;
     this.health = this.maxHealth;
-    this.speed = 90;
-    this.specialTimer = 3.0;
+    this.speed = 70;
+    this.specialTimer = 6.0;
     this.isAlive = true;
     this.flashTimer = 0;
   }
@@ -943,21 +1040,19 @@
 
     // Ataques especiales del Jefe
     if (this.specialTimer <= 0) {
-      this.specialTimer = 3.2;
+      this.specialTimer = 6.0;
       Sound.playCannon();
       triggerScreenShake(0.3, 7);
 
-      // Disparo en abanico frontal (5 cañones)
-      for (var f = -2; f <= 2; f++) {
-        var fAng = this.rotation + f * 0.22;
+      // Disparo frontal moderado (3 cañones)
+      for (var f = -1; f <= 1; f++) {
+        var fAng = this.rotation + f * 0.25;
         cannonballs.push(new Cannonball(this.x + fwdX * 50, this.y + fwdY * 50, Math.cos(fAng), Math.sin(fAng), -1, true, 1));
       }
 
-      // Salva lateral de cañones por babor y estribor
-      for (var s = -1; s <= 1; s++) {
-        cannonballs.push(new Cannonball(this.x + latX * 25 + fwdX * (s * 15), this.y + latY * 25 + fwdY * (s * 15), latX, latY, -1, true, 1));
-        cannonballs.push(new Cannonball(this.x - latX * 25 + fwdX * (s * 15), this.y - latY * 25 + fwdY * (s * 15), -latX, -latY, -1, true, 1));
-      }
+      // Salva lateral moderada (1 cañón por cada banda)
+      cannonballs.push(new Cannonball(this.x + latX * 25, this.y + latY * 25, latX, latY, -1, true, 1));
+      cannonballs.push(new Cannonball(this.x - latX * 25, this.y - latY * 25, -latX, -latY, -1, true, 1));
       spawnMuzzleFlash(this.x + fwdX * 50, this.y + fwdY * 50, this.rotation);
     }
 
@@ -970,7 +1065,7 @@
     if (!this.isAlive) return;
     Sound.playHit();
     triggerScreenShake(0.2, 5);
-    this.health -= (dmg || 1);
+    this.health -= (dmg !== undefined ? dmg : 1);
     this.flashTimer = 0.2;
     this.vx += dirX * 60;
     this.vy += dirY * 60;
@@ -1083,6 +1178,25 @@
         radius: 2.5 + Math.random() * 4,
         color: (i % 2 === 0) ? "#8d6e63" : (i % 3 === 0 ? "#5d4037" : "#455a64"),
         life: 0.42, maxLife: 0.42
+      });
+    }
+  }
+
+  function spawnMetalRamSparks(x, y, dirX, dirY) {
+    var baseAng = Math.atan2(dirY, dirX);
+    for (var i = 0; i < 16; i++) {
+      var sAng = baseAng + (Math.random() - 0.5) * 1.8;
+      var sSpd = 90 + Math.random() * 220;
+      var col = (i % 3 === 0) ? "#ffffff" : (i % 2 === 0 ? "#fff176" : "#ff9100");
+      particles.push({
+        x: x + (Math.random() - 0.5) * 6,
+        y: y + (Math.random() - 0.5) * 6,
+        vx: Math.cos(sAng) * sSpd,
+        vy: Math.sin(sAng) * sSpd,
+        radius: 1.8 + Math.random() * 2.5,
+        color: col,
+        life: 0.32,
+        maxLife: 0.32
       });
     }
   }
@@ -1336,11 +1450,50 @@
   }
 
   function startHordeWave(wave) {
-    waveEnemiesToSpawn = 3 + wave * 2;
-    waveSpawnTimer = 0.5;
+    waveEnemiesToSpawn = 2 + wave;
+    waveSpawnTimer = 1.5;
     waveIntermissionTimer = 0;
     pirateShips = [];
     bossGalleon = null;
+
+    // Revivir a todos los jugadores aliados caídos al completar con éxito una ronda
+    if (wave > 1) {
+      var revivedCount = 0;
+      for (var pIdx = 0; pIdx < playersData.length; pIdx++) {
+        if (!playersData[pIdx].connected) continue;
+        var pSlot = playersData[pIdx].slot;
+        var shipFound = null;
+        for (var sIdx = 0; sIdx < activeShips.length; sIdx++) {
+          if (activeShips[sIdx].slot === pSlot) {
+            shipFound = activeShips[sIdx];
+            break;
+          }
+        }
+        if (!shipFound) {
+          shipFound = new Ship(pSlot, 960 + (Math.random() - 0.5) * 200, 540 + (Math.random() - 0.5) * 200, 0);
+          activeShips.push(shipFound);
+          revivedCount++;
+        } else if (!shipFound.isAlive) {
+          shipFound.isAlive = true;
+          shipFound.health = hordeUpgrades.maxHealth;
+          shipFound.ammo = Math.max(3, hordeUpgrades.maxAmmo);
+          shipFound.x = 960 + (Math.random() - 0.5) * 260;
+          shipFound.y = 540 + (Math.random() - 0.5) * 260;
+          shipFound.vx = 0;
+          shipFound.vy = 0;
+          shipFound.stunTimer = 0;
+          shipFound.flashTimer = 0.5;
+          revivedCount++;
+        } else {
+          if (shipFound.ammo < 3) shipFound.ammo = 3;
+        }
+      }
+      if (revivedCount > 0) {
+        addFloatingText("✨ ¡JUGADORES CAÍDOS REVIVIDOS! ✨", 960, 480, "#00e676", 42);
+        Sound.playPowerup();
+        sendTvAction("vibrate", null, [80, 50, 80]);
+      }
+    }
 
     if (wave % 10 === 0) {
       // Ronda de Jefe
@@ -1348,8 +1501,8 @@
       triggerScreenShake(0.8, 14);
       bossGalleon = new BossGalleon(960, 150, wave);
       addFloatingText("☠️ ¡ALERTA: GALEÓN JEFE PIRATA! ☠️", 960, 420, "#ff1744", 48);
-      // 4 piratas escoltas
-      waveEnemiesToSpawn = 4;
+      // 2 piratas escoltas (dificultad equilibrada)
+      waveEnemiesToSpawn = 2;
     } else {
       Sound.playWaveStart();
       addFloatingText("🌊 OLEADA " + wave + " 🌊", 960, 420, "#00e5ff", 50);
@@ -1407,6 +1560,7 @@
     currentRoomCode = generateRoomCode();
     var roomDisplay = document.getElementById("room-code-text") || document.getElementById("room-code-display");
     if (roomDisplay) roomDisplay.textContent = currentRoomCode;
+    generateLobbyQR();
 
     var updateStatusUI = function(status, msg) {
       var stLabel = document.getElementById("cloud-status") || document.getElementById("server-status");
@@ -1419,7 +1573,7 @@
           stLabel.textContent = "○ " + (msg || "DESCONECTADO").toUpperCase();
         } else {
           stLabel.className = "status-tag connecting";
-          stLabel.textContent = "Conectando a la nube...";
+          stLabel.textContent = msg || "Conectando a la nube...";
         }
       }
     };
@@ -1520,7 +1674,14 @@
         }
       }
     } else if (msg.type === "set_team") {
-      var tSlot = (typeof msg.slot === "number") ? msg.slot : -1;
+      // Buscar slot por uuid primero, luego por msg.slot como fallback
+      var tSlot = -1;
+      if (msg.uuid) {
+        for (var tu = 0; tu < playersData.length; tu++) {
+          if (playersData[tu].uuid === msg.uuid) { tSlot = playersData[tu].slot; break; }
+        }
+      }
+      if (tSlot < 0 && typeof msg.slot === "number") tSlot = msg.slot;
       if (tSlot >= 0 && tSlot < playersData.length) {
         var tm = (msg.team === "red") ? "red" : "blue";
         playersData[tSlot].team = tm;
@@ -1530,6 +1691,9 @@
             break;
           }
         }
+        updateLobbyShips();
+        // Confirmar el equipo al controlador
+        window.CloudNet.sendToPlayer(tSlot, { type: "team_confirmed", team: tm });
       }
     } else if (msg.type === "input") {
       var inSlot = -1;
@@ -1745,19 +1909,54 @@
         }
       }
 
-      // Colisión entre barcos
+      // Colisión entre barcos con espolón metálico y daño de embestida
       for (var s2 = s + 1; s2 < activeShips.length; s2++) {
         var ship2 = activeShips[s2];
         if (!ship2.isAlive) continue;
         var cDx = ship2.x - ship.x;
         var cDy = ship2.y - ship.y;
         var cDistSq = cDx * cDx + cDy * cDy;
-        if (cDistSq < 1296) {
-          var cDist = Math.sqrt(cDistSq);
+        if (cDistSq < 1521) {
+          var cDist = Math.sqrt(cDistSq) || 1;
           var cNx = cDx / (cDist || 1);
           var cNy = cDy / (cDist || 1);
-          if (ship.isRamming) ship2.applyRam(cNx, cNy, 460);
-          if (ship2.isRamming) ship.applyRam(-cNx, -cNy, 460);
+
+          var fwd1X = Math.cos(ship.rotation);
+          var fwd1Y = Math.sin(ship.rotation);
+          var spd1Fwd = ship.vx * fwd1X + ship.vy * fwd1Y;
+          var dot1 = cNx * fwd1X + cNy * fwd1Y;
+
+          var fwd2X = Math.cos(ship2.rotation);
+          var fwd2Y = Math.sin(ship2.rotation);
+          var spd2Fwd = ship2.vx * fwd2X + ship2.vy * fwd2Y;
+          var dot2 = (-cNx) * fwd2X + (-cNy) * fwd2Y;
+
+          var canDamageEachOther = (selectedMode !== MODE_TEAMS || ship.data.team !== ship2.data.team);
+
+          // Barco 1 embiste a Barco 2 con la punta de metal (mitad de daño de una bala = 0.5)
+          if (canDamageEachOther && (ship.isRamming || spd1Fwd > 130) && dot1 > 0.45 && ship.ramCooldown <= 0) {
+            ship.ramCooldown = 0.65;
+            ship2.applyHit(cNx, cNy, 360, 0.5);
+            spawnMetalRamSparks(ship.x + fwd1X * 30, ship.y + fwd1Y * 30, -cNx, -cNy);
+            addFloatingText("💥 -0.5", ship2.x, ship2.y - 25, "#ff3d00", 28);
+            triggerScreenShake(0.2, 5);
+            sendTvAction("vibrate", ship.slot, 100);
+          } else if (ship.isRamming) {
+            ship2.applyRam(cNx, cNy, 460);
+          }
+
+          // Barco 2 embiste a Barco 1 con la punta de metal
+          if (canDamageEachOther && (ship2.isRamming || spd2Fwd > 130) && dot2 > 0.45 && ship2.ramCooldown <= 0) {
+            ship2.ramCooldown = 0.65;
+            ship.applyHit(-cNx, -cNy, 360, 0.5);
+            spawnMetalRamSparks(ship2.x + fwd2X * 30, ship2.y + fwd2Y * 30, cNx, cNy);
+            addFloatingText("💥 -0.5", ship.x, ship.y - 25, "#ff3d00", 28);
+            triggerScreenShake(0.2, 5);
+            sendTvAction("vibrate", ship2.slot, 100);
+          } else if (ship2.isRamming) {
+            ship.applyRam(-cNx, -cNy, 460);
+          }
+
           ship.vx -= cNx * 120;
           ship.vy -= cNy * 120;
           ship2.vx += cNx * 120;
@@ -1912,7 +2111,7 @@
     if (waveEnemiesToSpawn > 0) {
       waveSpawnTimer -= dt;
       if (waveSpawnTimer <= 0) {
-        waveSpawnTimer = Math.max(0.6, 1.8 - currentWave * 0.05);
+        waveSpawnTimer = Math.max(1.2, 3.0 - currentWave * 0.08);
         spawnPirateEnemy();
         waveEnemiesToSpawn--;
       }
@@ -1987,6 +2186,89 @@
       bossGalleon.update(dt);
       if (!bossGalleon.isAlive) {
         bossGalleon = null;
+      }
+    }
+
+    // Colisiones físicas y embestida con punta metálica entre jugadores y piratas/jefe
+    for (var ash = 0; ash < activeShips.length; ash++) {
+      var pShip = activeShips[ash];
+      if (!pShip.isAlive) continue;
+      var pfwdX = Math.cos(pShip.rotation);
+      var pfwdY = Math.sin(pShip.rotation);
+      var pSpdFwd = pShip.vx * pfwdX + pShip.vy * pfwdY;
+
+      // Colisión entre barcos aliados (fuego amigo estrictamente desactivado)
+      for (var ash2 = ash + 1; ash2 < activeShips.length; ash2++) {
+        var pShip2 = activeShips[ash2];
+        if (!pShip2.isAlive) continue;
+        var asDx = pShip2.x - pShip.x;
+        var asDy = pShip2.y - pShip.y;
+        var asDistSq = asDx * asDx + asDy * asDy;
+        if (asDistSq < 1444) {
+          var asDist = Math.sqrt(asDistSq) || 1;
+          var asNx = asDx / asDist;
+          var asNy = asDy / asDist;
+          pShip.vx -= asNx * 100;
+          pShip.vy -= asNy * 100;
+          pShip2.vx += asNx * 100;
+          pShip2.vy += asNy * 100;
+        }
+      }
+
+      // Embestida contra Barcos Piratas (causa 0.5 de daño a los piratas)
+      for (var psh = 0; psh < pirateShips.length; psh++) {
+        var pirShip = pirateShips[psh];
+        if (!pirShip.isAlive) continue;
+        var cpx = pirShip.x - pShip.x;
+        var cpy = pirShip.y - pShip.y;
+        var cpDistSq = cpx * cpx + cpy * cpy;
+        if (cpDistSq < 1521) {
+          var cpDist = Math.sqrt(cpDistSq) || 1;
+          var cpnX = cpx / cpDist;
+          var cpnY = cpy / cpDist;
+          var cpDot = cpnX * pfwdX + cpnY * pfwdY;
+
+          if ((pShip.isRamming || pSpdFwd > 130) && cpDot > 0.45 && pShip.ramCooldown <= 0) {
+            pShip.ramCooldown = 0.65;
+            pirShip.applyHit(cpnX, cpnY, 380, 0.5);
+            spawnMetalRamSparks(pShip.x + pfwdX * 30, pShip.y + pfwdY * 30, -cpnX, -cpnY);
+            addFloatingText("💥 -0.5", pirShip.x, pirShip.y - 25, "#ff3d00", 28);
+            triggerScreenShake(0.22, 6);
+            sendTvAction("vibrate", pShip.slot, 120);
+          }
+
+          pShip.vx -= cpnX * 110;
+          pShip.vy -= cpnY * 110;
+          pirShip.vx += cpnX * 110;
+          pirShip.vy += cpnY * 110;
+        }
+      }
+
+      // Embestida contra el Galeón Jefe (causa 0.5 de daño al jefe)
+      if (bossGalleon && bossGalleon.isAlive) {
+        var bgx = bossGalleon.x - pShip.x;
+        var bgy = bossGalleon.y - pShip.y;
+        var bgDistSq = bgx * bgx + bgy * bgy;
+        if (bgDistSq < 3600) {
+          var bgDist = Math.sqrt(bgDistSq) || 1;
+          var bgnX = bgx / bgDist;
+          var bgnY = bgy / bgDist;
+          var bgDot = bgnX * pfwdX + bgnY * pfwdY;
+
+          if ((pShip.isRamming || pSpdFwd > 130) && bgDot > 0.45 && pShip.ramCooldown <= 0) {
+            pShip.ramCooldown = 0.65;
+            bossGalleon.applyHit(bgnX, bgnY, 80, 0.5);
+            spawnMetalRamSparks(pShip.x + pfwdX * 30, pShip.y + pfwdY * 30, -bgnX, -bgnY);
+            addFloatingText("💥 -0.5", bossGalleon.x, bossGalleon.y - 35, "#ffd700", 32);
+            triggerScreenShake(0.26, 7);
+            sendTvAction("vibrate", pShip.slot, 130);
+          }
+
+          pShip.vx -= bgnX * 200;
+          pShip.vy -= bgnY * 200;
+          bossGalleon.vx += bgnX * 30;
+          bossGalleon.vy += bgnY * 30;
+        }
       }
     }
 
@@ -2073,7 +2355,7 @@
     for (var hp = 0; hp < hordePowerups.length; hp++) hordePowerups[hp].update(dt);
 
     // Spawning periódico de munición
-    if (Math.random() < (0.35 * dt) && ammoCrates.length < 5) {
+    if (Math.random() < (0.55 * dt) && ammoCrates.length < 6) {
       ammoCrates.push(new AmmoCrate(
         currentBounds.x + 80 + Math.random() * (currentBounds.w - 160),
         currentBounds.y + 80 + Math.random() * (currentBounds.h - 160)
@@ -2082,8 +2364,12 @@
 
     // Fin de oleada: todos los piratas y jefe muertos
     if (waveEnemiesToSpawn === 0 && pirateShips.length === 0 && (!bossGalleon || !bossGalleon.isAlive)) {
+      if (waveIntermissionTimer === 0) {
+        addFloatingText("🏆 ¡OLEADA " + currentWave + " COMPLETADA! 🏆", 960, 360, "#00e676", 46);
+        Sound.playWaveStart();
+      }
       waveIntermissionTimer += dt;
-      if (waveIntermissionTimer >= 3.2) {
+      if (waveIntermissionTimer >= 4.5) {
         currentWave++;
         startHordeWave(currentWave);
       }
@@ -2494,7 +2780,8 @@
     // Corazones de vida
     var hY = y + 44;
     for (var i = 0; i < curMaxHealth; i++) {
-      drawMiniHeart(ctx, x + 18 + i * 14, hY, (i < curHealth));
+      var hState = Math.max(0, Math.min(1, curHealth - i));
+      drawMiniHeart(ctx, x + 18 + i * 14, hY, hState);
     }
 
     // Munición
