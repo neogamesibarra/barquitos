@@ -320,7 +320,6 @@
     var container = document.getElementById('gamepad-container');
     if (!container) return;
 
-    var inFs = isDocumentFullscreen();
     var isPortrait = (winH > winW);
 
     document.documentElement.style.width = '100%';
@@ -335,21 +334,8 @@
     document.body.style.margin = '0';
     document.body.style.padding = '0';
 
-    if (inFs) {
-      // Pantalla completa activa: ocupa exactamente la ventana visible sin rotación CSS
-      container.style.position = 'fixed';
-      container.style.top = '0px';
-      container.style.left = '0px';
-      container.style.right = '0px';
-      container.style.bottom = '0px';
-      container.style.width = winW + 'px';
-      container.style.height = winH + 'px';
-      container.style.maxWidth = winW + 'px';
-      container.style.maxHeight = winH + 'px';
-      container.style.transform = 'none';
-      container.style.transformOrigin = 'initial';
-    } else if (isPortrait) {
-      // Teléfono vertical sin fullscreen: rotar 90° horario
+    if (isPortrait) {
+      // Teléfono vertical: rotar 90° horario
       container.style.position = 'fixed';
       container.style.top = '0px';
       container.style.left = winW + 'px';
@@ -362,7 +348,7 @@
       container.style.transform = 'rotate(90deg)';
       container.style.transformOrigin = 'top left';
     } else {
-      // Modo horizontal (landscape) nativo o tras pantalla completa:
+      // Teléfono horizontal: sin rotación
       container.style.position = 'fixed';
       container.style.top = '0px';
       container.style.left = '0px';
@@ -378,23 +364,22 @@
 
     var controlsArea = document.querySelector('.controls-area');
     if (controlsArea) {
-      controlsArea.style.height = '';
-      controlsArea.style.maxHeight = '';
+      var topBar = document.querySelector('.top-bar');
+      var cfgBar = document.getElementById('lobby-config-bar');
+      var topH = (topBar && topBar.offsetHeight) ? topBar.offsetHeight + 4 : 38;
+      var cfgH = (cfgBar && cfgBar.style.display !== 'none' && cfgBar.offsetHeight) ? cfgBar.offsetHeight + 4 : 0;
+      var padV = 8;
+      var visualH = isPortrait ? winW : winH;
+      var availH = visualH - topH - cfgH - padV;
+      if (availH > 80) {
+        controlsArea.style.height = availH + 'px';
+        controlsArea.style.maxHeight = availH + 'px';
+      }
     }
 
     var overlay = document.getElementById('room-overlay');
     if (overlay && overlay.style.display !== 'none') {
-      if (inFs || !isPortrait) {
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0px';
-        overlay.style.left = '0px';
-        overlay.style.right = '0px';
-        overlay.style.bottom = '0px';
-        overlay.style.width = winW + 'px';
-        overlay.style.height = winH + 'px';
-        overlay.style.transform = 'none';
-        overlay.style.transformOrigin = 'initial';
-      } else {
+      if (isPortrait) {
         overlay.style.position = 'fixed';
         overlay.style.top = '0px';
         overlay.style.left = winW + 'px';
@@ -404,46 +389,40 @@
         overlay.style.height = winW + 'px';
         overlay.style.transform = 'rotate(90deg)';
         overlay.style.transformOrigin = 'top left';
+      } else {
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0px';
+        overlay.style.left = '0px';
+        overlay.style.right = '0px';
+        overlay.style.bottom = '0px';
+        overlay.style.width = winW + 'px';
+        overlay.style.height = winH + 'px';
+        overlay.style.transform = 'none';
+        overlay.style.transformOrigin = 'initial';
       }
     }
   }
 
   function toggleFullscreen() {
     var doc = window.document;
-    var container = document.getElementById('gamepad-container');
-    var target = container || doc.documentElement;
-    var req = target.requestFullscreen || target.webkitRequestFullscreen || target.mozRequestFullScreen || target.msRequestFullscreen || doc.documentElement.requestFullscreen || doc.documentElement.webkitRequestFullscreen;
+    var docEl = doc.documentElement;
+    var req = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
     var exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
 
     if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
       if (req) {
         try {
-          var p = req.call(target);
+          var p = req.call(docEl);
           if (p && p.catch) p.catch(function () {});
         } catch (e) {}
       }
-      try {
-        if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
-          var lockP = window.screen.orientation.lock('landscape');
-          if (lockP && lockP.catch) lockP.catch(function () {});
-        } else if (window.screen && window.screen.lockOrientation) {
-          window.screen.lockOrientation('landscape');
-        }
-      } catch (eOri) {}
     } else {
       if (exit) {
         try { exit.call(doc); } catch (e2) {}
       }
-      try {
-        if (window.screen && window.screen.orientation && window.screen.orientation.unlock) {
-          window.screen.orientation.unlock();
-        } else if (window.screen && window.screen.unlockOrientation) {
-          window.screen.unlockOrientation();
-        }
-      } catch (eUn) {}
     }
 
-    var delays = [20, 60, 120, 250, 400, 600, 850, 1200, 1600];
+    var delays = [20, 60, 120, 250, 400, 600, 850, 1200];
     for (var d = 0; d < delays.length; d++) {
       setTimeout(updateLayoutDimensions, delays[d]);
     }
