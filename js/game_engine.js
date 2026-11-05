@@ -92,8 +92,8 @@
   var lastCountdownStep = -1;
   var roundTimer = 0;
   var suddenDeathActive = false;
-  var arenaBounds = { x: 90, y: 50, w: 1740, h: 980 };
-  var currentBounds = { x: 90, y: 50, w: 1740, h: 980 };
+  var arenaBounds = { x: 270, y: 35, w: 1380, h: 1010 };
+  var currentBounds = { x: 270, y: 35, w: 1380, h: 1010 };
 
   var waveAnim = 0;
   var roundWinner = null;
@@ -227,6 +227,12 @@
 
     this.x += this.vx * dt;
     this.y += this.vy * dt;
+
+    // No permitir que los piratas se salgan de la zona jugable
+    if (this.x < arenaBounds.x + 20) { this.x = arenaBounds.x + 20; this.vx = Math.abs(this.vx) * 0.5 + 40; }
+    else if (this.x > arenaBounds.x + arenaBounds.w - 20) { this.x = arenaBounds.x + arenaBounds.w - 20; this.vx = -Math.abs(this.vx) * 0.5 - 40; }
+    if (this.y < arenaBounds.y + 20) { this.y = arenaBounds.y + 20; this.vy = Math.abs(this.vy) * 0.5 + 40; }
+    else if (this.y > arenaBounds.y + arenaBounds.h - 20) { this.y = arenaBounds.y + arenaBounds.h - 20; this.vy = -Math.abs(this.vy) * 0.5 - 40; }
 
     // Disparos
     if (this.shootInput) {
@@ -1295,11 +1301,11 @@
   // Configuración de Islas
   function initArenaIslands() {
     islands = [
-      { x: 960, y: 540, rad: 75 },
-      { x: 500, y: 340, rad: 58 },
-      { x: 1420, y: 740, rad: 58 },
-      { x: 500, y: 740, rad: 52 },
-      { x: 1420, y: 340, rad: 52 }
+      { x: 960, y: 540, rad: 70 },
+      { x: 600, y: 330, rad: 55 },
+      { x: 1320, y: 750, rad: 55 },
+      { x: 600, y: 750, rad: 52 },
+      { x: 1320, y: 330, rad: 52 }
     ];
   }
 
@@ -1337,7 +1343,7 @@
     }
 
     var count = connected.length;
-    var radius = 380;
+    var radius = 350;
     for (var j = 0; j < count; j++) {
       var p = connected[j];
       var angle = (Math.PI * 2 / count) * j;
@@ -1391,14 +1397,14 @@
     // Desplegar barcos azules en la izquierda
     for (var b = 0; b < blueShips.length; b++) {
       var bY = 540 + (b - (blueShips.length - 1) / 2) * 130;
-      var sBlue = new Ship(blueShips[b].slot, 480, bY, 0);
+      var sBlue = new Ship(blueShips[b].slot, 520, bY, 0);
       activeShips.push(sBlue);
     }
 
     // Desplegar barcos rojos en la derecha
     for (var r = 0; r < redShips.length; r++) {
       var rY = 540 + (r - (redShips.length - 1) / 2) * 130;
-      var sRed = new Ship(redShips[r].slot, 1440, rY, Math.PI);
+      var sRed = new Ship(redShips[r].slot, 1400, rY, Math.PI);
       activeShips.push(sRed);
     }
   }
@@ -1510,14 +1516,23 @@
   }
 
   function spawnPirateEnemy() {
-    // Aparecen desde los bordes del mapa
+    // Aparecen desde los bordes de la zona jugable
     var edge = Math.floor(Math.random() * 4);
     var px = 960;
     var py = 540;
-    if (edge === 0) { px = 120 + Math.random() * 1680; py = 70; }
-    else if (edge === 1) { px = 1820; py = 80 + Math.random() * 900; }
-    else if (edge === 2) { px = 120 + Math.random() * 1680; py = 1010; }
-    else { px = 100; py = 80 + Math.random() * 900; }
+    if (edge === 0) {
+      px = arenaBounds.x + 40 + Math.random() * (arenaBounds.w - 80);
+      py = arenaBounds.y + 15;
+    } else if (edge === 1) {
+      px = arenaBounds.x + arenaBounds.w - 25;
+      py = arenaBounds.y + 40 + Math.random() * (arenaBounds.h - 80);
+    } else if (edge === 2) {
+      px = arenaBounds.x + 40 + Math.random() * (arenaBounds.w - 80);
+      py = arenaBounds.y + arenaBounds.h - 25;
+    } else {
+      px = arenaBounds.x + 25;
+      py = arenaBounds.y + 40 + Math.random() * (arenaBounds.h - 80);
+    }
 
     pirateShips.push(new PirateShip(px, py, currentWave));
   }
@@ -1882,10 +1897,36 @@
       var ship = activeShips[s];
       ship.update(dt);
 
-      // Límite letal
-      if (ship.x < currentBounds.x || ship.x > currentBounds.x + currentBounds.w ||
-          ship.y < currentBounds.y || ship.y > currentBounds.y + currentBounds.h) {
-        ship.die();
+      // Límite de la zona jugable (los marcadores laterales NO son jugables)
+      if (suddenDeathActive) {
+        if (ship.x < currentBounds.x || ship.x > currentBounds.x + currentBounds.w ||
+            ship.y < currentBounds.y || ship.y > currentBounds.y + currentBounds.h) {
+          ship.die();
+        }
+      } else {
+        // En juego normal, rebotar contra los bordes de la zona jugable
+        if (ship.x < arenaBounds.x + 22) {
+          ship.x = arenaBounds.x + 22;
+          ship.vx = Math.abs(ship.vx) * 0.45 + 50;
+          ship.applyRam(1, 0, 90);
+          spawnWaterFoam(ship.x, ship.y, 1, 0);
+        } else if (ship.x > arenaBounds.x + arenaBounds.w - 22) {
+          ship.x = arenaBounds.x + arenaBounds.w - 22;
+          ship.vx = -Math.abs(ship.vx) * 0.45 - 50;
+          ship.applyRam(-1, 0, 90);
+          spawnWaterFoam(ship.x, ship.y, -1, 0);
+        }
+        if (ship.y < arenaBounds.y + 22) {
+          ship.y = arenaBounds.y + 22;
+          ship.vy = Math.abs(ship.vy) * 0.45 + 50;
+          ship.applyRam(0, 1, 90);
+          spawnWaterFoam(ship.x, ship.y, 0, 1);
+        } else if (ship.y > arenaBounds.y + arenaBounds.h - 22) {
+          ship.y = arenaBounds.y + arenaBounds.h - 22;
+          ship.vy = -Math.abs(ship.vy) * 0.45 - 50;
+          ship.applyRam(0, -1, 90);
+          spawnWaterFoam(ship.x, ship.y, 0, -1);
+        }
       }
 
       if (!ship.isAlive) continue;
@@ -1983,6 +2024,17 @@
       var ball = cannonballs[b];
       ball.update(dt);
       if (ball.isDead) {
+        cannonballs[b] = cannonballs[cannonballs.length - 1];
+        cannonballs.pop();
+        continue;
+      }
+
+      // Colisión de proyectil con límites de la zona jugable (no cruzan hacia el HUD)
+      if (ball.x <= arenaBounds.x || ball.x >= arenaBounds.x + arenaBounds.w ||
+          ball.y <= arenaBounds.y || ball.y >= arenaBounds.y + arenaBounds.h) {
+        ball.isDead = true;
+        Sound.playIslandThud();
+        spawnIslandImpactParticles(ball.x, ball.y);
         cannonballs[b] = cannonballs[cannonballs.length - 1];
         cannonballs.pop();
         continue;
@@ -2123,6 +2175,32 @@
       var ship = activeShips[s];
       ship.update(dt);
       if (ship.isAlive) anyAllyAlive = true;
+
+      // Limitar barcos aliados a la zona jugable (los marcadores laterales NO son jugables)
+      if (ship.isAlive) {
+        if (ship.x < arenaBounds.x + 22) {
+          ship.x = arenaBounds.x + 22;
+          ship.vx = Math.abs(ship.vx) * 0.45 + 50;
+          ship.applyRam(1, 0, 90);
+          spawnWaterFoam(ship.x, ship.y, 1, 0);
+        } else if (ship.x > arenaBounds.x + arenaBounds.w - 22) {
+          ship.x = arenaBounds.x + arenaBounds.w - 22;
+          ship.vx = -Math.abs(ship.vx) * 0.45 - 50;
+          ship.applyRam(-1, 0, 90);
+          spawnWaterFoam(ship.x, ship.y, -1, 0);
+        }
+        if (ship.y < arenaBounds.y + 22) {
+          ship.y = arenaBounds.y + 22;
+          ship.vy = Math.abs(ship.vy) * 0.45 + 50;
+          ship.applyRam(0, 1, 90);
+          spawnWaterFoam(ship.x, ship.y, 0, 1);
+        } else if (ship.y > arenaBounds.y + arenaBounds.h - 22) {
+          ship.y = arenaBounds.y + arenaBounds.h - 22;
+          ship.vy = -Math.abs(ship.vy) * 0.45 - 50;
+          ship.applyRam(0, -1, 90);
+          spawnWaterFoam(ship.x, ship.y, 0, -1);
+        }
+      }
 
       // Colisiones con islas
       if (ship.isAlive) {
@@ -2282,6 +2360,17 @@
         continue;
       }
 
+      // Colisión con límites de la zona jugable en horda
+      if (ball.x <= arenaBounds.x || ball.x >= arenaBounds.x + arenaBounds.w ||
+          ball.y <= arenaBounds.y || ball.y >= arenaBounds.y + arenaBounds.h) {
+        ball.isDead = true;
+        Sound.playIslandThud();
+        spawnIslandImpactParticles(ball.x, ball.y);
+        cannonballs[b] = cannonballs[cannonballs.length - 1];
+        cannonballs.pop();
+        continue;
+      }
+
       // Colisión con islas
       var hitIsl = false;
       for (var ii = 0; ii < islands.length; ii++) {
@@ -2404,6 +2493,8 @@
   // RENDERIZADO
   function render(dt) {
     ctx.save();
+    ctx.fillStyle = "#05111c";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Centrado de resolución virtual 1920x1080
@@ -2499,15 +2590,20 @@
     for (var pr = 0; pr < pirateShips.length; pr++) pirateShips[pr].draw(ctx);
     if (bossGalleon) bossGalleon.draw(ctx);
 
-    // Bordes letales en modo Batalla
-    if (selectedMode !== MODE_HORDE) {
+    // Delimitación visual de la zona jugable
+    ctx.save();
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.35)";
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(arenaBounds.x, arenaBounds.y, arenaBounds.w, arenaBounds.h);
+
+    // Bordes letales en modo Batalla durante Muerte Súbita
+    if (selectedMode !== MODE_HORDE && suddenDeathActive) {
       var pulse = 0.65 + 0.35 * Math.sin(waveAnim * 4.0);
-      ctx.save();
-      ctx.strokeStyle = suddenDeathActive ? "rgba(255, 30, 30, " + pulse + ")" : "rgba(255, 200, 40, " + (pulse * 0.6) + ")";
-      ctx.lineWidth = suddenDeathActive ? 6 : 3;
+      ctx.strokeStyle = "rgba(255, 30, 30, " + pulse + ")";
+      ctx.lineWidth = 6;
       ctx.strokeRect(currentBounds.x, currentBounds.y, currentBounds.w, currentBounds.h);
-      ctx.restore();
     }
+    ctx.restore();
 
     // Textos flotantes
     renderFloatingTexts(dt);
@@ -2527,135 +2623,261 @@
     drawHexagon(ctx, cx, cy, radius * 0.34, "#78909C", "#455A64", 2);
   }
 
-  // Rediseño HUD Lateral (Columnas flotantes a los costados)
+  // Rediseño HUD Lateral: Franjas laterales recortadas NO jugables
   function renderHUD() {
     ctx.save();
 
-    // === PANEL LATERAL IZQUIERDO (X: 35, W: 230) ===
-    var leftX = 35;
-    var rightX = 1655;
-    var cardW = 230;
+    var panelW = 270;
+    var leftPanelX = 0;
+    var rightPanelX = 1650;
+    var cardX_L = 15;
+    var cardX_R = 1665;
+    var cardW = 240;
+    var cardH = 86;
+
+    // 1. Fondos sólidos y bordes divisores de las franjas laterales
+    // Panel Izquierdo
+    var leftGrad = ctx.createLinearGradient(0, 0, panelW, 0);
+    leftGrad.addColorStop(0, "#05111c");
+    leftGrad.addColorStop(1, "#0a1d30");
+    ctx.fillStyle = leftGrad;
+    ctx.fillRect(leftPanelX, 0, panelW, V_HEIGHT);
+
+    // Borde divisor derecho del panel izquierdo (frontera con el mar)
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.55)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(panelW, 0);
+    ctx.lineTo(panelW, V_HEIGHT);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(255, 215, 0, 0.7)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(panelW - 2, 0);
+    ctx.lineTo(panelW - 2, V_HEIGHT);
+    ctx.stroke();
+
+    // Panel Derecho
+    var rightGrad = ctx.createLinearGradient(rightPanelX, 0, V_WIDTH, 0);
+    rightGrad.addColorStop(0, "#0a1d30");
+    rightGrad.addColorStop(1, "#05111c");
+    ctx.fillStyle = rightGrad;
+    ctx.fillRect(rightPanelX, 0, panelW, V_HEIGHT);
+
+    // Borde divisor izquierdo del panel derecho (frontera con el mar)
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.55)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(rightPanelX, 0);
+    ctx.lineTo(rightPanelX, V_HEIGHT);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(255, 215, 0, 0.7)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(rightPanelX + 2, 0);
+    ctx.lineTo(rightPanelX + 2, V_HEIGHT);
+    ctx.stroke();
+
+    // 2. Obtener ÚNICAMENTE los jugadores que están en partida
+    var inMatchPlayers = [];
+    for (var s = 0; s < activeShips.length; s++) {
+      inMatchPlayers.push(activeShips[s].data);
+    }
 
     if (selectedMode === MODE_TEAMS) {
-      // Columna Izquierda: EQUIPO AZUL
-      ctx.fillStyle = "rgba(13, 71, 161, 0.85)";
-      ctx.fillRect(leftX, 20, cardW, 46);
+      // === MODO BATALLA POR EQUIPOS ===
+      // Cabecera Equipo Azul
+      ctx.fillStyle = "rgba(13, 71, 161, 0.92)";
+      ctx.fillRect(cardX_L, 20, cardW, 48);
       ctx.strokeStyle = "#42a5f5";
-      ctx.lineWidth = 2.5;
-      ctx.strokeRect(leftX, 20, cardW, 46);
-      ctx.font = "bold 17px sans-serif";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cardX_L, 20, cardW, 48);
+      ctx.font = "bold 16px sans-serif";
       ctx.textAlign = "center";
       ctx.fillStyle = "#ffffff";
-      ctx.fillText("🔵 AZUL: " + teamScores.blue + " PTS", leftX + cardW / 2, 49);
+      ctx.fillText("🔵 EQUIPO AZUL", cardX_L + cardW / 2, 42);
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillStyle = "#90caf9";
+      ctx.fillText(teamScores.blue + " PUNTOS", cardX_L + cardW / 2, 60);
 
-      // Tarjetas de jugadores azules
-      var blueIdx = 0;
-      for (var i = 0; i < playersData.length; i++) {
-        var pb = playersData[i];
-        if (pb.team === "blue" && (pb.connected || activeShips.length <= 2)) {
-          drawPlayerHUDCard(leftX, 76 + blueIdx * 92, cardW, 82, pb);
-          blueIdx++;
+      // Tarjetas jugadores azules en partida
+      var blueCount = 0;
+      for (var i = 0; i < inMatchPlayers.length; i++) {
+        if (inMatchPlayers[i].team === "blue") {
+          drawPlayerHUDCard(cardX_L, 80 + blueCount * 96, cardW, cardH, inMatchPlayers[i]);
+          blueCount++;
         }
       }
+      if (blueCount === 0) {
+        ctx.font = "italic 13px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#78909c";
+        ctx.fillText("Sin jugadores", cardX_L + cardW / 2, 120);
+      }
 
-      // Columna Derecha: EQUIPO ROJO
-      ctx.fillStyle = "rgba(183, 28, 28, 0.85)";
-      ctx.fillRect(rightX, 20, cardW, 46);
+      // Cabecera Equipo Rojo
+      ctx.fillStyle = "rgba(183, 28, 28, 0.92)";
+      ctx.fillRect(cardX_R, 20, cardW, 48);
       ctx.strokeStyle = "#ef5350";
-      ctx.lineWidth = 2.5;
-      ctx.strokeRect(rightX, 20, cardW, 46);
-      ctx.font = "bold 17px sans-serif";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cardX_R, 20, cardW, 48);
+      ctx.font = "bold 16px sans-serif";
       ctx.textAlign = "center";
       ctx.fillStyle = "#ffffff";
-      ctx.fillText("🔴 ROJO: " + teamScores.red + " PTS", rightX + cardW / 2, 49);
+      ctx.fillText("🔴 EQUIPO ROJO", cardX_R + cardW / 2, 42);
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillStyle = "#ffab91";
+      ctx.fillText(teamScores.red + " PUNTOS", cardX_R + cardW / 2, 60);
 
-      // Tarjetas de jugadores rojos
-      var redIdx = 0;
-      for (var j = 0; j < playersData.length; j++) {
-        var pr = playersData[j];
-        if (pr.team === "red" && (pr.connected || activeShips.length <= 2)) {
-          drawPlayerHUDCard(rightX, 76 + redIdx * 92, cardW, 82, pr);
-          redIdx++;
+      // Tarjetas jugadores rojos en partida
+      var redCount = 0;
+      for (var j = 0; j < inMatchPlayers.length; j++) {
+        if (inMatchPlayers[j].team === "red") {
+          drawPlayerHUDCard(cardX_R, 80 + redCount * 96, cardW, cardH, inMatchPlayers[j]);
+          redCount++;
         }
+      }
+      if (redCount === 0) {
+        ctx.font = "italic 13px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#78909c";
+        ctx.fillText("Sin jugadores", cardX_R + cardW / 2, 120);
       }
 
     } else if (selectedMode === MODE_HORDE) {
-      // Columna Izquierda: Flota Aliada
-      ctx.fillStyle = "rgba(8, 24, 38, 0.88)";
-      ctx.fillRect(leftX, 20, cardW, 46);
+      // === MODO HORDA PIRATA (ZOMBIES) ===
+      // Cabecera Flota Aliada
+      ctx.fillStyle = "rgba(10, 28, 44, 0.92)";
+      ctx.fillRect(cardX_L, 20, cardW, 48);
       ctx.strokeStyle = "#00e5ff";
-      ctx.lineWidth = 2.5;
-      ctx.strokeRect(leftX, 20, cardW, 46);
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cardX_L, 20, cardW, 48);
       ctx.font = "bold 16px sans-serif";
       ctx.textAlign = "center";
       ctx.fillStyle = "#00e5ff";
-      ctx.fillText("⚓ FLOTA ALIADA", leftX + cardW / 2, 49);
+      ctx.fillText("⚓ FLOTA ALIADA", cardX_L + cardW / 2, 42);
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText("OLEADA " + currentWave, cardX_L + cardW / 2, 60);
 
-      var allyIdx = 0;
-      for (var a = 0; a < playersData.length; a++) {
-        var pa = playersData[a];
-        if (pa.connected || activeShips.length <= 2) {
-          drawPlayerHUDCard(leftX, 76 + allyIdx * 92, cardW, 82, pa);
-          allyIdx++;
-        }
+      // Tarjetas de aliados en partida
+      for (var a = 0; a < inMatchPlayers.length; a++) {
+        drawPlayerHUDCard(cardX_L, 80 + a * 96, cardW, cardH, inMatchPlayers[a]);
       }
 
-      // Columna Derecha: Mejoras de Equipo Acumulables (Pack-a-Punch, etc.)
-      ctx.fillStyle = "rgba(8, 24, 38, 0.92)";
-      ctx.fillRect(rightX, 20, cardW, 280);
+      // Panel de Mejoras Globales (Pack-a-Punch) en panel derecho
+      ctx.fillStyle = "rgba(10, 28, 44, 0.95)";
+      ctx.fillRect(cardX_R, 20, cardW, 305);
       ctx.strokeStyle = "#ffd700";
-      ctx.lineWidth = 2.5;
-      ctx.strokeRect(rightX, 20, cardW, 280);
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cardX_R, 20, cardW, 305);
 
       ctx.font = "bold 16px sans-serif";
       ctx.textAlign = "center";
       ctx.fillStyle = "#ffd700";
-      ctx.fillText("⭐ MEJORAS GLOBALES", rightX + cardW / 2, 50);
+      ctx.fillText("⭐ MEJORAS EQUIPO", cardX_R + cardW / 2, 48);
 
       ctx.font = "14px sans-serif";
       ctx.textAlign = "left";
       var upY = 82;
 
       ctx.fillStyle = "#ff4081";
-      ctx.fillText("💥 Armas: Nivel " + hordeUpgrades.weaponLevel, rightX + 16, upY);
-      ctx.fillStyle = "#aaaaaa";
+      ctx.fillText("💥 Armas: Nivel " + hordeUpgrades.weaponLevel, cardX_R + 16, upY);
+      ctx.fillStyle = "#bbbbbb";
       ctx.font = "12px sans-serif";
       var wTitle = (hordeUpgrades.weaponLevel === 1) ? "Disparo simple" : (hordeUpgrades.weaponLevel === 2 ? "Doble cañón" : "Disparo triple");
-      ctx.fillText(wTitle, rightX + 38, upY + 18);
+      ctx.fillText(wTitle, cardX_R + 34, upY + 18);
 
       ctx.font = "14px sans-serif";
       ctx.fillStyle = "#29b6f6";
-      ctx.fillText("📦 Munición: Máx " + hordeUpgrades.maxAmmo, rightX + 16, upY + 50);
+      ctx.fillText("📦 Munición: Máx " + hordeUpgrades.maxAmmo, cardX_R + 16, upY + 52);
 
       ctx.fillStyle = "#ffd700";
-      ctx.fillText("🛡️ Blindaje: " + hordeUpgrades.maxHealth + " Vidas", rightX + 16, upY + 86);
+      ctx.fillText("🛡️ Casco: " + hordeUpgrades.maxHealth + " Vidas", cardX_R + 16, upY + 90);
 
       ctx.fillStyle = "#00e676";
-      ctx.fillText("💚 Revivir Usados: " + hordeUpgrades.repairs, rightX + 16, upY + 122);
+      ctx.fillText("💚 Revivir Usados: " + hordeUpgrades.repairs, cardX_R + 16, upY + 128);
 
-      // Información de oleada en el panel
+      // Contador de piratas restantes
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 15px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("☠️ Restantes: " + (pirateShips.length + waveEnemiesToSpawn), rightX + cardW / 2, upY + 172);
+      ctx.fillText("☠️ Piratas: " + (pirateShips.length + waveEnemiesToSpawn), cardX_R + cardW / 2, upY + 185);
 
     } else {
-      // Modo Todos contra Todos (Jugadores 1 a 4 a la izquierda, 5 a 8 a la derecha)
-      var lCount = 0;
-      for (var p1 = 0; p1 < 4; p1++) {
-        var pl = playersData[p1];
-        if (pl.connected || activeShips.length <= 2) {
-          drawPlayerHUDCard(leftX, 30 + lCount * 95, cardW, 85, pl);
-          lCount++;
-        }
-      }
+      // === MODO TODOS CONTRA TODOS (BATTLE) ===
+      // Cabecera Panel Izquierdo
+      ctx.fillStyle = "rgba(10, 28, 44, 0.92)";
+      ctx.fillRect(cardX_L, 20, cardW, 48);
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cardX_L, 20, cardW, 48);
+      ctx.font = "bold 16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffd700";
+      ctx.fillText("⚔️ CAPITANES", cardX_L + cardW / 2, 42);
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText("RONDA " + Math.min(currentRound, TOTAL_ROUNDS) + " / " + TOTAL_ROUNDS, cardX_L + cardW / 2, 60);
 
-      var rCount = 0;
-      for (var p2 = 4; p2 < 8; p2++) {
-        var pr2 = playersData[p2];
-        if (pr2.connected) {
-          drawPlayerHUDCard(rightX, 30 + rCount * 95, cardW, 85, pr2);
-          rCount++;
+      if (inMatchPlayers.length <= 1) {
+        if (inMatchPlayers.length === 1) {
+          drawPlayerHUDCard(cardX_L, 80, cardW, cardH, inMatchPlayers[0]);
+        }
+        ctx.fillStyle = "rgba(10, 28, 44, 0.92)";
+        ctx.fillRect(cardX_R, 20, cardW, 48);
+        ctx.strokeStyle = "#00e5ff";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cardX_R, 20, cardW, 48);
+        ctx.font = "bold 16px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#00e5ff";
+        ctx.fillText("🏆 TORNEO", cardX_R + cardW / 2, 42);
+        ctx.font = "bold 13px sans-serif";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText("10 RONDAS", cardX_R + cardW / 2, 60);
+      } else if (inMatchPlayers.length === 2) {
+        // Exactamente 2 jugadores: Duelo 1 vs 1 perfecto
+        drawPlayerHUDCard(cardX_L, 80, cardW, cardH, inMatchPlayers[0]);
+
+        ctx.fillStyle = "rgba(10, 28, 44, 0.92)";
+        ctx.fillRect(cardX_R, 20, cardW, 48);
+        ctx.strokeStyle = "#ffd700";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cardX_R, 20, cardW, 48);
+        ctx.font = "bold 16px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#ffd700";
+        ctx.fillText("⚔️ RIVAL", cardX_R + cardW / 2, 42);
+        ctx.font = "bold 13px sans-serif";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText("RONDA " + Math.min(currentRound, TOTAL_ROUNDS) + " / " + TOTAL_ROUNDS, cardX_R + cardW / 2, 60);
+
+        drawPlayerHUDCard(cardX_R, 80, cardW, cardH, inMatchPlayers[1]);
+      } else {
+        // 3 o más jugadores: dividir equitativamente
+        var half = Math.ceil(inMatchPlayers.length / 2);
+        for (var p1 = 0; p1 < half; p1++) {
+          drawPlayerHUDCard(cardX_L, 80 + p1 * 96, cardW, cardH, inMatchPlayers[p1]);
+        }
+
+        ctx.fillStyle = "rgba(10, 28, 44, 0.92)";
+        ctx.fillRect(cardX_R, 20, cardW, 48);
+        ctx.strokeStyle = "#ffd700";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cardX_R, 20, cardW, 48);
+        ctx.font = "bold 16px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#ffd700";
+        ctx.fillText("⚔️ CAPITANES", cardX_R + cardW / 2, 42);
+        ctx.font = "bold 13px sans-serif";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText("RONDA " + Math.min(currentRound, TOTAL_ROUNDS) + " / " + TOTAL_ROUNDS, cardX_R + cardW / 2, 60);
+
+        for (var p2 = half; p2 < inMatchPlayers.length; p2++) {
+          drawPlayerHUDCard(cardX_R, 80 + (p2 - half) * 96, cardW, cardH, inMatchPlayers[p2]);
         }
       }
     }
@@ -2667,16 +2889,16 @@
       var barY = 25;
       var barW = 800;
       var barH = 34;
+      var hpPct = Math.max(0, Math.min(1, bossGalleon.health / bossGalleon.maxHealth));
 
-      ctx.fillStyle = "rgba(10, 10, 15, 0.9)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
       ctx.fillRect(barX, barY, barW, barH);
       ctx.strokeStyle = "#ffd700";
       ctx.lineWidth = 3;
       ctx.strokeRect(barX, barY, barW, barH);
 
-      var hpPct = Math.max(0, bossGalleon.health / bossGalleon.maxHealth);
       var bGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
-      bGrad.addColorStop(0, "#d50000");
+      bGrad.addColorStop(0, "#ffd700");
       bGrad.addColorStop(1, "#ff1744");
       ctx.fillStyle = bGrad;
       ctx.fillRect(barX + 3, barY + 3, (barW - 6) * hpPct, barH - 6);
