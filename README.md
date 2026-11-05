@@ -43,6 +43,7 @@ Estrategia y combate en escuadra: **Equipo Azul 🔵 vs. Equipo Rojo 🔴**.
 ### 💀 3. Horda Pirata (Supervivencia Cooperativa)
 ¡Inspirado en el modo Zombies, todos los jugadores son aliados contra la flota de Barcos Piratas Fantasma!
 - **Oleadas Infinitas:** En cada oleada aparecen más barcos piratas con mayor velocidad y puntería.
+- **💚 Recuperación Total al Completar Oleada:** Al superar con éxito cada oleada, ¡todos los barcos aliados recuperan automáticamente el 100% de su salud máxima y los capitanes caídos son revividos para la siguiente ronda!
 - **☠️ Galeón Jefe cada 10 Rondas:** En las oleadas 10, 20, 30... surgirá un colosal Galeón Jefe Pirata con ataques en abanico y ráfagas laterales. ¡Concéntrense en derrotarlo!
 - **⭐ Mejoras Globales y Acumulables (Power-ups):**
   Al destruir barcos piratas aparecerán cajas de botín flotantes. Cuando **cualquier** jugador recoge una mejora, **¡se aplica inmediatamente a todo el equipo!**:
@@ -56,7 +57,9 @@ Estrategia y combate en escuadra: **Equipo Azul 🔵 vs. Equipo Rojo 🔴**.
 
 ## 🕹️ Controles del Mando Móvil
 
-- **Timón Táctil (Izquierda):** Desliza el dedo sobre el timón virtual para girar el barco suavemente a babor (izquierda) o estribor (derecha).
+- **Dos Estilos de Control a Elegir (🎮 Botón Superior):** Puedes alternar en cualquier momento entre dos modos de manejo según el tamaño de tu celular y comodidad:
+  - **Estilo Clásico:** Con un timón naval analógico para girar deslizando el dedo suavemente a babor o estribor.
+  - **Estilo Compacto / Ergonómico:** Diseñado especialmente para personas con teléfonos de pantalla grande o manos pequeñas, con botones directos y amplios de dirección (**◀ BABOR** y **ESTRIBOR ▶**) colocados en la zona inferior cómoda para no tener que estirar el pulgar. Tu elección se guarda automáticamente.
 - **Acelerar / Impulso 💨:** Mantén presionado para desplegar velas y ganar velocidad de embestida.
 - **Espolón Metálico Frontal (Embestida con Velocidad) 🛡️⚔️:** Todos los barcos cuentan con una afilada punta de acero al frente. Si aceleras a gran velocidad y embistes de frente a un barco rival o a los barcos de la Horda Pirata (incluido el Galeón Jefe), le causarás la mitad del daño de una bala (0.5 de vida) con chispas metálicas, retroceso y vibración.
 - **Disparar Cañón 💣:** Dispara una salva de cañonazos hacia adelante.

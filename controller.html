@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
   <title>BARQUITOS - Mando Móvil</title>
-  <link rel="stylesheet" href="css/controller.css?v=12">
+  <link rel="stylesheet" href="css/controller.css?v=13">
 </head>
 <body>
   <!-- Modal para ingresar el código de sala si no se escaneó el QR -->
@@ -35,6 +35,10 @@
       </div>
 
       <div class="top-bar-actions">
+        <button id="btn-style-toggle" class="style-toggle-btn" type="button" title="Cambiar estilo de mando">
+          <span class="style-icon">🎮</span>
+          <span id="style-text" class="style-text">CLÁSICO</span>
+        </button>
         <button id="btn-fullscreen" class="fullscreen-btn" type="button" title="Pantalla Completa">
           ⛶
         </button>
@@ -58,16 +62,36 @@
 
     <!-- Zona de mandos táctiles -->
     <div class="controls-area">
-      <!-- MITAD IZQUIERDA: Timón / Volante Virtual -->
+      <!-- MITAD IZQUIERDA: Zona de Dirección (Timón Clásico o Botones Compactos) -->
       <div id="steering-zone" class="steering-zone">
-        <div class="zone-label">TIMÓN / GIRO</div>
-        <div id="wheel-outer" class="wheel-outer">
-          <div id="wheel-indicator" class="wheel-indicator"></div>
-          <div id="wheel-knob" class="wheel-knob">⚓</div>
+        <!-- Modo Clásico: Timón Naval Virtual -->
+        <div id="classic-steer" class="classic-steer-container">
+          <div class="zone-label">TIMÓN / GIRO</div>
+          <div id="wheel-outer" class="wheel-outer">
+            <div id="wheel-indicator" class="wheel-indicator"></div>
+            <div id="wheel-knob" class="wheel-knob">⚓</div>
+          </div>
+          <div class="turn-labels">
+            <span>◀ BABOR</span>
+            <span>ESTRIBOR ▶</span>
+          </div>
         </div>
-        <div class="turn-labels">
-          <span>◀ BABOR</span>
-          <span>ESTRIBOR ▶</span>
+
+        <!-- Modo Compacto / Ergonómico para Pantallas Grandes y Manos Pequeñas -->
+        <div id="compact-steer" class="compact-steer-container" style="display: none;">
+          <div class="zone-label">DIRECCIÓN ERGONÓMICA</div>
+          <div class="compact-buttons-row">
+            <div id="btn-steer-left" class="compact-dir-btn dir-left">
+              <span class="dir-icon">◀</span>
+              <span class="dir-title">BABOR</span>
+              <span class="dir-sub">IZQUIERDA</span>
+            </div>
+            <div id="btn-steer-right" class="compact-dir-btn dir-right">
+              <span class="dir-icon">▶</span>
+              <span class="dir-title">ESTRIBOR</span>
+              <span class="dir-sub">DERECHA</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -102,7 +126,7 @@
 
   <!-- Scripts en orden de dependencia en ES5 estricto -->
   <script src="js/paho-mqtt.min.js"></script>
-  <script src="js/cloud_network.js?v=12"></script>
-  <script src="js/controller.js?v=12"></script>
+  <script src="js/cloud_network.js?v=13"></script>
+  <script src="js/controller.js?v=13"></script>
 </body>
 </html>

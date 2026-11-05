@@ -1491,6 +1491,7 @@
           shipFound.flashTimer = 0.5;
           revivedCount++;
         } else {
+          shipFound.health = hordeUpgrades.maxHealth;
           if (shipFound.ammo < 3) shipFound.ammo = 3;
         }
       }
@@ -2451,11 +2452,22 @@
       ));
     }
 
-    // Fin de oleada: todos los piratas y jefe muertos
+    // Fin de oleada: todos los piratas y jefe muertos (Éxito de ronda)
     if (waveEnemiesToSpawn === 0 && pirateShips.length === 0 && (!bossGalleon || !bossGalleon.isAlive)) {
       if (waveIntermissionTimer === 0) {
-        addFloatingText("🏆 ¡OLEADA " + currentWave + " COMPLETADA! 🏆", 960, 360, "#00e676", 46);
-        Sound.playWaveStart();
+        addFloatingText("🏆 ¡OLEADA " + currentWave + " COMPLETADA! 🏆", 960, 330, "#00e676", 46);
+        addFloatingText("💚 ¡SALUD AL MÁXIMO RESTAURADA!", 960, 390, "#76ff03", 34);
+        Sound.playPowerup();
+
+        // Recuperar la vida al máximo para todos los barcos aliados y revivir a los caídos
+        for (var hs = 0; hs < activeShips.length; hs++) {
+          var aShip = activeShips[hs];
+          aShip.health = aShip.maxHealth;
+          aShip.isAlive = true;
+          aShip.flashTimer = 0.4;
+          if (aShip.ammo < 3) aShip.ammo = 3;
+          sendTvAction("vibrate", aShip.slot, [90, 60, 90]);
+        }
       }
       waveIntermissionTimer += dt;
       if (waveIntermissionTimer >= 4.5) {

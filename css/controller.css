@@ -191,6 +191,29 @@ html, body {
   gap: 8px;
 }
 
+.style-toggle-btn {
+  background: #1e293b;
+  color: #38bdf8;
+  border: 2px solid #0284c7;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.style-toggle-btn:active {
+  background: #0284c7;
+  color: #ffffff;
+  transform: scale(0.95);
+}
+
 .fullscreen-btn {
   background: #2c3e50;
   color: #00e5ff;
@@ -409,6 +432,119 @@ html, body {
   color: rgba(255, 255, 255, 0.7);
 }
 
+/* Contenedores para Alternar Estilos de Control */
+.classic-steer-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.compact-steer-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.compact-buttons-row {
+  width: 100%;
+  height: calc(100% - 16px);
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  margin-top: 14px;
+  box-sizing: border-box;
+}
+
+.compact-dir-btn {
+  flex: 1 1 0%;
+  height: 100%;
+  min-width: 0;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  transition: transform 0.05s ease, filter 0.05s ease, background 0.08s ease;
+}
+
+.compact-dir-btn.dir-left {
+  background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+  border: 3px solid #38bdf8;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(56, 189, 248, 0.12);
+}
+
+.compact-dir-btn.dir-left.pressed {
+  background: linear-gradient(145deg, #0284c7 0%, #0369a1 100%);
+  border-color: #e0f2fe;
+  transform: scale(0.95);
+  box-shadow: 0 0 25px rgba(56, 189, 248, 0.9);
+  filter: brightness(1.2);
+}
+
+.compact-dir-btn.dir-right {
+  background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+  border: 3px solid #facc15;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(250, 204, 21, 0.12);
+}
+
+.compact-dir-btn.dir-right.pressed {
+  background: linear-gradient(145deg, #ca8a04 0%, #a16207 100%);
+  border-color: #fef08a;
+  transform: scale(0.95);
+  box-shadow: 0 0 25px rgba(250, 204, 21, 0.9);
+  filter: brightness(1.2);
+}
+
+.dir-icon {
+  font-size: 34px;
+  font-weight: 900;
+  color: #ffffff;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.dir-title {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: #ffffff;
+  margin-top: 4px;
+  pointer-events: none;
+}
+
+.dir-sub {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+}
+
+/* Modificaciones de layout para Estilo Compacto / Ergonómico */
+.style-compact .steering-zone {
+  background: rgba(15, 23, 42, 0.75);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.style-compact .touch-btn {
+  border-radius: 14px;
+}
+
 /* MITAD DERECHA: Botones */
 .actions-zone {
   flex: 1 1 0%;
@@ -554,9 +690,9 @@ html, body {
     padding: 2px 8px;
     font-size: 12px;
   }
-  .ready-btn, .fullscreen-btn {
+  .ready-btn, .style-toggle-btn, .fullscreen-btn {
     padding: 3px 8px;
-    font-size: 12px;
+    font-size: 11px;
   }
   .steering-zone {
     padding: 16px 6px;
