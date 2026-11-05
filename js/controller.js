@@ -293,26 +293,63 @@
     }
   }
 
+  function isDocumentFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+  }
+
+  function getViewportSize() {
+    var vv = window.visualViewport;
+    if (vv && vv.width && vv.height) {
+      return {
+        w: Math.floor(vv.width),
+        h: Math.floor(vv.height)
+      };
+    }
+    return {
+      w: window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth || 360,
+      h: window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight || 640
+    };
+  }
+
   function updateLayoutDimensions() {
-    var winW = window.innerWidth || document.documentElement.clientWidth;
-    var winH = window.innerHeight || document.documentElement.clientHeight;
+    var vp = getViewportSize();
+    var winW = vp.w;
+    var winH = vp.h;
     if (!winW || !winH) return;
-    var isPortrait = (winH > winW);
 
     var container = document.getElementById('gamepad-container');
     if (!container) return;
 
+    var inFs = isDocumentFullscreen();
+    var isPortrait = (winH > winW);
+
     document.documentElement.style.width = '100%';
     document.documentElement.style.height = '100%';
     document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.margin = '0';
+    document.documentElement.style.padding = '0';
+
     document.body.style.width = '100%';
     document.body.style.height = '100%';
     document.body.style.overflow = 'hidden';
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
 
-    if (isPortrait) {
-      // Teléfono vertical: rotar 90° horario
-      // El ancho visual del mando es el alto físico de la ventana (winH)
-      // El alto visual del mando es el ancho físico de la ventana (winW)
+    if (inFs) {
+      // Pantalla completa activa: ocupa exactamente la ventana visible sin rotación CSS
+      container.style.position = 'fixed';
+      container.style.top = '0px';
+      container.style.left = '0px';
+      container.style.right = '0px';
+      container.style.bottom = '0px';
+      container.style.width = winW + 'px';
+      container.style.height = winH + 'px';
+      container.style.maxWidth = winW + 'px';
+      container.style.maxHeight = winH + 'px';
+      container.style.transform = 'none';
+      container.style.transformOrigin = 'initial';
+    } else if (isPortrait) {
+      // Teléfono vertical sin fullscreen: rotar 90° horario
       container.style.position = 'fixed';
       container.style.top = '0px';
       container.style.left = winW + 'px';
@@ -326,7 +363,6 @@
       container.style.transformOrigin = 'top left';
     } else {
       // Modo horizontal (landscape) nativo o tras pantalla completa:
-      // Sin rotación, anclado exactamente al tamaño visible en píxeles para jamás desbordar
       container.style.position = 'fixed';
       container.style.top = '0px';
       container.style.left = '0px';
@@ -348,17 +384,7 @@
 
     var overlay = document.getElementById('room-overlay');
     if (overlay && overlay.style.display !== 'none') {
-      if (isPortrait) {
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0px';
-        overlay.style.left = winW + 'px';
-        overlay.style.right = 'auto';
-        overlay.style.bottom = 'auto';
-        overlay.style.width = winH + 'px';
-        overlay.style.height = winW + 'px';
-        overlay.style.transform = 'rotate(90deg)';
-        overlay.style.transformOrigin = 'top left';
-      } else {
+      if (inFs || !isPortrait) {
         overlay.style.position = 'fixed';
         overlay.style.top = '0px';
         overlay.style.left = '0px';
@@ -368,20 +394,31 @@
         overlay.style.height = winH + 'px';
         overlay.style.transform = 'none';
         overlay.style.transformOrigin = 'initial';
+      } else {
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0px';
+        overlay.style.left = winW + 'px';
+        overlay.style.right = 'auto';
+        overlay.style.bottom = 'auto';
+        overlay.style.width = winH + 'px';
+        overlay.style.height = winW + 'px';
+        overlay.style.transform = 'rotate(90deg)';
+        overlay.style.transformOrigin = 'top left';
       }
     }
   }
 
   function toggleFullscreen() {
     var doc = window.document;
-    var docEl = doc.documentElement;
-    var req = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
-    var exit = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+    var container = document.getElementById('gamepad-container');
+    var target = container || doc.documentElement;
+    var req = target.requestFullscreen || target.webkitRequestFullscreen || target.mozRequestFullScreen || target.msRequestFullscreen || doc.documentElement.requestFullscreen || doc.documentElement.webkitRequestFullscreen;
+    var exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
 
     if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
       if (req) {
         try {
-          var p = req.call(docEl);
+          var p = req.call(target);
           if (p && p.catch) p.catch(function () {});
         } catch (e) {}
       }
@@ -800,6 +837,16 @@
       setTimeout(updateLayoutDimensions, 250);
       setTimeout(updateLayoutDimensions, 600);
     }, false);
+    if (window.visualViewport) {
+      try {
+        window.visualViewport.addEventListener('resize', function () {
+          updateLayoutDimensions();
+        }, false);
+        window.visualViewport.addEventListener('scroll', function () {
+          updateLayoutDimensions();
+        }, false);
+      } catch (eVvListener) {}
+    }
 
     if (currentRoom) {
       connectToRoom(currentRoom);

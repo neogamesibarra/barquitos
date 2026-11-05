@@ -72,7 +72,7 @@
     };
 
     var options = {
-      timeout: 6,
+      timeout: 5,
       useSSL: true,
       keepAliveInterval: 20,
       cleanSession: true,
@@ -97,8 +97,10 @@
           callbacks.onConnected();
         }
       },
-      onFailure: function () {
+      onFailure: function (err) {
         isConnected = false;
+        var errMsg = (err && err.errorMessage) ? err.errorMessage : 'Error de enlace';
+        if (onStatusCb) onStatusCb('connecting', 'Reintentando (' + errMsg + ')...');
         fallbackConnect();
       }
     };
@@ -112,9 +114,11 @@
 
   function fallbackConnect() {
     currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
+    var nextBroker = BROKERS[currentBrokerIdx];
+    if (onStatusCb) onStatusCb('connecting', 'Probando con ' + nextBroker.host + '...');
     setTimeout(function () {
       connect(savedCallbacks);
-    }, 1500);
+    }, 1200);
   }
 
   function publish(topic, data) {
