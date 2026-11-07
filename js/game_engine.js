@@ -104,6 +104,63 @@
   // Screen Shake
   var shakeTimer = 0;
   var shakeIntensity = 0;
+
+  // Variables Multijugador Online (Jugar con amigos en otros países)
+  var isRemoteClient = false;
+  var remoteSlot = -1;
+  var myPlayerUUID = null;
+  var myCustomNickname = "";
+  var mySelectedTeam = "blue";
+  var isClientReady = false;
+  var lastBroadcastTime = 0;
+  var lastInputSendTime = 0;
+
+  var localInputState = {
+    turn: 0,
+    thrust: false,
+    shoot: false
+  };
+
+  var lastSentLocalInput = {
+    turn: 999,
+    thrust: false,
+    shoot: false
+  };
+
+  var keyState = {
+    left: false,
+    right: false,
+    thrust: false,
+    shoot: false
+  };
+
+  function getQueryParam(name) {
+    var search = window.location.search.substring(1);
+    var parts = search.split("&");
+    for (var i = 0; i < parts.length; i++) {
+      var pair = parts[i].split("=");
+      if (decodeURIComponent(pair[0]).toLowerCase() === name.toLowerCase()) {
+        return decodeURIComponent(pair[1] || "").toUpperCase();
+      }
+    }
+    return "";
+  }
+
+  function getOrCreateUUID() {
+    var key = "barquitos_cloud_uuid";
+    var saved = null;
+    try { saved = window.localStorage.getItem(key); } catch (e) {}
+    if (saved && saved.length > 8) return saved;
+
+    var chars = "0123456789abcdef";
+    var newUuid = "u-";
+    for (var i = 0; i < 12; i++) {
+      newUuid += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    newUuid += "-" + Date.now().toString(36);
+    try { window.localStorage.setItem(key, newUuid); } catch (e) {}
+    return newUuid;
+  }
   function triggerScreenShake(duration, intensity) {
     shakeTimer = duration || 0.25;
     shakeIntensity = intensity || 8;
@@ -1571,13 +1628,467 @@
     return code;
   }
 
-  // Conexión CloudNet
-  function connectCloudNet() {
-    currentRoomCode = generateRoomCode();
-    var roomDisplay = document.getElementById("room-code-text") || document.getElementById("room-code-display");
-    if (roomDisplay) roomDisplay.textContent = currentRoomCode;
-    generateLobbyQR();
 
+  // ==========================================================================
+  // MULTIJUGADOR ONLINE: TRANSMISIÓN (HOST) Y SINCRONIZACIÓN (CLIENTE)
+  // ==========================================================================
+
+  function broadcastGameState() {
+    if (!window.CloudNet || !window.CloudNet.isConnected() || isRemoteClient) return;
+    var now = Date.now();
+    if (now - lastBroadcastTime < 50) return; // ~20 Hz
+    lastBroadcastTime = now;
+
+    // 1. Barcos de jugadores
+    var sData = [];
+    for (var i = 0; i < activeShips.length; i++) {
+      var sh = activeShips[i];
+      sData.push([
+        sh.slot,
+        Math.round(sh.x),
+        Math.round(sh.y),
+        Math.round(sh.rotation * 100) / 100,
+        sh.health,
+        sh.maxHealth,
+        sh.ammo,
+        sh.isAlive ? 1 : 0,
+        (sh.data && sh.data.team) ? sh.data.team : "blue",
+        (sh.data && sh.data.name) ? sh.data.name : "",
+        (sh.data && sh.data.customName) ? sh.data.customName : "",
+        sh.isRamming ? 1 : 0,
+        sh.flashTimer > 0 ? 1 : 0
+      ]);
+    }
+
+    // 2. Balas de cañón activas
+    var bData = [];
+    for (var b = 0; b < cannonballs.length; b++) {
+      var cb = cannonballs[b];
+      if (cb.isAlive !== false) {
+        bData.push([
+          Math.round(cb.x),
+          Math.round(cb.y),
+          Math.round(cb.dx * 100) / 100,
+          Math.round(cb.dy * 100) / 100,
+          cb.isPirate ? 1 : 0,
+          cb.shooterTeam || "blue"
+        ]);
+      }
+    }
+
+    // 3. Barcos Piratas (Modo Horda)
+    var pData = [];
+    for (var p = 0; p < pirateShips.length; p++) {
+      var pi = pirateShips[p];
+      if (pi.isAlive) {
+        pData.push([
+          Math.round(pi.x),
+          Math.round(pi.y),
+          Math.round(pi.rotation * 100) / 100,
+          pi.health,
+          pi.maxHealth,
+          pi.flashTimer > 0 ? 1 : 0
+        ]);
+      }
+    }
+
+    // 4. Galeón Jefe
+    var boData = null;
+    if (bossGalleon && bossGalleon.isAlive) {
+      boData = [
+        Math.round(bossGalleon.x),
+        Math.round(bossGalleon.y),
+        Math.round(bossGalleon.rotation * 100) / 100,
+        bossGalleon.health,
+        bossGalleon.maxHealth,
+        bossGalleon.flashTimer > 0 ? 1 : 0
+      ];
+    }
+
+    // 5. Cajas de munición y mejoras
+    var cData = [];
+    for (var c = 0; c < ammoCrates.length; c++) {
+      cData.push([Math.round(ammoCrates[c].x), Math.round(ammoCrates[c].y), -1]);
+    }
+    for (var pu = 0; pu < hordePowerups.length; pu++) {
+      cData.push([Math.round(hordePowerups[pu].x), Math.round(hordePowerups[pu].y), hordePowerups[pu].type]);
+    }
+
+    var syncPayload = {
+      type: "sync",
+      st: currentState,
+      m: selectedMode,
+      r: currentRound,
+      w: currentWave,
+      cd: Math.round(countdownTime * 10) / 10,
+      rt: Math.round(roundTimer),
+      ts: teamScores,
+      up: hordeUpgrades,
+      sh: sData,
+      cb: bData,
+      pi: pData,
+      bo: boData,
+      cr: cData,
+      rw: roundWinner ? roundWinner.name : null,
+      mw: matchWinner ? matchWinner.name : null
+    };
+
+    window.CloudNet.broadcastState(syncPayload);
+  }
+
+  function applyClientSync(msg) {
+    if (!isRemoteClient || !msg) return;
+
+    currentState = msg.st;
+    selectedMode = msg.m;
+    currentRound = msg.r;
+    currentWave = msg.w || 1;
+    countdownTime = msg.cd;
+    roundTimer = msg.rt;
+    if (msg.ts) teamScores = msg.ts;
+    if (msg.up) hordeUpgrades = msg.up;
+    if (msg.rw) roundWinner = { name: msg.rw, hull: "#ffca28" };
+    if (msg.mw) matchWinner = { name: msg.mw, hull: "#ffd700" };
+
+    // Visibilidad del lobby en cliente
+    var lobbyUI = document.getElementById("lobby-ui");
+    if (lobbyUI) {
+      lobbyUI.style.display = (currentState === STATE_LOBBY) ? "flex" : "none";
+    }
+
+    // Controles táctiles en pantalla durante la partida en móviles/tablets
+    var touchControls = document.getElementById("onscreen-touch-controls");
+    if (touchControls) {
+      if (currentState === STATE_ARENA && isTouchDevice()) {
+        touchControls.style.display = "flex";
+      } else {
+        touchControls.style.display = "none";
+      }
+    }
+
+    // 1. Sincronizar barcos
+    if (msg.sh) {
+      for (var i = 0; i < msg.sh.length; i++) {
+        var item = msg.sh[i];
+        var slot = item[0];
+        var ship = null;
+        for (var s = 0; s < activeShips.length; s++) {
+          if (activeShips[s].slot === slot) {
+            ship = activeShips[s];
+            break;
+          }
+        }
+        if (!ship) {
+          ship = new Ship(slot, item[1], item[2], item[3]);
+          activeShips.push(ship);
+        }
+        ship.targetX = item[1];
+        ship.targetY = item[2];
+        ship.targetAngle = item[3];
+
+        var distSq = (ship.x - ship.targetX) * (ship.x - ship.targetX) + (ship.y - ship.targetY) * (ship.y - ship.targetY);
+        if (distSq > 20000 || ship.x === 960) {
+          ship.x = ship.targetX;
+          ship.y = ship.targetY;
+          ship.rotation = ship.targetAngle;
+        }
+
+        ship.health = item[4];
+        ship.maxHealth = item[5];
+        ship.ammo = item[6];
+        ship.isAlive = (item[7] === 1);
+        if (ship.data) {
+          ship.data.team = item[8];
+          if (item[9]) ship.data.name = item[9];
+          if (item[10]) ship.data.customName = item[10];
+        }
+        ship.isRamming = (item[11] === 1);
+        if (item[12] === 1) ship.flashTimer = 0.2;
+      }
+    }
+
+    // 2. Sincronizar balas de cañón
+    cannonballs = [];
+    if (msg.cb) {
+      for (var b = 0; b < msg.cb.length; b++) {
+        var bItem = msg.cb[b];
+        var newCb = new Cannonball(bItem[0], bItem[1], bItem[2], bItem[3], 0, bItem[4] === 1, 1, bItem[5]);
+        cannonballs.push(newCb);
+      }
+    }
+
+    // 3. Sincronizar piratas
+    pirateShips = [];
+    if (msg.pi) {
+      for (var p = 0; p < msg.pi.length; p++) {
+        var pItem = msg.pi[p];
+        var ps = new PirateShip(pItem[0], pItem[1], currentWave);
+        ps.rotation = pItem[2];
+        ps.health = pItem[3];
+        ps.maxHealth = pItem[4];
+        if (pItem[5] === 1) ps.flashTimer = 0.2;
+        pirateShips.push(ps);
+      }
+    }
+
+    // 4. Sincronizar jefe
+    if (msg.bo) {
+      if (!bossGalleon) {
+        bossGalleon = new BossGalleon(msg.bo[0], msg.bo[1], currentWave);
+      }
+      bossGalleon.x = msg.bo[0];
+      bossGalleon.y = msg.bo[1];
+      bossGalleon.rotation = msg.bo[2];
+      bossGalleon.health = msg.bo[3];
+      bossGalleon.maxHealth = msg.bo[4];
+      if (msg.bo[5] === 1) bossGalleon.flashTimer = 0.2;
+    } else {
+      bossGalleon = null;
+    }
+
+    // 5. Sincronizar cajas
+    ammoCrates = [];
+    hordePowerups = [];
+    if (msg.cr) {
+      for (var c = 0; c < msg.cr.length; c++) {
+        var cItem = msg.cr[c];
+        if (cItem[2] === -1) {
+          ammoCrates.push(new AmmoCrate(cItem[0], cItem[1]));
+        } else {
+          hordePowerups.push(new HordePowerup(cItem[0], cItem[1], cItem[2]));
+        }
+      }
+    }
+
+    updateLateralScoreboards();
+  }
+
+  function updateRemoteClient(dt) {
+    // 1. Interpolación suave de barcos
+    for (var s = 0; s < activeShips.length; s++) {
+      var ship = activeShips[s];
+      if (ship.targetX !== undefined) {
+        ship.x += (ship.targetX - ship.x) * 0.45;
+        ship.y += (ship.targetY - ship.y) * 0.45;
+
+        var aDiff = ship.targetAngle - ship.rotation;
+        while (aDiff < -Math.PI) aDiff += Math.PI * 2;
+        while (aDiff > Math.PI) aDiff -= Math.PI * 2;
+        ship.rotation += aDiff * 0.45;
+      }
+      if (ship.flashTimer > 0) ship.flashTimer -= dt;
+      if (ship.ramCooldown > 0) ship.ramCooldown -= dt;
+
+      // Estela de espuma si el barco se mueve
+      if (ship.isAlive && Math.random() < 0.3) {
+        var rearX = ship.x - Math.cos(ship.rotation) * 26;
+        var rearY = ship.y - Math.sin(ship.rotation) * 26;
+        wakeParticles.push({
+          x: rearX + (Math.random() - 0.5) * 8,
+          y: rearY + (Math.random() - 0.5) * 8,
+          life: 0.6,
+          maxLife: 0.6,
+          size: 4 + Math.random() * 4
+        });
+      }
+    }
+
+    // 2. Partículas
+    for (var wp = wakeParticles.length - 1; wp >= 0; wp--) {
+      wakeParticles[wp].life -= dt;
+      if (wakeParticles[wp].life <= 0) {
+        wakeParticles.splice(wp, 1);
+      }
+    }
+
+    // 3. Textos flotantes
+    for (var ft = floatingTexts.length - 1; ft >= 0; ft--) {
+      var fText = floatingTexts[ft];
+      fText.y -= dt * 30;
+      fText.life -= dt;
+      if (fText.life <= 0) {
+        floatingTexts.splice(ft, 1);
+      }
+    }
+
+    // 4. Enviar inputs locales al anfitrión
+    sendLocalInputsToHost();
+  }
+
+  function updateLocalInputValues() {
+    var turn = 0;
+    if (keyState.left && !keyState.right) turn = -1.0;
+    else if (keyState.right && !keyState.left) turn = 1.0;
+
+    localInputState.turn = turn;
+    localInputState.thrust = keyState.thrust;
+    localInputState.shoot = keyState.shoot;
+
+    if (isRemoteClient) {
+      sendLocalInputsToHost();
+    } else {
+      // Anfitrión en PC: aplica directamente a Barco 0 si existe
+      if (activeShips[0] && activeShips[0].isAlive) {
+        activeShips[0].turnInput = localInputState.turn;
+        activeShips[0].thrustInput = localInputState.thrust;
+        activeShips[0].shootInput = localInputState.shoot;
+      }
+    }
+  }
+
+  function sendLocalInputsToHost() {
+    if (!isRemoteClient || !window.CloudNet || !window.CloudNet.isConnected()) return;
+
+    var now = Date.now();
+    var changed = (Math.abs(localInputState.turn - lastSentLocalInput.turn) > 0.05) ||
+                  (localInputState.thrust !== lastSentLocalInput.thrust) ||
+                  (localInputState.shoot !== lastSentLocalInput.shoot);
+
+    if (changed || (now - lastInputSendTime > 45)) {
+      lastSentLocalInput.turn = localInputState.turn;
+      lastSentLocalInput.thrust = localInputState.thrust;
+      lastSentLocalInput.shoot = localInputState.shoot;
+      lastInputSendTime = now;
+
+      window.CloudNet.sendToHost({
+        type: "input",
+        uuid: myPlayerUUID,
+        turn: localInputState.turn,
+        thrust: localInputState.thrust,
+        shoot: localInputState.shoot
+      });
+    }
+  }
+
+  function handleClientIncomingMessage(topic, msg) {
+    if (!msg || !msg.type) return;
+
+    if (msg.type === "init") {
+      remoteSlot = msg.slot;
+      var slotBadge = document.getElementById("remote-player-slot");
+      if (slotBadge) {
+        var profile = PLAYER_PROFILES[remoteSlot] || {};
+        slotBadge.textContent = "BARCO " + (remoteSlot + 1) + " (" + (profile.name || "Capitán") + ")";
+        slotBadge.style.backgroundColor = msg.hull || profile.hull || "#1e3a50";
+      }
+
+      // Re-sincronizar apodo guardado
+      try {
+        var savedName = window.localStorage.getItem("barquitos_nickname");
+        if (savedName) {
+          myCustomNickname = savedName;
+          var inp = document.getElementById("remote-nickname-input");
+          if (inp) inp.value = savedName;
+          CloudNet.sendToHost({
+            type: "set_name",
+            uuid: myPlayerUUID,
+            name: savedName
+          });
+        }
+      } catch(e){}
+
+      // Re-sincronizar equipo guardado
+      try {
+        var savedTeam = window.localStorage.getItem("barquitos_team");
+        if (savedTeam === "red" || savedTeam === "blue") {
+          mySelectedTeam = savedTeam;
+          CloudNet.sendToHost({
+            type: "set_team",
+            uuid: myPlayerUUID,
+            slot: remoteSlot,
+            team: mySelectedTeam
+          });
+          updateRemoteTeamUI();
+        }
+      } catch(e){}
+
+    } else if (msg.type === "team_confirmed") {
+      if (msg.team) {
+        mySelectedTeam = msg.team;
+        updateRemoteTeamUI();
+      }
+    } else if (msg.type === "mode_change") {
+      selectedMode = msg.mode;
+      updateLobbyModeUI();
+      updateRemoteTeamVisibility();
+    } else if (msg.type === "state_change") {
+      currentState = msg.state;
+      var lobbyUI = document.getElementById("lobby-ui");
+      if (lobbyUI) {
+        lobbyUI.style.display = (currentState === STATE_LOBBY) ? "flex" : "none";
+      }
+    } else if (msg.type === "sync") {
+      applyClientSync(msg);
+    } else if (msg.type === "powerup") {
+      Sound.playPowerup();
+      if (window.navigator && window.navigator.vibrate) {
+        try { window.navigator.vibrate([70, 50, 70]); } catch(e){}
+      }
+    } else if (msg.type === "vibrate") {
+      if (window.navigator && window.navigator.vibrate) {
+        try { window.navigator.vibrate(msg.duration || 80); } catch(e){}
+      }
+    }
+  }
+
+  function updateRemoteTeamUI() {
+    var btnB = document.getElementById("remote-btn-blue");
+    var btnR = document.getElementById("remote-btn-red");
+    if (btnB) btnB.className = "remote-team-btn blue" + (mySelectedTeam === "blue" ? " active" : "");
+    if (btnR) btnR.className = "remote-team-btn red" + (mySelectedTeam === "red" ? " active" : "");
+  }
+
+  function updateRemoteTeamVisibility() {
+    var toggleBox = document.getElementById("remote-team-toggle");
+    if (toggleBox) {
+      toggleBox.style.display = (selectedMode === MODE_TEAMS) ? "flex" : "none";
+    }
+  }
+
+  function isTouchDevice() {
+    return (("ontouchstart" in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
+  }
+
+  function setupOnscreenControls() {
+    var btnLeft = document.getElementById("touch-steer-left");
+    var btnRight = document.getElementById("touch-steer-right");
+    var btnThrust = document.getElementById("touch-thrust");
+    var btnShoot = document.getElementById("touch-shoot");
+
+    function bindBtn(el, prop, valStart, valEnd) {
+      if (!el) return;
+      function onStart(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        el.className = el.className + " pressed";
+        keyState[prop] = valStart;
+        updateLocalInputValues();
+        if (window.navigator && window.navigator.vibrate) {
+          try { window.navigator.vibrate(25); } catch(ev){}
+        }
+      }
+      function onEnd(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        el.className = el.className.replace(/\bpressed\b/g, "").trim();
+        keyState[prop] = valEnd;
+        updateLocalInputValues();
+      }
+      el.addEventListener("touchstart", onStart, false);
+      el.addEventListener("touchend", onEnd, false);
+      el.addEventListener("touchcancel", onEnd, false);
+      el.addEventListener("mousedown", onStart, false);
+      el.addEventListener("mouseup", onEnd, false);
+      el.addEventListener("mouseleave", onEnd, false);
+    }
+
+    bindBtn(btnLeft, "left", true, false);
+    bindBtn(btnRight, "right", true, false);
+    bindBtn(btnThrust, "thrust", true, false);
+    bindBtn(btnShoot, "shoot", true, false);
+  }
+
+  // Conexión CloudNet (Soporta Anfitrión y Jugador Remoto Online)
+  function connectCloudNet() {
+    var joinCode = getQueryParam("sala") || getQueryParam("join");
     var updateStatusUI = function(status, msg) {
       var stLabel = document.getElementById("cloud-status") || document.getElementById("server-status");
       if (stLabel) {
@@ -1594,22 +2105,225 @@
       }
     };
 
-    if (window.CloudNet) {
-      window.CloudNet.initHost(currentRoomCode, {
-        onReady: function() {
-          console.log("[TV] Host iniciado en sala:", currentRoomCode);
-          var rd = document.getElementById("room-code-text") || document.getElementById("room-code-display");
-          if (rd) rd.textContent = currentRoomCode;
-          updateStatusUI("online");
-          generateLobbyQR();
-        },
-        onStatus: function(status, msg) {
-          updateStatusUI(status, msg);
-        },
-        onMessage: function(topic, msg) {
-          handleIncomingMessage(msg);
+    if (joinCode) {
+      // ---------------- MODO CLIENTE ONLINE (Jugador Remoto) ----------------
+      isRemoteClient = true;
+      currentRoomCode = joinCode.toUpperCase();
+      myPlayerUUID = getOrCreateUUID();
+
+      console.log("[Online] Uniéndose a sala remota:", currentRoomCode);
+
+      var roomDisplay = document.getElementById("room-code-text") || document.getElementById("room-code-display");
+      if (roomDisplay) roomDisplay.textContent = currentRoomCode;
+
+      // Ocultar controles exclusivos del anfitrión
+      var btnStart = document.getElementById("btn-start-game");
+      if (btnStart) {
+        btnStart.style.display = "none";
+      }
+
+      var remoteBar = document.getElementById("remote-player-bar");
+      if (remoteBar) {
+        remoteBar.style.display = "flex";
+        var rRoom = document.getElementById("remote-player-room");
+        if (rRoom) rRoom.textContent = "Sala: " + currentRoomCode;
+      }
+
+      setupRemotePlayerBarEvents();
+
+      if (window.CloudNet) {
+        window.CloudNet.initClient(currentRoomCode, myPlayerUUID, {
+          onReady: function() {
+            console.log("[Online] Cliente conectado a la sala:", currentRoomCode);
+            updateStatusUI("online", "Conectado a la sala " + currentRoomCode);
+
+            // Solicitar unirse a la partida
+            window.CloudNet.sendToHost({
+              type: "join",
+              uuid: myPlayerUUID,
+              name: myCustomNickname,
+              team: mySelectedTeam
+            });
+          },
+          onStatus: function(status, msg) {
+            updateStatusUI(status, msg);
+          },
+          onMessage: function(topic, msg) {
+            handleClientIncomingMessage(topic, msg);
+          }
+        });
+      }
+    } else {
+      // ---------------- MODO ANFITRIÓN (Host / Pantalla Grande) ----------------
+      isRemoteClient = false;
+      currentRoomCode = generateRoomCode();
+
+      var roomDisp = document.getElementById("room-code-text") || document.getElementById("room-code-display");
+      if (roomDisp) roomDisp.textContent = currentRoomCode;
+      generateLobbyQR();
+      setupInviteButtons();
+
+      if (window.CloudNet) {
+        window.CloudNet.initHost(currentRoomCode, {
+          onReady: function() {
+            console.log("[TV] Host iniciado en sala:", currentRoomCode);
+            var rd = document.getElementById("room-code-text") || document.getElementById("room-code-display");
+            if (rd) rd.textContent = currentRoomCode;
+            updateStatusUI("online");
+            generateLobbyQR();
+            setupInviteButtons();
+          },
+          onStatus: function(status, msg) {
+            updateStatusUI(status, msg);
+          },
+          onMessage: function(topic, msg) {
+            handleIncomingMessage(msg);
+          }
+        });
+      }
+    }
+  }
+
+  function setupRemotePlayerBarEvents() {
+    var inpNick = document.getElementById("remote-nickname-input");
+    if (inpNick) {
+      try {
+        var sNick = window.localStorage.getItem("barquitos_nickname") || "";
+        if (sNick) {
+          myCustomNickname = sNick;
+          inpNick.value = sNick;
         }
-      });
+      } catch(e){}
+
+      function syncNick() {
+        var val = (inpNick.value || "").trim().substr(0, 12);
+        myCustomNickname = val;
+        try { window.localStorage.setItem("barquitos_nickname", val); } catch(e){}
+        if (window.CloudNet && window.CloudNet.isConnected()) {
+          window.CloudNet.sendToHost({
+            type: "set_name",
+            uuid: myPlayerUUID,
+            name: val
+          });
+        }
+      }
+      inpNick.addEventListener("input", syncNick, false);
+      inpNick.addEventListener("change", syncNick, false);
+    }
+
+    var btnBlue = document.getElementById("remote-btn-blue");
+    var btnRed = document.getElementById("remote-btn-red");
+    function chooseTeam(team) {
+      mySelectedTeam = team;
+      try { window.localStorage.setItem("barquitos_team", team); } catch(e){}
+      updateRemoteTeamUI();
+      if (window.CloudNet && window.CloudNet.isConnected()) {
+        window.CloudNet.sendToHost({
+          type: "set_team",
+          uuid: myPlayerUUID,
+          slot: remoteSlot,
+          team: team
+        });
+      }
+    }
+    if (btnBlue) {
+      btnBlue.onclick = function() { chooseTeam("blue"); };
+    }
+    if (btnRed) {
+      btnRed.onclick = function() { chooseTeam("red"); };
+    }
+
+    var btnReady = document.getElementById("remote-btn-ready");
+    if (btnReady) {
+      btnReady.onclick = function() {
+        isClientReady = !isClientReady;
+        btnReady.className = "remote-ready-btn" + (isClientReady ? " active" : "");
+        btnReady.textContent = isClientReady ? "LISTO ✓" : "PREPARARSE";
+        if (window.CloudNet && window.CloudNet.isConnected()) {
+          window.CloudNet.sendToHost({
+            type: "ready",
+            uuid: myPlayerUUID,
+            ready: isClientReady
+          });
+        }
+      };
+    }
+  }
+
+  function setupInviteButtons() {
+    var baseHref = window.location.href.split("?")[0].split("#")[0];
+    if (baseHref.indexOf("/controller.html") !== -1) {
+      baseHref = baseHref.replace("/controller.html", "/index.html");
+    }
+    var onlineInviteUrl = baseHref + "?sala=" + currentRoomCode;
+
+    var btnCopy = document.getElementById("btn-copy-invite");
+    var btnWa = document.getElementById("btn-whatsapp-share");
+    var copyFeed = document.getElementById("copy-feedback");
+
+    if (btnWa) {
+      var waMsg = "¡Únete a mi batalla naval en BARQUITOS! ⛵💣\nEntra a este enlace para jugar juntos: " + onlineInviteUrl + "\n(Código de sala: " + currentRoomCode + ")";
+      btnWa.href = "https://api.whatsapp.com/send?text=" + encodeURIComponent(waMsg);
+    }
+
+    if (btnCopy) {
+      btnCopy.onclick = function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(onlineInviteUrl);
+        } else {
+          var temp = document.createElement("textarea");
+          temp.value = onlineInviteUrl;
+          document.body.appendChild(temp);
+          temp.select();
+          try { document.execCommand("copy"); } catch(eCopy){}
+          document.body.removeChild(temp);
+        }
+        if (copyFeed) {
+          copyFeed.style.display = "block";
+          setTimeout(function () {
+            copyFeed.style.display = "none";
+          }, 3500);
+        }
+      };
+    }
+
+    var btnOpenJoin = document.getElementById("btn-open-join-modal");
+    var joinModal = document.getElementById("join-modal");
+    var btnConfirmJoin = document.getElementById("btn-confirm-join");
+    var btnCancelJoin = document.getElementById("btn-cancel-join");
+    var inputJoinRoom = document.getElementById("input-join-room");
+    var inputJoinName = document.getElementById("input-join-name");
+
+    if (btnOpenJoin && joinModal) {
+      btnOpenJoin.onclick = function () {
+        joinModal.style.display = "flex";
+        if (inputJoinRoom) {
+          inputJoinRoom.value = "";
+          inputJoinRoom.focus();
+        }
+      };
+    }
+
+    if (btnCancelJoin && joinModal) {
+      btnCancelJoin.onclick = function () {
+        joinModal.style.display = "none";
+      };
+    }
+
+    if (btnConfirmJoin && joinModal && inputJoinRoom) {
+      btnConfirmJoin.onclick = function () {
+        var codeVal = (inputJoinRoom.value || "").trim().toUpperCase();
+        if (codeVal.length >= 3) {
+          var nameVal = (inputJoinName ? inputJoinName.value : "").trim();
+          if (nameVal) {
+            try { window.localStorage.setItem("barquitos_nickname", nameVal); } catch(e){}
+          }
+          window.location.search = "?sala=" + encodeURIComponent(codeVal);
+        } else {
+          alert("Por favor ingresa un código de sala válido de 4 letras");
+        }
+      };
     }
   }
 
@@ -1837,6 +2551,12 @@
       if (shakeTimer < 0) shakeTimer = 0;
     }
 
+    if (isRemoteClient) {
+      updateRemoteClient(dt);
+      return;
+    }
+
+    // Modo Anfitrión: Física y Reglas del Juego
     if (currentState === STATE_LOBBY) {
       for (var s = 0; s < activeShips.length; s++) {
         activeShips[s].update(dt);
@@ -1850,6 +2570,9 @@
     } else if (currentState === STATE_PODIUM) {
       podiumAnimTimer += dt;
     }
+
+    // Difusión continua del estado del mundo a jugadores online remotos (~20 Hz)
+    broadcastGameState();
   }
 
   function updateBattle(dt) {
@@ -3137,7 +3860,7 @@
     ctx.fillText("🏠 VOLVER AL LOBBY", b2X + btnW / 2, btnY + 41);
   }
 
-  // Control remoto Tizen / Teclado PC
+  // Control remoto Tizen / Teclado PC / Controles de Navegación y Combate
   window.addEventListener("keydown", function(e) {
     var k = e.keyCode;
 
@@ -3146,7 +3869,7 @@
       return;
     }
 
-    if (currentState === STATE_LOBBY) {
+    if (currentState === STATE_LOBBY && !isRemoteClient) {
       if (k === 37) { // Left
         selectedMode = (selectedMode + 2) % 3;
         updateLobbyModeUI();
@@ -3158,7 +3881,7 @@
       } else if (k === 13 || k === 32) { // Enter / Space / OK
         startNewMatch();
       }
-    } else if (currentState === STATE_PODIUM) {
+    } else if (currentState === STATE_PODIUM && !isRemoteClient) {
       if (k === 37) {
         podiumSelectedBtn = 0;
       } else if (k === 39) {
@@ -3174,6 +3897,55 @@
           sendTvAction("state_change", null, "lobby");
         }
       }
+    }
+
+    // Controles de juego en teclado para PC (Anfitrión o Cliente Online)
+    var isPlaying = (currentState === STATE_ARENA);
+    if (k === 37 || k === 65) { // ◄ / A: Girar Babor
+      keyState.left = true;
+      if (isPlaying) updateLocalInputValues();
+    }
+    if (k === 39 || k === 68) { // ► / D: Girar Estribor
+      keyState.right = true;
+      if (isPlaying) updateLocalInputValues();
+    }
+    if (k === 38 || k === 87) { // ▲ / W: Desplegar Velas / Impulso
+      keyState.thrust = true;
+      if (isPlaying) updateLocalInputValues();
+    }
+    if (k === 32 || k === 74) { // Espacio / J: Disparar Cañón
+      keyState.shoot = true;
+      if (isPlaying) updateLocalInputValues();
+    }
+    if (k === 16 || k === 75) { // Shift / K: Turbo / Embestida con Espolón
+      keyState.thrust = true;
+      if (isPlaying) updateLocalInputValues();
+    }
+  }, false);
+
+  window.addEventListener("keyup", function(e) {
+    var k = e.keyCode;
+    var isPlaying = (currentState === STATE_ARENA);
+
+    if (k === 37 || k === 65) {
+      keyState.left = false;
+      if (isPlaying) updateLocalInputValues();
+    }
+    if (k === 39 || k === 68) {
+      keyState.right = false;
+      if (isPlaying) updateLocalInputValues();
+    }
+    if (k === 38 || k === 87) {
+      keyState.thrust = false;
+      if (isPlaying) updateLocalInputValues();
+    }
+    if (k === 32 || k === 74) {
+      keyState.shoot = false;
+      if (isPlaying) updateLocalInputValues();
+    }
+    if (k === 16 || k === 75) {
+      keyState.thrust = false;
+      if (isPlaying) updateLocalInputValues();
     }
   }, false);
 
@@ -3207,6 +3979,7 @@
     resizeCanvas();
 
     connectCloudNet();
+    setupOnscreenControls();
     window.requestAnimationFrame(gameLoop);
 
     var bBattle = document.getElementById("btn-mode-battle");

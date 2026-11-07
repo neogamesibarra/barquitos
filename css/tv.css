@@ -359,3 +359,459 @@ html, body {
   background: rgba(0, 229, 255, 0.25);
   color: #ffffff;
 }
+
+
+/* ==========================================================================
+   MODO ONLINE: BOTONES DE INVITACIÓN, COMPARTIR, MODAL Y CONTROLES
+   ========================================================================== */
+
+/* Botones de Invitación Online y Compartir */
+.online-share-bar {
+  display: flex;
+  display: -webkit-flex;
+  flex-direction: row;
+  -webkit-flex-direction: row;
+  gap: 8px;
+  width: 100%;
+  margin: 10px 0 4px 0;
+  box-sizing: border-box;
+}
+
+.online-btn {
+  flex: 1 1 0%;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 800;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  display: -webkit-flex;
+  align-items: center;
+  -webkit-align-items: center;
+  justify-content: center;
+  -webkit-justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.copy-btn {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  border: 2px solid #38bdf8;
+  color: #ffffff;
+}
+
+.copy-btn:hover, .copy-btn:active {
+  background: #38bdf8;
+  color: #0b192c;
+  transform: translateY(-1px);
+}
+
+.whatsapp-btn {
+  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+  border: 2px solid #a8f5ba;
+  color: #ffffff;
+}
+
+.whatsapp-btn:hover, .whatsapp-btn:active {
+  background: #2ecc71;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.copy-feedback {
+  background: rgba(46, 204, 113, 0.2);
+  border: 1px solid #2ecc71;
+  color: #76ff03;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  margin: 4px 0;
+  text-align: center;
+}
+
+.join-existing-btn {
+  width: 100%;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px dashed #38bdf8;
+  color: #38bdf8;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: all 0.15s ease;
+}
+
+.join-existing-btn:hover, .join-existing-btn:active {
+  background: rgba(56, 189, 248, 0.25);
+  color: #ffffff;
+}
+
+/* Modal de Unirse a Sala Online */
+.join-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 15, 25, 0.9);
+  display: flex;
+  display: -webkit-flex;
+  align-items: center;
+  -webkit-align-items: center;
+  justify-content: center;
+  -webkit-justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.join-modal-box {
+  background: #0f1c2e;
+  border: 3px solid #00e5ff;
+  box-shadow: 0 0 35px rgba(0, 229, 255, 0.45);
+  border-radius: 16px;
+  padding: 24px;
+  width: 90%;
+  max-width: 440px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.join-modal-box h2 {
+  color: #00e5ff;
+  font-size: 22px;
+  margin: 0 0 10px 0;
+  font-weight: 900;
+}
+
+.join-modal-box p {
+  color: #b0bec5;
+  font-size: 13px;
+  margin: 0 0 16px 0;
+  line-height: 1.4;
+}
+
+.join-modal-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1e293b;
+  border: 2px solid #334155;
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 12px;
+  outline: none;
+  text-transform: uppercase;
+}
+
+.join-modal-input.nickname {
+  text-transform: none;
+  font-size: 15px;
+  font-weight: normal;
+}
+
+.join-modal-input:focus {
+  border-color: #00e5ff;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
+}
+
+.join-team-picker {
+  display: flex;
+  display: -webkit-flex;
+  align-items: center;
+  -webkit-align-items: center;
+  justify-content: center;
+  -webkit-justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: #b0bec5;
+}
+
+.join-team-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.join-team-btn.blue {
+  background: #1e3a8a;
+  color: #93c5fd;
+  border-color: #3b82f6;
+}
+
+.join-team-btn.blue.active {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+}
+
+.join-team-btn.red {
+  background: #7f1d1d;
+  color: #fca5a5;
+  border-color: #ef4444;
+}
+
+.join-team-btn.red.active {
+  background: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+}
+
+.join-modal-actions {
+  display: flex;
+  display: -webkit-flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.join-modal-btn {
+  flex: 1;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 800;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.join-modal-btn.confirm {
+  background: #27ae60;
+  border: 2px solid #2ecc71;
+  color: #ffffff;
+}
+
+.join-modal-btn.confirm:hover {
+  background: #2ecc71;
+  box-shadow: 0 0 12px rgba(46, 204, 113, 0.6);
+}
+
+.join-modal-btn.cancel {
+  background: #37474f;
+  border: 2px solid #546e7a;
+  color: #cfd8dc;
+}
+
+.join-modal-btn.cancel:hover {
+  background: #455a64;
+}
+
+/* Barra de Jugador Remoto Online */
+.remote-player-bar {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  -webkit-transform: translateX(-50%);
+  background: rgba(15, 28, 46, 0.95);
+  border: 2px solid #00e5ff;
+  box-shadow: 0 0 25px rgba(0, 229, 255, 0.4);
+  border-radius: 12px;
+  padding: 10px 18px;
+  display: flex;
+  display: -webkit-flex;
+  align-items: center;
+  -webkit-align-items: center;
+  gap: 14px;
+  z-index: 500;
+  max-width: 95%;
+  box-sizing: border-box;
+}
+
+.remote-info {
+  display: flex;
+  display: -webkit-flex;
+  align-items: center;
+  -webkit-align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.remote-badge-label {
+  color: #00e5ff;
+}
+
+.remote-player-slot {
+  background: #1e3a50;
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: #ffca28;
+}
+
+.remote-player-room {
+  background: #0284c7;
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: #ffffff;
+}
+
+.remote-config {
+  display: flex;
+  display: -webkit-flex;
+  align-items: center;
+  -webkit-align-items: center;
+  gap: 8px;
+}
+
+.remote-nickname-input {
+  background: #1e293b;
+  border: 1px solid #38bdf8;
+  border-radius: 6px;
+  padding: 5px 10px;
+  color: #ffffff;
+  font-size: 13px;
+  width: 120px;
+  outline: none;
+}
+
+.remote-team-toggle {
+  display: flex;
+  display: -webkit-flex;
+  gap: 4px;
+}
+
+.remote-team-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.remote-team-btn.blue {
+  background: #1e3a8a;
+  color: #93c5fd;
+  border-color: #3b82f6;
+}
+
+.remote-team-btn.blue.active {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.8);
+}
+
+.remote-team-btn.red {
+  background: #7f1d1d;
+  color: #fca5a5;
+  border-color: #ef4444;
+}
+
+.remote-team-btn.red.active {
+  background: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+}
+
+.remote-ready-btn {
+  background: #37474f;
+  border: 1px solid #546e7a;
+  color: #ffffff;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.remote-ready-btn.active {
+  background: #27ae60;
+  border-color: #2ecc71;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.7);
+}
+
+.remote-controls-guide {
+  font-size: 11px;
+  color: #90a4ae;
+  white-space: nowrap;
+}
+
+/* Controles táctiles transparentes en pantalla (móviles/tablets) */
+.onscreen-touch-controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 140px;
+  display: flex;
+  display: -webkit-flex;
+  justify-content: space-between;
+  -webkit-justify-content: space-between;
+  pointer-events: none;
+  z-index: 600;
+  padding: 10px 16px;
+  box-sizing: border-box;
+}
+
+.touch-zone-left, .touch-zone-right {
+  display: flex;
+  display: -webkit-flex;
+  gap: 12px;
+  pointer-events: auto;
+  align-items: flex-end;
+  -webkit-align-items: flex-end;
+}
+
+.onscreen-btn {
+  background: rgba(15, 28, 46, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 2px solid rgba(0, 229, 255, 0.6);
+  border-radius: 12px;
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 14px;
+  display: flex;
+  display: -webkit-flex;
+  align-items: center;
+  -webkit-align-items: center;
+  justify-content: center;
+  -webkit-justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  transition: transform 0.05s ease, background 0.05s ease;
+  cursor: pointer;
+}
+
+.onscreen-btn.steer-btn {
+  width: 90px;
+  height: 70px;
+}
+
+.onscreen-btn.thrust-btn {
+  width: 100px;
+  height: 75px;
+  background: rgba(30, 80, 50, 0.75);
+  border-color: #2ecc71;
+}
+
+.onscreen-btn.shoot-btn {
+  width: 100px;
+  height: 75px;
+  background: rgba(100, 30, 30, 0.75);
+  border-color: #e74c3c;
+}
+
+.onscreen-btn.pressed {
+  transform: scale(0.92);
+  filter: brightness(1.4);
+}

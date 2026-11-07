@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
   <title>BARQUITOS - Mando Móvil</title>
-  <link rel="stylesheet" href="css/controller.css?v=13">
+  <link rel="stylesheet" href="css/controller.css?v=14">
 </head>
 <body>
   <!-- Modal para ingresar el código de sala si no se escaneó el QR -->
@@ -35,6 +35,10 @@
       </div>
 
       <div class="top-bar-actions">
+        <button id="btn-view-game" class="view-game-btn" type="button" title="Ver Pantalla de Juego Online">
+          <span class="style-icon">📺</span>
+          <span class="style-text">PANTALLA</span>
+        </button>
         <button id="btn-style-toggle" class="style-toggle-btn" type="button" title="Cambiar estilo de mando">
           <span class="style-icon">🎮</span>
           <span id="style-text" class="style-text">CLÁSICO</span>
@@ -126,7 +130,7 @@
 
   <!-- Scripts en orden de dependencia en ES5 estricto -->
   <script src="js/paho-mqtt.min.js"></script>
-  <script src="js/cloud_network.js?v=13"></script>
-  <script src="js/controller.js?v=13"></script>
+  <script src="js/cloud_network.js?v=14"></script>
+  <script src="js/controller.js?v=14"></script>
 </body>
 </html>

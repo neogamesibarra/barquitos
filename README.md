@@ -25,6 +25,30 @@ El Capitán del **Mando 1** (o usando el control remoto de la tele) puede selecc
 
 ---
 
+## 🌐 Jugar Online con Amigos en Otros Países
+
+¡Ahora puedes jugar a distancia con tus amigos sin importar en qué país o ciudad se encuentren!
+
+### 📤 Si tú creas la partida (Anfitrión):
+1. Abre el juego en tu pantalla o computadora: **[https://neogamesibarra.github.io/barquitos/](https://neogamesibarra.github.io/barquitos/)**
+2. Haz clic en **📋 Copiar Enlace Online** o en **🟢 WhatsApp**.
+3. Envía el enlace a tus amigos por WhatsApp, Discord, Telegram o redes sociales.
+
+### 📥 Si un amigo te invitó:
+1. Simplemente **abre el enlace de invitación** que te enviaron (o entra a la web y haz clic en **🌐 ¿Unirse a la sala de un amigo?** e introduce su código de 4 letras).
+2. **Si estás en Computadora / Laptop:**
+   - Verás todo el océano y los barcos en tu monitor en tiempo real.
+   - Juegas directamente con tu **teclado**:
+     - `A` / `D` o `◄` / `►`: Girar timón (babor / estribor)
+     - `W` o `▲`: Desplegar velas (acelerar)
+     - `Espacio` o `J`: Disparar cañón
+     - `Shift` o `K`: Turbo y embestida con espolón metálico
+3. **Si estás en Teléfono o Tablet:**
+   - Verás toda la batalla en tu pantalla con **controles táctiles integrados** en las esquinas inferiores (dirección a la izquierda, velas y cañón a la derecha).
+   - O si prefieres usar solo el mando táctil tradicional, puedes pulsar el botón **Mando Móvil**.
+
+---
+
 ## 🎮 Modos de Juego
 
 ### ⚔️ 1. Todos contra Todos (Torneo a 10 Rondas)

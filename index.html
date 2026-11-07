@@ -5,14 +5,15 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
-  <link rel="stylesheet" href="css/tv.css?v=13">
+  <link rel="stylesheet" href="css/tv.css?v=14">
 </head>
 <body>
   <script>
-    // Si se accede con código de sala (?room=XXXX), redirigir directamente al mando móvil
+    // Si se accede con código de sala para mando (?room=XXXX) sin ?sala=, redirigir al mando móvil
+    // Si se accede con ?sala=XXXX o ?join=XXXX, se permanece en index.html como Jugador Online en Pantalla
     (function() {
       var q = window.location.search;
-      if (q && q.indexOf('room=') !== -1) {
+      if (q && q.indexOf('room=') !== -1 && q.indexOf('sala=') === -1 && q.indexOf('join=') === -1) {
         window.location.replace('controller.html' + q);
       }
     })();
@@ -20,6 +21,10 @@
 
   <!-- Canvas principal renderizado en Canvas 2D a 60 FPS (100% altura y anchura) -->
   <canvas id="game-canvas"></canvas>
+
+  <!-- PANELES LATERALES DE MARCADORES (Fuera del océano central navegable) -->
+  <div id="hud-panel-left" class="lateral-hud-panel panel-left"></div>
+  <div id="hud-panel-right" class="lateral-hud-panel panel-right"></div>
 
   <!-- Overlay UI del Lobby Principal -->
   <div id="lobby-ui" class="lobby-container">
@@ -45,6 +50,20 @@
         <div class="url-badge">
           O abre en el navegador: <strong id="url-text">Generando enlace...</strong>
         </div>
+
+        <!-- Botones de Invitación Online para Amigos a Distancia / Otros Países -->
+        <div class="online-share-bar">
+          <button id="btn-copy-invite" class="online-btn copy-btn" type="button" title="Copiar enlace para jugar con amigos online">
+            📋 Copiar Enlace Online
+          </button>
+          <a id="btn-whatsapp-share" class="online-btn whatsapp-btn" href="#" target="_blank" rel="noopener" title="Invitar amigos por WhatsApp">
+            🟢 WhatsApp
+          </a>
+        </div>
+        <div id="copy-feedback" class="copy-feedback" style="display: none;">¡Enlace copiado! Envíalo a tus amigos ⛵</div>
+        <button id="btn-open-join-modal" class="join-existing-btn" type="button">
+          🌐 ¿Unirse a la sala de un amigo?
+        </button>
       </div>
 
       <!-- Selector de Modos de Juego (3 Modos) -->
@@ -88,12 +107,65 @@
     </div>
   </div>
 
+  <!-- Modal para Unirse a Sala Online de un Amigo -->
+  <div id="join-modal" class="join-modal-overlay" style="display: none;">
+    <div class="join-modal-box">
+      <h2>🌐 UNIRSE A SALA ONLINE</h2>
+      <p>Ingresa el código de 4 letras de la sala de tu amigo para jugar juntos desde cualquier país:</p>
+      <input id="input-join-room" class="join-modal-input" type="text" maxlength="4" placeholder="EJ: 8421" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <input id="input-join-name" class="join-modal-input nickname" type="text" maxlength="12" placeholder="Tu Apodo de Capitán (Opcional)" autocomplete="off" spellcheck="false">
+
+      <div id="join-team-picker" class="join-team-picker" style="display: none;">
+        <span>Equipo:</span>
+        <button id="btn-join-team-blue" class="join-team-btn blue active" type="button">🔵 Azul</button>
+        <button id="btn-join-team-red" class="join-team-btn red" type="button">🔴 Rojo</button>
+      </div>
+
+      <div class="join-modal-actions">
+        <button id="btn-confirm-join" class="join-modal-btn confirm" type="button">ENTRAR A LA SALA ⚓</button>
+        <button id="btn-cancel-join" class="join-modal-btn cancel" type="button">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de Jugador Remoto Online (Visible cuando se conecta a la sala de un amigo) -->
+  <div id="remote-player-bar" class="remote-player-bar" style="display: none;">
+    <div class="remote-info">
+      <span class="remote-badge-label">JUGADOR ONLINE:</span>
+      <span id="remote-player-slot" class="remote-player-slot">Conectando...</span>
+      <span id="remote-player-room" class="remote-player-room">Sala: ----</span>
+    </div>
+    <div class="remote-config">
+      <input id="remote-nickname-input" class="remote-nickname-input" type="text" maxlength="12" placeholder="Tu Apodo" autocomplete="off" spellcheck="false">
+      <div id="remote-team-toggle" class="remote-team-toggle" style="display: none;">
+        <button id="remote-btn-blue" class="remote-team-btn blue" type="button">🔵 Azul</button>
+        <button id="remote-btn-red" class="remote-team-btn red" type="button">🔴 Rojo</button>
+      </div>
+      <button id="remote-btn-ready" class="remote-ready-btn" type="button">PREPARARSE</button>
+    </div>
+    <div class="remote-controls-guide">
+      <span class="guide-pc">⌨️ <strong>PC:</strong> Flechas/WASD Girar/Acelerar | ESPACIO Disparar | SHIFT Embestida</span>
+    </div>
+  </div>
+
+  <!-- Controles Táctiles en Pantalla para Móviles y Tablets en Modo Online -->
+  <div id="onscreen-touch-controls" class="onscreen-touch-controls" style="display: none;">
+    <div class="touch-zone-left">
+      <div id="touch-steer-left" class="onscreen-btn steer-btn">◀ BABOR</div>
+      <div id="touch-steer-right" class="onscreen-btn steer-btn">ESTRIBOR ▶</div>
+    </div>
+    <div class="touch-zone-right">
+      <div id="touch-thrust" class="onscreen-btn thrust-btn">💨 VELAS</div>
+      <div id="touch-shoot" class="onscreen-btn shoot-btn">💣 FUEGO</div>
+    </div>
+  </div>
+
   <!-- Scripts en orden de dependencia estricta ES5 (Compatible con Tizen 2015) -->
   <script src="js/paho-mqtt.min.js"></script>
-  <script src="js/cloud_network.js?v=13"></script>
+  <script src="js/cloud_network.js?v=14"></script>
   <script src="js/qrcode.min.js"></script>
-  <script src="js/sound_synth.js?v=13"></script>
-  <script src="js/tizen_keys.js?v=13"></script>
-  <script src="js/game_engine.js?v=13"></script>
+  <script src="js/sound_synth.js?v=14"></script>
+  <script src="js/tizen_keys.js?v=14"></script>
+  <script src="js/game_engine.js?v=14"></script>
 </body>
 </html>

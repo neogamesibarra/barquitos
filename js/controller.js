@@ -825,6 +825,17 @@
     elPlayerSymbol = document.getElementById('player-symbol');
     elBtnReady = document.getElementById('btn-ready');
     elBtnFullscreen = document.getElementById('btn-fullscreen');
+
+    var elBtnViewGame = document.getElementById('btn-view-game');
+    if (elBtnViewGame) {
+      function openGameScreen(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        var room = currentRoom || '';
+        window.location.href = 'index.html' + (room ? ('?sala=' + encodeURIComponent(room)) : '');
+      }
+      elBtnViewGame.addEventListener('click', openGameScreen, false);
+      elBtnViewGame.addEventListener('touchend', openGameScreen, false);
+    }
     elSteeringZone = document.getElementById('steering-zone');
     elWheelOuter = document.getElementById('wheel-outer');
     elWheelKnob = document.getElementById('wheel-knob');

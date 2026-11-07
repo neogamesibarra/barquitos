@@ -86,11 +86,13 @@
           var subTopic = 'barquitos/v1/' + activeRoom + '/in/#';
           client.subscribe(subTopic, { qos: 0 });
         } else {
-          // El Mando escucha mensajes personales y difusiones
+          // El Mando o Jugador Remoto escucha mensajes personales, difusiones y sincronización de estado
           var mySub = 'barquitos/v1/' + activeRoom + '/out/' + myId;
           var broadSub = 'barquitos/v1/' + activeRoom + '/broadcast';
+          var stateSub = 'barquitos/v1/' + activeRoom + '/state';
           client.subscribe(mySub, { qos: 0 });
           client.subscribe(broadSub, { qos: 0 });
+          client.subscribe(stateSub, { qos: 0 });
         }
 
         if (callbacks && callbacks.onConnected) {
@@ -178,6 +180,27 @@
     broadcast: function (data) {
       var topic = 'barquitos/v1/' + activeRoom + '/broadcast';
       publish(topic, data);
+    },
+
+    // Difundir estado de la partida a jugadores remotos online (pantalla completa)
+    broadcastState: function (data) {
+      var topic = 'barquitos/v1/' + activeRoom + '/state';
+      publish(topic, data);
+    },
+
+    isHostMode: function () {
+      return isHost;
+    },
+
+    getRoomCode: function () {
+      return activeRoom;
+    },
+
+    disconnect: function () {
+      if (client && isConnected) {
+        try { client.disconnect(); } catch (e) {}
+      }
+      isConnected = false;
     },
 
     isConnected: function () {
