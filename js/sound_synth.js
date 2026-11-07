@@ -296,8 +296,9 @@
 
     // Cuerno pirata al inicio de cada oleada en Horda Zombie
     playWaveStart: function() {
-      if (!ctx || isMuted || masterVolume <= 0.01) return;
+      if (isMuted || masterVolume <= 0.01) return;
       initAudio();
+      if (!ctx) return;
       var now = ctx.currentTime;
 
       var osc = ctx.createOscillator();
@@ -319,8 +320,9 @@
 
     // Cuerno de guerra oscuro para advertencia del Galeón Jefe Final
     playBossAlert: function() {
-      if (!ctx || isMuted || masterVolume <= 0.01) return;
+      if (isMuted || masterVolume <= 0.01) return;
       initAudio();
+      if (!ctx) return;
       var now = ctx.currentTime;
 
       var osc = ctx.createOscillator();

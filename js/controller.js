@@ -200,7 +200,11 @@
         updateTeamButtonsUI();
       }
     } else if (msg.type === 'state_change') {
-      currentGameState = msg.state;
+      if (typeof msg.state === 'number') {
+        currentGameState = (msg.state === 1) ? 'playing' : (msg.state === 3 ? 'podium' : 'lobby');
+      } else {
+        currentGameState = msg.state;
+      }
       updateHostControls();
       updateLobbyConfigBarVisibility();
     } else if (msg.type === 'mode_change') {
@@ -795,7 +799,8 @@
       function openGameScreen(e) {
         if (e && e.preventDefault) e.preventDefault();
         var room = currentRoom || '';
-        window.location.href = 'index.html' + (room ? ('?sala=' + encodeURIComponent(room)) : '');
+        var bIdx = (window.CloudNet && window.CloudNet.getCurrentBrokerIdx) ? window.CloudNet.getCurrentBrokerIdx() : 0;
+        window.location.href = 'index.html' + (room ? ('?sala=' + encodeURIComponent(room) + '&b=' + bIdx) : ('?b=' + bIdx));
       }
       elBtnViewGame.addEventListener('click', openGameScreen, false);
       elBtnViewGame.addEventListener('touchend', openGameScreen, false);

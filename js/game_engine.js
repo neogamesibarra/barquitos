@@ -24,7 +24,7 @@
       elLobbyUI = document.getElementById("lobby-ui");
     }
     if (elLobbyUI) {
-      var targetDisplay = visible ? "block" : "none";
+      var targetDisplay = visible ? "flex" : "none";
       if (elLobbyUI.style.display !== targetDisplay) {
         elLobbyUI.style.display = targetDisplay;
       }
@@ -1373,7 +1373,7 @@
     currentBounds = { x: arenaBounds.x, y: arenaBounds.y, w: arenaBounds.w, h: arenaBounds.h };
     roundWinner = null;
     roundOverTimer = 0;
-    sendTvAction("state_change", null, "playing");
+    sendTvAction("state_change", null, STATE_ARENA);
 
     initArenaIslands();
     cannonballs = [];
@@ -1421,7 +1421,7 @@
     currentBounds = { x: arenaBounds.x, y: arenaBounds.y, w: arenaBounds.w, h: arenaBounds.h };
     roundWinner = null;
     roundOverTimer = 0;
-    sendTvAction("state_change", null, "playing");
+    sendTvAction("state_change", null, STATE_ARENA);
 
     initArenaIslands();
     cannonballs = [];
@@ -1479,7 +1479,7 @@
     currentBounds = { x: arenaBounds.x, y: arenaBounds.y, w: arenaBounds.w, h: arenaBounds.h };
     roundWinner = null;
     roundOverTimer = 0;
-    sendTvAction("state_change", null, "playing");
+    sendTvAction("state_change", null, STATE_ARENA);
 
     hordeUpgrades = {
       weaponLevel: 1,
@@ -1612,25 +1612,35 @@
   }
 
   function startRoundByMode() {
-    // Ocultar de inmediato la interfaz del lobby
-    setLobbyUIVisible(false);
-    var el = document.getElementById("lobby-ui");
-    if (el) el.style.display = "none";
+    try {
+      // Ocultar de inmediato la interfaz del lobby
+      setLobbyUIVisible(false);
+      var el = document.getElementById("lobby-ui");
+      if (el) el.style.display = "none";
 
-    // Desbloquear audio tras clic de usuario si aún no estaba activo
-    if (window.SoundSynth && window.SoundSynth.initAudio) {
-      try { window.SoundSynth.initAudio(); } catch (eAudio) {}
-    }
-
-    if (selectedMode === MODE_HORDE) {
-      startHordeMode();
-    } else {
-      currentRound++;
-      if (selectedMode === MODE_TEAMS) {
-        startTeamsRound();
-      } else {
-        startBattleRound();
+      // Desbloquear audio tras clic de usuario si aún no estaba activo
+      if (window.SoundSynth && window.SoundSynth.initAudio) {
+        try { window.SoundSynth.initAudio(); } catch (eAudio) {}
       }
+
+      if (selectedMode === MODE_HORDE) {
+        startHordeMode();
+      } else {
+        currentRound++;
+        if (selectedMode === MODE_TEAMS) {
+          startTeamsRound();
+        } else {
+          startBattleRound();
+        }
+      }
+    } catch (errStart) {
+      if (window.console && window.console.error) {
+        window.console.error("[BARQUITOS] Error en startRoundByMode:", errStart);
+      }
+      currentState = STATE_ARENA;
+      countdownTime = 3.5;
+      lastCountdownStep = -1;
+      initArenaIslands();
     }
   }
 
@@ -1755,7 +1765,15 @@
   function applyClientSync(msg) {
     if (!isRemoteClient || !msg) return;
 
-    currentState = msg.st;
+    if (typeof msg.st === "number") {
+      currentState = msg.st;
+    } else if (msg.st === "playing" || msg.st === "arena") {
+      currentState = STATE_ARENA;
+    } else if (msg.st === "podium") {
+      currentState = STATE_PODIUM;
+    } else if (msg.st === "lobby") {
+      currentState = STATE_LOBBY;
+    }
     selectedMode = msg.m;
     currentRound = msg.r;
     currentWave = msg.w || 1;
@@ -2026,7 +2044,15 @@
       updateLobbyModeUI();
       updateRemoteTeamVisibility();
     } else if (msg.type === "state_change") {
-      currentState = msg.state;
+      if (typeof msg.state === "number") {
+        currentState = msg.state;
+      } else if (msg.state === "playing" || msg.state === "arena") {
+        currentState = STATE_ARENA;
+      } else if (msg.state === "podium") {
+        currentState = STATE_PODIUM;
+      } else if (msg.state === "lobby") {
+        currentState = STATE_LOBBY;
+      }
       var lobbyUI = document.getElementById("lobby-ui");
       if (lobbyUI) {
         lobbyUI.style.display = (currentState === STATE_LOBBY) ? "flex" : "none";
@@ -2144,6 +2170,8 @@
       }
 
       setupRemotePlayerBarEvents();
+      generateLobbyQR();
+      setupInviteButtons();
 
       if (window.CloudNet) {
         window.CloudNet.initClient(currentRoomCode, myPlayerUUID, {
@@ -2269,7 +2297,8 @@
     if (baseHref.indexOf("/controller.html") !== -1) {
       baseHref = baseHref.replace("/controller.html", "/index.html");
     }
-    var onlineInviteUrl = baseHref + "?sala=" + currentRoomCode;
+    var bIdx = (window.CloudNet && window.CloudNet.getCurrentBrokerIdx) ? window.CloudNet.getCurrentBrokerIdx() : 0;
+    var onlineInviteUrl = baseHref + "?sala=" + currentRoomCode + "&b=" + bIdx;
 
     var btnCopy = document.getElementById("btn-copy-invite");
     var btnWa = document.getElementById("btn-whatsapp-share");
@@ -2493,6 +2522,7 @@
   function generateLobbyQR() {
     var qrCanvas = document.getElementById("qr-canvas");
     if (qrCanvas && window.drawQRCodeToCanvas) {
+      if (!currentRoomCode || currentRoomCode === "----") return;
       var href = window.location.href.split("?")[0].split("#")[0];
       var controllerUrl = href;
       if (controllerUrl.indexOf("/index.html") !== -1) {
@@ -2504,12 +2534,18 @@
       } else if (controllerUrl.indexOf("controller.html") === -1) {
         controllerUrl = controllerUrl.replace(/\/+$/, "") + "/controller.html";
       }
-      controllerUrl += "?room=" + currentRoomCode;
+      var bIdx = (window.CloudNet && window.CloudNet.getCurrentBrokerIdx) ? window.CloudNet.getCurrentBrokerIdx() : 0;
+      controllerUrl += "?room=" + currentRoomCode + "&b=" + bIdx;
 
-      window.drawQRCodeToCanvas(qrCanvas, controllerUrl, 250);
+      window.drawQRCodeToCanvas(qrCanvas, controllerUrl, 230);
 
       var urlLabel = document.getElementById("url-text");
       if (urlLabel) urlLabel.textContent = controllerUrl;
+
+      var ctlLink = document.querySelector(".controller-link");
+      if (ctlLink) {
+        ctlLink.href = "controller.html?room=" + currentRoomCode + "&b=" + bIdx;
+      }
     }
   }
 
@@ -3249,7 +3285,7 @@
     matchWinner = sorted[0];
     Sound.playFanfare();
     spawnConfetti(90);
-    sendTvAction("state_change", null, "podium");
+    sendTvAction("state_change", null, STATE_PODIUM);
   }
 
   // RENDERIZADO
@@ -3921,7 +3957,7 @@
           currentRound = 0;
           currentState = STATE_LOBBY;
           updateLobbyShips();
-          sendTvAction("state_change", null, "lobby");
+          sendTvAction("state_change", null, STATE_LOBBY);
         }
       }
     }

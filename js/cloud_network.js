@@ -8,11 +8,20 @@
   'use strict';
 
   var BROKERS = [
-    { host: 'broker.hivemq.com', port: 8884, path: '/mqtt' },
-    { host: 'broker.emqx.io', port: 8084, path: '/mqtt' }
+    { host: 'broker.emqx.io', port: 8084, path: '/mqtt' },
+    { host: 'broker.hivemq.com', port: 8884, path: '/mqtt' }
   ];
 
-  var currentBrokerIdx = 0;
+  function getPreferredBrokerIdx() {
+    if (typeof window !== 'undefined' && window.location && window.location.search) {
+      var s = window.location.search;
+      if (s.indexOf('b=1') !== -1 || s.indexOf('b=hivemq') !== -1) return 1;
+      if (s.indexOf('b=0') !== -1 || s.indexOf('b=emqx') !== -1) return 0;
+    }
+    return 0;
+  }
+
+  var currentBrokerIdx = getPreferredBrokerIdx();
   var client = null;
   var isConnected = false;
   var activeRoom = '';
@@ -21,6 +30,7 @@
   var onMessageCb = null;
   var onStatusCb = null;
   var savedCallbacks = null;
+  var fallbackTimeout = null;
 
   function generateId(prefix) {
     return prefix + '_' + Math.random().toString(36).substr(2, 8) + '_' + Date.now().toString(36);
@@ -33,6 +43,17 @@
     if (typeof Paho === 'undefined' || !Paho.MQTT) {
       if (onStatusCb) onStatusCb('error', 'Biblioteca Paho MQTT no cargada');
       return;
+    }
+
+    if (client) {
+      try {
+        client.onConnectionLost = null;
+        client.onMessageArrived = null;
+        if (client.isConnected && client.isConnected()) {
+          client.disconnect();
+        }
+      } catch (eClean) {}
+      client = null;
     }
 
     var broker = BROKERS[currentBrokerIdx];
@@ -49,10 +70,9 @@
 
     client.onConnectionLost = function (responseObject) {
       isConnected = false;
-      if (onStatusCb) onStatusCb('offline', 'Conexion perdida. Reconectando...');
-      setTimeout(function () {
-        connect(savedCallbacks);
-      }, 2000);
+      var errReason = (responseObject && responseObject.errorMessage) ? responseObject.errorMessage : 'Conexión interrumpida';
+      if (onStatusCb) onStatusCb('offline', 'Conexión perdida (' + errReason + '). Reconectando...');
+      fallbackConnect();
     };
 
     client.onMessageArrived = function (message) {
@@ -115,10 +135,15 @@
   }
 
   function fallbackConnect() {
+    if (fallbackTimeout) {
+      clearTimeout(fallbackTimeout);
+      fallbackTimeout = null;
+    }
     currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
     var nextBroker = BROKERS[currentBrokerIdx];
     if (onStatusCb) onStatusCb('connecting', 'Probando con ' + nextBroker.host + '...');
-    setTimeout(function () {
+    fallbackTimeout = setTimeout(function () {
+      fallbackTimeout = null;
       connect(savedCallbacks);
     }, 1200);
   }
@@ -194,6 +219,14 @@
 
     getRoomCode: function () {
       return activeRoom;
+    },
+
+    getCurrentBrokerIdx: function () {
+      return currentBrokerIdx;
+    },
+
+    getCurrentBrokerHost: function () {
+      return BROKERS[currentBrokerIdx].host;
     },
 
     disconnect: function () {
