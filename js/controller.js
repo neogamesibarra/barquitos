@@ -322,94 +322,52 @@
   }
 
   function updateLayoutDimensions() {
-    var vp = getViewportSize();
-    var winW = vp.w;
-    var winH = vp.h;
-    if (!winW || !winH) return;
-
-    var container = document.getElementById('gamepad-container');
+    var container = document.getElementById("gamepad-container");
     if (!container) return;
 
-    var isPortrait = (winH > winW);
+    document.documentElement.style.width = "100%";
+    document.documentElement.style.height = "100%";
+    document.documentElement.style.overflow = "hidden";
+    document.documentElement.style.margin = "0";
+    document.documentElement.style.padding = "0";
 
-    document.documentElement.style.width = '100%';
-    document.documentElement.style.height = '100%';
-    document.documentElement.style.overflow = 'hidden';
-    document.documentElement.style.margin = '0';
-    document.documentElement.style.padding = '0';
+    document.body.style.width = "100%";
+    document.body.style.height = "100%";
+    document.body.style.overflow = "hidden";
+    document.body.style.margin = "0";
+    document.body.style.padding = "0";
 
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
-    document.body.style.overflow = 'hidden';
-    document.body.style.margin = '0';
-    document.body.style.padding = '0';
+    // Mando responsive nativo: siempre sin rotaciones forzadas para no distorsionar ni expandir fuera de pantalla
+    container.style.position = "fixed";
+    container.style.top = "0px";
+    container.style.left = "0px";
+    container.style.right = "0px";
+    container.style.bottom = "0px";
+    container.style.width = "100%";
+    container.style.height = "100%";
+    container.style.maxWidth = "100vw";
+    container.style.maxHeight = "100vh";
+    container.style.transform = "none";
+    container.style.transformOrigin = "initial";
 
-    if (isPortrait) {
-      // Teléfono vertical: rotar 90° horario
-      container.style.position = 'fixed';
-      container.style.top = '0px';
-      container.style.left = winW + 'px';
-      container.style.right = 'auto';
-      container.style.bottom = 'auto';
-      container.style.width = winH + 'px';
-      container.style.height = winW + 'px';
-      container.style.maxWidth = winH + 'px';
-      container.style.maxHeight = winW + 'px';
-      container.style.transform = 'rotate(90deg)';
-      container.style.transformOrigin = 'top left';
-    } else {
-      // Teléfono horizontal: sin rotación
-      container.style.position = 'fixed';
-      container.style.top = '0px';
-      container.style.left = '0px';
-      container.style.right = '0px';
-      container.style.bottom = '0px';
-      container.style.width = winW + 'px';
-      container.style.height = winH + 'px';
-      container.style.maxWidth = winW + 'px';
-      container.style.maxHeight = winH + 'px';
-      container.style.transform = 'none';
-      container.style.transformOrigin = 'initial';
-    }
-
-    var controlsArea = document.querySelector('.controls-area');
+    // Limpiar alturas forzadas en línea para que flexbox CSS calcule la altura perfecta en cualquier orientación
+    var controlsArea = document.querySelector(".controls-area");
     if (controlsArea) {
-      var topBar = document.querySelector('.top-bar');
-      var cfgBar = document.getElementById('lobby-config-bar');
-      var topH = (topBar && topBar.offsetHeight) ? topBar.offsetHeight + 4 : 38;
-      var cfgH = (cfgBar && cfgBar.style.display !== 'none' && cfgBar.offsetHeight) ? cfgBar.offsetHeight + 4 : 0;
-      var padV = 8;
-      var visualH = isPortrait ? winW : winH;
-      var availH = visualH - topH - cfgH - padV;
-      if (availH > 80) {
-        controlsArea.style.height = availH + 'px';
-        controlsArea.style.maxHeight = availH + 'px';
-      }
+      controlsArea.style.height = "";
+      controlsArea.style.maxHeight = "";
     }
 
-    var overlay = document.getElementById('room-overlay');
-    if (overlay && overlay.style.display !== 'none') {
-      if (isPortrait) {
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0px';
-        overlay.style.left = winW + 'px';
-        overlay.style.right = 'auto';
-        overlay.style.bottom = 'auto';
-        overlay.style.width = winH + 'px';
-        overlay.style.height = winW + 'px';
-        overlay.style.transform = 'rotate(90deg)';
-        overlay.style.transformOrigin = 'top left';
-      } else {
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0px';
-        overlay.style.left = '0px';
-        overlay.style.right = '0px';
-        overlay.style.bottom = '0px';
-        overlay.style.width = winW + 'px';
-        overlay.style.height = winH + 'px';
-        overlay.style.transform = 'none';
-        overlay.style.transformOrigin = 'initial';
-      }
+    var overlay = document.getElementById("room-overlay");
+    if (overlay) {
+      overlay.style.position = "fixed";
+      overlay.style.top = "0px";
+      overlay.style.left = "0px";
+      overlay.style.right = "0px";
+      overlay.style.bottom = "0px";
+      overlay.style.width = "100%";
+      overlay.style.height = "100%";
+      overlay.style.transform = "none";
+      overlay.style.transformOrigin = "initial";
     }
   }
 
@@ -465,38 +423,26 @@
     if (!elSteeringZone || !elWheelOuter || !elWheelKnob) return;
 
     function handleSteerTouch(touch) {
-      var isPortraitRotated = (window.innerHeight > window.innerWidth);
       var rect = elWheelOuter.getBoundingClientRect();
-      var normalized = 0;
-
-      if (isPortraitRotated) {
-        // En portrait rotado 90° horario: el eje visual X corresponde al eje Y de la pantalla (clientY)
-        var centerY = rect.top + rect.height / 2;
-        var maxDistY = rect.height / 2 - 10;
-        var deltaY = touch.clientY - centerY;
-        normalized = Math.max(-1, Math.min(1, deltaY / maxDistY));
-      } else {
-        // En landscape nativo: eje X normal (clientX)
-        var centerX = rect.left + rect.width / 2;
-        var maxDistX = rect.width / 2 - 10;
-        var deltaX = touch.clientX - centerX;
-        normalized = Math.max(-1, Math.min(1, deltaX / maxDistX));
-      }
+      var centerX = rect.left + rect.width / 2;
+      var maxDistX = Math.max(30, (rect.width / 2) - 8);
+      var deltaX = touch.clientX - centerX;
+      var normalized = Math.max(-1, Math.min(1, deltaX / maxDistX));
 
       inputState.turn = Math.round(normalized * 100) / 100;
 
-      var maxTravel = isPortraitRotated ? ((rect.height / 2 - 10) * 0.7) : ((rect.width / 2 - 10) * 0.7);
+      var maxTravel = maxDistX * 0.7;
       var knobOffset = normalized * maxTravel;
-      elWheelKnob.style.transform = 'translate(' + knobOffset + 'px, 0px)';
+      elWheelKnob.style.transform = "translate(" + knobOffset + "px, 0px)";
     }
 
     function resetSteer() {
       inputState.turn = 0;
-      elWheelKnob.style.transform = 'translate(0px, 0px)';
+      elWheelKnob.style.transform = "translate(0px, 0px)";
       touchSteerId = null;
     }
 
-    elSteeringZone.addEventListener('touchstart', function (e) {
+    elSteeringZone.addEventListener("touchstart", function (e) {
       e.preventDefault();
       if (touchSteerId !== null) return;
       var t = e.changedTouches[0];
@@ -504,7 +450,7 @@
       handleSteerTouch(t);
     }, false);
 
-    elSteeringZone.addEventListener('touchmove', function (e) {
+    elSteeringZone.addEventListener("touchmove", function (e) {
       e.preventDefault();
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
@@ -515,7 +461,7 @@
       }
     }, false);
 
-    elSteeringZone.addEventListener('touchend', function (e) {
+    elSteeringZone.addEventListener("touchend", function (e) {
       e.preventDefault();
       for (var i = 0; i < e.changedTouches.length; i++) {
         if (e.changedTouches[i].identifier === touchSteerId) {
@@ -525,23 +471,23 @@
       }
     }, false);
 
-    elSteeringZone.addEventListener('touchcancel', function (e) {
+    elSteeringZone.addEventListener("touchcancel", function (e) {
       e.preventDefault();
       resetSteer();
     }, false);
 
     // Soporte con ratón para pruebas en PC
     var isMouseDown = false;
-    elSteeringZone.addEventListener('mousedown', function (e) {
+    elSteeringZone.addEventListener("mousedown", function (e) {
       isMouseDown = true;
       handleSteerTouch(e);
     });
-    window.addEventListener('mousemove', function (e) {
+    window.addEventListener("mousemove", function (e) {
       if (isMouseDown) {
         handleSteerTouch(e);
       }
     });
-    window.addEventListener('mouseup', function () {
+    window.addEventListener("mouseup", function () {
       if (isMouseDown) {
         isMouseDown = false;
         resetSteer();
@@ -739,40 +685,52 @@
       });
     }
 
-    // Botones del Anfitrión (Mando 1)
+    // Botones del Anfitrión (Mando 1) con soporte para click y touch
     if (elBtnHostStart) {
-      elBtnHostStart.addEventListener('click', function (e) {
-        e.preventDefault();
+      var lastHostStartTap = 0;
+      function handleHostStart(e) {
+        var now = Date.now();
+        if (now - lastHostStartTap < 350) return;
+        lastHostStartTap = now;
+        if (e && e.preventDefault) e.preventDefault();
         triggerVibration(50);
         if (window.CloudNet) {
           window.CloudNet.sendToHost({
-            type: 'host_action',
-            action: 'start'
+            type: "host_action",
+            action: "start"
           });
         }
-      });
+      }
+      elBtnHostStart.addEventListener("click", handleHostStart, false);
+      elBtnHostStart.addEventListener("touchend", handleHostStart, false);
     }
 
     if (elBtnHostMode) {
-      elBtnHostMode.addEventListener('click', function (e) {
-        e.preventDefault();
+      var lastHostModeTap = 0;
+      function handleHostMode(e) {
+        var now = Date.now();
+        if (now - lastHostModeTap < 300) return;
+        lastHostModeTap = now;
+        if (e && e.preventDefault) e.preventDefault();
         triggerVibration(40);
         if (window.CloudNet) {
           window.CloudNet.sendToHost({
-            type: 'host_action',
-            action: 'toggle_mode'
+            type: "host_action",
+            action: "toggle_mode"
           });
         }
-      });
+      }
+      elBtnHostMode.addEventListener("click", handleHostMode, false);
+      elBtnHostMode.addEventListener("touchend", handleHostMode, false);
     }
 
     // Listo
     if (elBtnReady) {
-      elBtnReady.addEventListener('click', function (e) {
+      elBtnReady.addEventListener("click", function (e) {
         e.preventDefault();
         toggleReady();
       });
-      elBtnReady.addEventListener('touchend', function (e) {
+      elBtnReady.addEventListener("touchend", function (e) {
         e.preventDefault();
         toggleReady();
       });
@@ -780,10 +738,16 @@
 
     // Pantalla Completa
     if (elBtnFullscreen) {
-      elBtnFullscreen.addEventListener('click', function (e) {
-        e.preventDefault();
+      var lastFsTap = 0;
+      function handleFsTap(e) {
+        var now = Date.now();
+        if (now - lastFsTap < 400) return;
+        lastFsTap = now;
+        if (e && e.preventDefault) e.preventDefault();
         toggleFullscreen();
-      });
+      }
+      elBtnFullscreen.addEventListener("click", handleFsTap, false);
+      elBtnFullscreen.addEventListener("touchend", handleFsTap, false);
     }
 
     // Diálogo de Sala Manual

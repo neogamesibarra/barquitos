@@ -1397,6 +1397,10 @@
     }
     if (connected.length === 0) {
       connected = [playersData[0], playersData[1]];
+    } else if (connected.length === 1) {
+      // Si solo hay 1 jugador conectado, añadir un rival para que la ronda no termine al instante
+      var rivalSlot = (connected[0].slot === 0) ? 1 : 0;
+      connected.push(playersData[rivalSlot]);
     }
 
     var count = connected.length;
@@ -1445,9 +1449,11 @@
       }
     }
 
-    // Fallback si no hay conectados
-    if (blueShips.length === 0 && redShips.length === 0) {
+    // Asegurar que ambos bandos tengan al menos un barco para combatir
+    if (blueShips.length === 0) {
       blueShips.push(playersData[0]);
+    }
+    if (redShips.length === 0) {
       redShips.push(playersData[1]);
     }
 
@@ -1596,6 +1602,7 @@
   }
 
   function startNewMatch() {
+    console.log("[BARQUITOS] INICIANDO NUEVA PARTIDA! Modo:", selectedMode);
     currentRound = 0;
     teamScores.blue = 0;
     teamScores.red = 0;
@@ -1606,6 +1613,16 @@
   }
 
   function startRoundByMode() {
+    // Ocultar de inmediato la interfaz del lobby
+    setLobbyUIVisible(false);
+    var el = document.getElementById("lobby-ui");
+    if (el) el.style.display = "none";
+
+    // Desbloquear audio tras clic de usuario si aún no estaba activo
+    if (window.SoundSynth && window.SoundSynth.initAudio) {
+      try { window.SoundSynth.initAudio(); } catch (eAudio) {}
+    }
+
     if (selectedMode === MODE_HORDE) {
       startHordeMode();
     } else {
@@ -3969,54 +3986,94 @@
 
   window.addEventListener("resize", resizeCanvas, false);
 
-  // Inicialización de la pantalla TV / Anfitrión
-  window.onload = function() {
-    canvas = document.getElementById("game-canvas");
-    if (!canvas) return;
-    ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    elLobbyUI = document.getElementById("lobby-ui");
-    resizeCanvas();
-
-    connectCloudNet();
-    setupOnscreenControls();
-    window.requestAnimationFrame(gameLoop);
-
+  function bindLobbyButtons() {
     var bBattle = document.getElementById("btn-mode-battle");
     var bTeams = document.getElementById("btn-mode-teams");
     var bHorde = document.getElementById("btn-mode-horde");
     var bStart = document.getElementById("btn-start-game");
 
-    if (bBattle) {
-      bBattle.onclick = function() {
-        selectedMode = MODE_BATTLE;
+    function setupModeBtn(btn, modeVal) {
+      if (!btn) return;
+      var lastTap = 0;
+      function setModeAction(e) {
+        var now = Date.now();
+        if (now - lastTap < 250) return;
+        lastTap = now;
+        if (e && e.preventDefault) e.preventDefault();
+        selectedMode = modeVal;
         updateLobbyModeUI();
         broadcastCurrentMode();
-      };
+      }
+      btn.onclick = setModeAction;
+      btn.addEventListener("click", setModeAction, false);
+      btn.addEventListener("touchend", setModeAction, false);
     }
-    if (bTeams) {
-      bTeams.onclick = function() {
-        selectedMode = MODE_TEAMS;
-        updateLobbyModeUI();
-        broadcastCurrentMode();
-      };
-    }
-    if (bHorde) {
-      bHorde.onclick = function() {
-        selectedMode = MODE_HORDE;
-        updateLobbyModeUI();
-        broadcastCurrentMode();
-      };
-    }
+
+    setupModeBtn(bBattle, MODE_BATTLE);
+    setupModeBtn(bTeams, MODE_TEAMS);
+    setupModeBtn(bHorde, MODE_HORDE);
+
     if (bStart) {
-      bStart.onclick = function() {
+      var lastStartTap = 0;
+      function triggerStart(e) {
+        var now = Date.now();
+        if (now - lastStartTap < 350) return;
+        lastStartTap = now;
+        if (e && e.preventDefault) e.preventDefault();
+        console.log("[LOBBY] INICIAR PARTIDA presionado!");
         startNewMatch();
-      };
+      }
+      bStart.onclick = triggerStart;
+      bStart.addEventListener("click", triggerStart, false);
+      bStart.addEventListener("touchend", triggerStart, false);
+      bStart.addEventListener("pointerup", triggerStart, false);
     }
-  };
+  }
+
+  var isEngineInitialized = false;
+  function initEngine() {
+    if (isEngineInitialized) return;
+    canvas = document.getElementById("game-canvas");
+    if (!canvas) return;
+    ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    isEngineInitialized = true;
+
+    elLobbyUI = document.getElementById("lobby-ui");
+    resizeCanvas();
+
+    // Generar código de sala inmediatamente para que nunca muestre ----
+    if (!currentRoomCode && !getQueryParam("sala") && !getQueryParam("join")) {
+      currentRoomCode = generateRoomCode();
+      var roomDisp = document.getElementById("room-code-text") || document.getElementById("room-code-display");
+      if (roomDisp) roomDisp.textContent = currentRoomCode;
+      generateLobbyQR();
+      setupInviteButtons();
+    }
+
+    connectCloudNet();
+    setupOnscreenControls();
+    bindLobbyButtons();
+
+    window.requestAnimationFrame(gameLoop);
+  }
+
+  if (document.readyState === "complete" || document.readyState === "interactive") {
+    setTimeout(initEngine, 1);
+  } else {
+    window.addEventListener("DOMContentLoaded", initEngine, false);
+    window.addEventListener("load", initEngine, false);
+  }
+  window.onload = initEngine;
 
   window.BarquitosGame = {
     startRound: startRoundByMode,
-    startNewMatch: startNewMatch
+    startNewMatch: startNewMatch,
+    setMode: function(m) {
+      selectedMode = m;
+      updateLobbyModeUI();
+      broadcastCurrentMode();
+    }
   };
+
 })(window);
