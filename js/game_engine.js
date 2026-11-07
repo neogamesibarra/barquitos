@@ -97,6 +97,7 @@
 
   var waveAnim = 0;
   var roundWinner = null;
+  var matchWinner = null;
   var roundOverTimer = 0;
   var podiumAnimTimer = 0;
   var podiumSelectedBtn = 0; // 0: Jugar Otra Vez, 1: Lobby
@@ -135,7 +136,7 @@
   };
 
   function getQueryParam(name) {
-    var search = window.location.search.substring(1);
+    var search = (window.location && window.location.search) ? window.location.search.substring(1) : "";
     var parts = search.split("&");
     for (var i = 0; i < parts.length; i++) {
       var pair = parts[i].split("=");
@@ -937,9 +938,7 @@
     }
 
     // Giro suave hacia el objetivo
-    var diff = desiredAng - this.rotation;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-    while (diff > Math.PI) diff -= Math.PI * 2;
+    var diff = Math.atan2(Math.sin(desiredAng - this.rotation), Math.cos(desiredAng - this.rotation));
     this.rotation += Math.max(-3.2 * dt, Math.min(3.2 * dt, diff * 4.2 * dt));
 
     var fwdX = Math.cos(this.rotation);
@@ -1086,9 +1085,7 @@
     }
 
     var desiredAng = Math.atan2(targetY - this.y, targetX - this.x);
-    var diff = desiredAng - this.rotation;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-    while (diff > Math.PI) diff -= Math.PI * 2;
+    var diff = Math.atan2(Math.sin(desiredAng - this.rotation), Math.cos(desiredAng - this.rotation));
     this.rotation += Math.max(-1.5 * dt, Math.min(1.5 * dt, diff * 2.2 * dt));
 
     var fwdX = Math.cos(this.rotation);
@@ -1606,6 +1603,8 @@
     currentRound = 0;
     teamScores.blue = 0;
     teamScores.red = 0;
+    roundWinner = null;
+    matchWinner = null;
     for (var i = 0; i < playersData.length; i++) {
       playersData[i].score = 0;
     }
@@ -1888,9 +1887,7 @@
         ship.x += (ship.targetX - ship.x) * 0.45;
         ship.y += (ship.targetY - ship.y) * 0.45;
 
-        var aDiff = ship.targetAngle - ship.rotation;
-        while (aDiff < -Math.PI) aDiff += Math.PI * 2;
-        while (aDiff > Math.PI) aDiff -= Math.PI * 2;
+        var aDiff = Math.atan2(Math.sin(ship.targetAngle - ship.rotation), Math.cos(ship.targetAngle - ship.rotation));
         ship.rotation += aDiff * 0.45;
       }
       if (ship.flashTimer > 0) ship.flashTimer -= dt;
@@ -2555,8 +2552,14 @@
     if (dt > 0.1) dt = 0.1;
     lastTime = time;
 
-    update(dt);
-    render(dt);
+    try {
+      update(dt);
+      render(dt);
+    } catch (err) {
+      if (window.console && window.console.error) {
+        window.console.error("[Barquitos Game Loop Error]", err);
+      }
+    }
 
     window.requestAnimationFrame(gameLoop);
   }
@@ -3237,6 +3240,13 @@
   function openPodiumScreen() {
     currentState = STATE_PODIUM;
     podiumAnimTimer = 0;
+    var sorted = [];
+    for (var i = 0; i < playersData.length; i++) {
+      if (playersData[i].connected) sorted.push(playersData[i]);
+    }
+    if (sorted.length === 0) sorted = [playersData[0], playersData[1]];
+    sorted.sort(function(a, b) { return b.score - a.score; });
+    matchWinner = sorted[0];
     Sound.playFanfare();
     spawnConfetti(90);
     sendTvAction("state_change", null, "podium");
