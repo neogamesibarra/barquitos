@@ -23,15 +23,21 @@
   window.addEventListener('click', initAudio, false);
   window.addEventListener('touchstart', initAudio, false);
 
+  var cachedNoiseBuffers = {};
   function createNoiseBuffer(duration) {
     if (!ctx) return null;
+    var durKey = Math.round(duration * 100);
+    if (cachedNoiseBuffers[durKey]) {
+      return cachedNoiseBuffers[durKey];
+    }
     var sampleRate = ctx.sampleRate || 44100;
-    var bufferSize = sampleRate * duration;
+    var bufferSize = Math.floor(sampleRate * duration);
     var buffer = ctx.createBuffer(1, bufferSize, sampleRate);
     var output = buffer.getChannelData(0);
     for (var i = 0; i < bufferSize; i++) {
       output[i] = Math.random() * 2 - 1;
     }
+    cachedNoiseBuffers[durKey] = buffer;
     return buffer;
   }
 

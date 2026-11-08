@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
-  <link rel="stylesheet" href="css/tv.css?v=20">
+  <link rel="stylesheet" href="css/tv.css?v=21">
 </head>
 <body>
   <script>
@@ -96,7 +96,6 @@
         <div class="remote-legend">
           <div class="legend-item"><span class="key-badge">OK / ENTER</span> Iniciar partida</div>
           <div class="legend-item"><span class="key-badge">◀ / ▶</span> Cambiar modo</div>
-          <div class="legend-item"><span class="key-badge">AZUL / P</span> 🎂 Mensaje Sorpresa</div>
         </div>
       </div>
     </div>
@@ -161,16 +160,17 @@
     </div>
     <div class="touch-zone-right">
       <div id="touch-thrust" class="onscreen-btn thrust-btn">💨 VELAS</div>
+      <div id="touch-ram" class="onscreen-btn ram-btn">⚡ EMBESTIR</div>
       <div id="touch-shoot" class="onscreen-btn shoot-btn">💣 FUEGO</div>
     </div>
   </div>
 
-  <!-- Scripts en orden de dependencia estricta ES5 (Compatible con Tizen 2015) -->
+  <!-- Scripts del juego (Moderno ES6+) -->
   <script src="js/paho-mqtt.min.js"></script>
-  <script src="js/cloud_network.js?v=20"></script>
+  <script src="js/cloud_network.js?v=21"></script>
   <script src="js/qrcode.min.js"></script>
-  <script src="js/sound_synth.js?v=20"></script>
-  <script src="js/tizen_keys.js?v=20"></script>
-  <script src="js/game_engine.js?v=20"></script>
+  <script src="js/sound_synth.js?v=21"></script>
+  <script src="js/tizen_keys.js?v=21"></script>
+  <script src="js/game_engine.js?v=21"></script>
 </body>
 </html>

@@ -871,7 +871,63 @@ html, body {
   border-color: #e74c3c;
 }
 
+.onscreen-btn.ram-btn {
+  width: 95px;
+  height: 75px;
+  background: rgba(140, 90, 20, 0.75);
+  border-color: #f39c12;
+}
+
 .onscreen-btn.pressed {
   transform: scale(0.92);
   filter: brightness(1.4);
+}
+
+/* Adaptación responsive para pantallas móviles / smartphones */
+@media (max-width: 900px), (max-aspect-ratio: 1/1) {
+  .lobby-container {
+    overflow-y: auto;
+    padding: 14px;
+    justify-content: flex-start;
+  }
+  .lobby-content {
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+  }
+  .qr-card {
+    margin-right: 0;
+    margin-bottom: 8px;
+    padding: 16px;
+  }
+  .game-title {
+    font-size: 38px;
+    letter-spacing: 4px;
+  }
+  .game-subtitle {
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+  .mode-buttons-row {
+    gap: 8px;
+  }
+  .mode-btn {
+    padding: 10px 14px;
+  }
+  .onscreen-touch-controls {
+    height: 120px;
+    padding: 8px 12px;
+  }
+  .onscreen-btn.steer-btn {
+    width: 75px;
+    height: 60px;
+    font-size: 12px;
+  }
+  .onscreen-btn.thrust-btn,
+  .onscreen-btn.shoot-btn,
+  .onscreen-btn.ram-btn {
+    width: 75px;
+    height: 60px;
+    font-size: 11px;
+  }
 }

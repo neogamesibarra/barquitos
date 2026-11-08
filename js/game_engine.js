@@ -136,15 +136,12 @@
   };
 
   function getQueryParam(name) {
-    var search = (window.location && window.location.search) ? window.location.search.substring(1) : "";
-    var parts = search.split("&");
-    for (var i = 0; i < parts.length; i++) {
-      var pair = parts[i].split("=");
-      if (decodeURIComponent(pair[0]).toLowerCase() === name.toLowerCase()) {
-        return decodeURIComponent(pair[1] || "").toUpperCase();
-      }
+    try {
+      var params = new URLSearchParams(window.location.search);
+      return (params.get(name) || "").toUpperCase();
+    } catch (e) {
+      return "";
     }
-    return "";
   }
 
   function getOrCreateUUID() {
@@ -153,12 +150,16 @@
     try { saved = window.localStorage.getItem(key); } catch (e) {}
     if (saved && saved.length > 8) return saved;
 
-    var chars = "0123456789abcdef";
     var newUuid = "u-";
-    for (var i = 0; i < 12; i++) {
-      newUuid += chars.charAt(Math.floor(Math.random() * chars.length));
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      newUuid += crypto.randomUUID().replace(/-/g, "").substr(0, 12);
+    } else {
+      var chars = "0123456789abcdef";
+      for (var i = 0; i < 12; i++) {
+        newUuid += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      newUuid += "-" + Date.now().toString(36);
     }
-    newUuid += "-" + Date.now().toString(36);
     try { window.localStorage.setItem(key, newUuid); } catch (e) {}
     return newUuid;
   }
@@ -949,6 +950,22 @@
     this.x += this.vx * dt;
     this.y += this.vy * dt;
 
+    // Mantener estrictamente dentro del área jugable (sin atravesar paneles laterales)
+    if (this.x < arenaBounds.x + 24) {
+      this.x = arenaBounds.x + 24;
+      this.vx = Math.abs(this.vx) * 0.6 + 20;
+    } else if (this.x > arenaBounds.x + arenaBounds.w - 24) {
+      this.x = arenaBounds.x + arenaBounds.w - 24;
+      this.vx = -Math.abs(this.vx) * 0.6 - 20;
+    }
+    if (this.y < arenaBounds.y + 24) {
+      this.y = arenaBounds.y + 24;
+      this.vy = Math.abs(this.vy) * 0.6 + 20;
+    } else if (this.y > arenaBounds.y + arenaBounds.h - 24) {
+      this.y = arenaBounds.y + arenaBounds.h - 24;
+      this.vy = -Math.abs(this.vy) * 0.6 - 20;
+    }
+
     // Disparar a los jugadores
     if (nearest && nearDistSq < 302500 && this.shootCooldown <= 0) { // 550^2
       this.shootCooldown = Math.max(2.5, 5.0 - this.wave * 0.08) + Math.random() * 1.0;
@@ -1097,6 +1114,22 @@
     this.vy += (fwdY * this.speed - this.vy) * 3.0 * dt;
     this.x += this.vx * dt;
     this.y += this.vy * dt;
+
+    // Mantener al Galeón Jefe dentro de los límites del océano jugable
+    if (this.x < arenaBounds.x + 60) {
+      this.x = arenaBounds.x + 60;
+      this.vx = Math.abs(this.vx) * 0.5 + 10;
+    } else if (this.x > arenaBounds.x + arenaBounds.w - 60) {
+      this.x = arenaBounds.x + arenaBounds.w - 60;
+      this.vx = -Math.abs(this.vx) * 0.5 - 10;
+    }
+    if (this.y < arenaBounds.y + 60) {
+      this.y = arenaBounds.y + 60;
+      this.vy = Math.abs(this.vy) * 0.5 + 10;
+    } else if (this.y > arenaBounds.y + arenaBounds.h - 60) {
+      this.y = arenaBounds.y + arenaBounds.h - 60;
+      this.vy = -Math.abs(this.vy) * 0.5 - 10;
+    }
 
     // Ataques especiales del Jefe
     if (this.specialTimer <= 0) {
@@ -1962,11 +1995,19 @@
     if (isRemoteClient) {
       sendLocalInputsToHost();
     } else {
-      // Anfitrión en PC: aplica directamente a Barco 0 si existe
-      if (activeShips[0] && activeShips[0].isAlive) {
-        activeShips[0].turnInput = localInputState.turn;
-        activeShips[0].thrustInput = localInputState.thrust;
-        activeShips[0].shootInput = localInputState.shoot;
+      // Anfitrión en PC o táctil local: solo controla el barco local asignado (sin UUID remoto asignado)
+      var localShip = null;
+      for (var s = 0; s < activeShips.length; s++) {
+        var sh = activeShips[s];
+        if (sh && sh.isAlive && (!playersData[sh.slot] || !playersData[sh.slot].uuid)) {
+          localShip = sh;
+          break;
+        }
+      }
+      if (localShip) {
+        localShip.turnInput = localInputState.turn;
+        localShip.thrustInput = localInputState.thrust;
+        localShip.shootInput = localInputState.shoot;
       }
     }
   }
@@ -2097,10 +2138,21 @@
     return (("ontouchstart" in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
   }
 
+  function updateTouchControlsVisibility() {
+    var touchControls = document.getElementById("onscreen-touch-controls");
+    if (!touchControls) return;
+    if (currentState === STATE_ARENA && isTouchDevice()) {
+      touchControls.style.display = "flex";
+    } else {
+      touchControls.style.display = "none";
+    }
+  }
+
   function setupOnscreenControls() {
     var btnLeft = document.getElementById("touch-steer-left");
     var btnRight = document.getElementById("touch-steer-right");
     var btnThrust = document.getElementById("touch-thrust");
+    var btnRam = document.getElementById("touch-ram");
     var btnShoot = document.getElementById("touch-shoot");
 
     function bindBtn(el, prop, valStart, valEnd) {
@@ -2120,9 +2172,9 @@
         keyState[prop] = valEnd;
         updateLocalInputValues();
       }
-      el.addEventListener("touchstart", onStart, false);
-      el.addEventListener("touchend", onEnd, false);
-      el.addEventListener("touchcancel", onEnd, false);
+      el.addEventListener("touchstart", onStart, { passive: false });
+      el.addEventListener("touchend", onEnd, { passive: false });
+      el.addEventListener("touchcancel", onEnd, { passive: false });
       el.addEventListener("mousedown", onStart, false);
       el.addEventListener("mouseup", onEnd, false);
       el.addEventListener("mouseleave", onEnd, false);
@@ -2131,7 +2183,9 @@
     bindBtn(btnLeft, "left", true, false);
     bindBtn(btnRight, "right", true, false);
     bindBtn(btnThrust, "thrust", true, false);
+    bindBtn(btnRam, "thrust", true, false);
     bindBtn(btnShoot, "shoot", true, false);
+    updateTouchControlsVisibility();
   }
 
   var clientJoinRetryTimer = null;
@@ -2215,10 +2269,14 @@
       var roomDisplay = document.getElementById("room-code-text") || document.getElementById("room-code-display");
       if (roomDisplay) roomDisplay.textContent = currentRoomCode;
 
-      // Ocultar controles exclusivos del anfitrión
+      // Ocultar controles exclusivos del anfitrión y tarjeta QR en cliente
       var btnStart = document.getElementById("btn-start-game");
       if (btnStart) {
         btnStart.style.display = "none";
+      }
+      var qrCard = document.querySelector(".qr-card");
+      if (qrCard) {
+        qrCard.style.display = "none";
       }
 
       var remoteBar = document.getElementById("remote-player-bar");
@@ -2229,8 +2287,6 @@
       }
 
       setupRemotePlayerBarEvents();
-      generateLobbyQR();
-      setupInviteButtons();
 
       if (window.CloudNet) {
         window.CloudNet.initClient(currentRoomCode, myPlayerUUID, {
@@ -3388,12 +3444,11 @@
     sendTvAction("state_change", null, STATE_PODIUM);
   }
 
-  // RENDERIZADO
+  // RENDERIZADO (Optimizado a 60 FPS)
   function render(dt) {
     ctx.save();
     ctx.fillStyle = "#05111c";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Centrado de resolución virtual 1920x1080
     ctx.translate(offsetX, offsetY);
@@ -4143,16 +4198,15 @@
       var lastTap = 0;
       function setModeAction(e) {
         var now = Date.now();
-        if (now - lastTap < 250) return;
+        if (now - lastTap < 300) return;
         lastTap = now;
         if (e && e.preventDefault) e.preventDefault();
         selectedMode = modeVal;
         updateLobbyModeUI();
         broadcastCurrentMode();
       }
-      btn.onclick = setModeAction;
+      btn.addEventListener("pointerup", setModeAction, false);
       btn.addEventListener("click", setModeAction, false);
-      btn.addEventListener("touchend", setModeAction, false);
     }
 
     setupModeBtn(bBattle, MODE_BATTLE);
@@ -4163,16 +4217,14 @@
       var lastStartTap = 0;
       function triggerStart(e) {
         var now = Date.now();
-        if (now - lastStartTap < 350) return;
+        if (now - lastStartTap < 400) return;
         lastStartTap = now;
         if (e && e.preventDefault) e.preventDefault();
         console.log("[LOBBY] INICIAR PARTIDA presionado!");
         startNewMatch();
       }
-      bStart.onclick = triggerStart;
-      bStart.addEventListener("click", triggerStart, false);
-      bStart.addEventListener("touchend", triggerStart, false);
       bStart.addEventListener("pointerup", triggerStart, false);
+      bStart.addEventListener("click", triggerStart, false);
     }
   }
 

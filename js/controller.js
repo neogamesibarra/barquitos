@@ -7,15 +7,12 @@
   'use strict';
 
   function getQueryParam(name) {
-    var search = window.location.search.substring(1);
-    var parts = search.split('&');
-    for (var i = 0; i < parts.length; i++) {
-      var pair = parts[i].split('=');
-      if (decodeURIComponent(pair[0]).toLowerCase() === name.toLowerCase()) {
-        return decodeURIComponent(pair[1] || '').toUpperCase();
-      }
+    try {
+      var params = new URLSearchParams(window.location.search);
+      return (params.get(name) || '').toUpperCase();
+    } catch (e) {
+      return '';
     }
-    return '';
   }
 
   function getOrCreateUUID() {
@@ -29,12 +26,16 @@
       return saved;
     }
 
-    var chars = '0123456789abcdef';
     var newUuid = 'u-';
-    for (var i = 0; i < 12; i++) {
-      newUuid += chars.charAt(Math.floor(Math.random() * chars.length));
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      newUuid += crypto.randomUUID().replace(/-/g, '').substr(0, 12);
+    } else {
+      var chars = '0123456789abcdef';
+      for (var i = 0; i < 12; i++) {
+        newUuid += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      newUuid += '-' + Date.now().toString(36);
     }
-    newUuid += '-' + Date.now().toString(36);
 
     try {
       window.localStorage.setItem(key, newUuid);

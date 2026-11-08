@@ -8,22 +8,25 @@
   'use strict';
 
   var BROKERS = [
-    { host: 'broker.emqx.io', port: 8084, path: '/mqtt' },
-    { host: 'broker.hivemq.com', port: 8884, path: '/mqtt' }
+    { host: 'broker.hivemq.com', port: 8884, path: '/mqtt' },
+    { host: 'broker.emqx.io', port: 8084, path: '/mqtt' }
   ];
 
   function getPreferredBrokerIdx() {
-    if (typeof window !== 'undefined' && window.location && window.location.search) {
-      var s = window.location.search;
-      if (s.indexOf('b=1') !== -1 || s.indexOf('b=hivemq') !== -1) return 1;
-      if (s.indexOf('b=0') !== -1 || s.indexOf('b=emqx') !== -1) return 0;
-    }
-    return 0;
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.search) {
+        var params = new URLSearchParams(window.location.search);
+        var b = params.get('b');
+        if (b === 'emqx' || b === '1') return 1;
+        if (b === 'hivemq' || b === '0') return 0;
+      }
+    } catch (e) {}
+    return 0; // HiveMQ como broker principal por defecto
   }
 
   var currentBrokerIdx = getPreferredBrokerIdx();
   var brokerLocked = false;
-  var hostConnectFailures = 0;
+  var consecutiveFailures = 0;
   var client = null;
   var isConnected = false;
   var activeRoom = '';
@@ -35,6 +38,9 @@
   var fallbackTimeout = null;
 
   function generateId(prefix) {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return prefix + '_' + crypto.randomUUID().replace(/-/g, '').substr(0, 12);
+    }
     return prefix + '_' + Math.random().toString(36).substr(2, 8) + '_' + Date.now().toString(36);
   }
 
@@ -94,14 +100,14 @@
     };
 
     var options = {
-      timeout: 5,
+      timeout: 15,
       useSSL: true,
-      keepAliveInterval: 20,
+      keepAliveInterval: 25,
       cleanSession: true,
       onSuccess: function () {
         isConnected = true;
         brokerLocked = true;
-        hostConnectFailures = 0;
+        consecutiveFailures = 0;
         if (onStatusCb) onStatusCb('online', 'Conectado a la nube (' + broker.host + ')');
 
         // Suscribirse a los canales de la sala
@@ -154,13 +160,11 @@
       clearTimeout(fallbackTimeout);
       fallbackTimeout = null;
     }
-    // Solo el Host puede alternar de broker si el inicial falla antes de conectar
-    if (!brokerLocked && isHost) {
-      hostConnectFailures++;
-      if (hostConnectFailures >= 2) {
-        currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
-        hostConnectFailures = 0;
-      }
+    consecutiveFailures++;
+    // Alternar al siguiente broker si falla 2 veces seguidas
+    if (consecutiveFailures >= 2) {
+      currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
+      consecutiveFailures = 0;
     }
     var nextBroker = BROKERS[currentBrokerIdx];
     if (onStatusCb) onStatusCb('connecting', 'Reintentando con ' + nextBroker.host + ' (' + errMsg + ')...');
@@ -185,7 +189,7 @@
     initHost: function (roomCode, callbacks) {
       isHost = true;
       currentBrokerIdx = getPreferredBrokerIdx();
-      hostConnectFailures = 0;
+      consecutiveFailures = 0;
       activeRoom = roomCode.toUpperCase();
       myId = 'tv_host';
       onMessageCb = callbacks.onMessage;
