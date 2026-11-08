@@ -1696,7 +1696,7 @@
   function broadcastGameState() {
     if (!window.CloudNet || !window.CloudNet.isConnected() || isRemoteClient) return;
     var now = Date.now();
-    if (now - lastBroadcastTime < 50) return; // ~20 Hz
+    if (now - lastBroadcastTime < 90) return; // ~11 Hz: tasa óptima para evitar congestión en brokers MQTT y conexiones móviles
     lastBroadcastTime = now;
 
     // 1. Barcos de jugadores
@@ -1716,7 +1716,8 @@
         (sh.data && sh.data.name) ? sh.data.name : "",
         (sh.data && sh.data.customName) ? sh.data.customName : "",
         sh.isRamming ? 1 : 0,
-        sh.flashTimer > 0 ? 1 : 0
+        sh.flashTimer > 0 ? 1 : 0,
+        Math.round(sh.speed || 80)
       ]);
     }
 
@@ -1738,23 +1739,25 @@
 
     // 3. Barcos Piratas (Modo Horda)
     var pData = [];
-    for (var p = 0; p < pirateShips.length; p++) {
-      var pi = pirateShips[p];
-      if (pi.isAlive) {
-        pData.push([
-          Math.round(pi.x),
-          Math.round(pi.y),
-          Math.round(pi.rotation * 100) / 100,
-          pi.health,
-          pi.maxHealth,
-          pi.flashTimer > 0 ? 1 : 0
-        ]);
+    if (selectedMode === MODE_HORDE) {
+      for (var p = 0; p < pirateShips.length; p++) {
+        var pi = pirateShips[p];
+        if (pi.isAlive) {
+          pData.push([
+            Math.round(pi.x),
+            Math.round(pi.y),
+            Math.round(pi.rotation * 100) / 100,
+            pi.health,
+            pi.maxHealth,
+            pi.flashTimer > 0 ? 1 : 0
+          ]);
+        }
       }
     }
 
     // 4. Galeón Jefe
     var boData = null;
-    if (bossGalleon && bossGalleon.isAlive) {
+    if (selectedMode === MODE_HORDE && bossGalleon && bossGalleon.isAlive) {
       boData = [
         Math.round(bossGalleon.x),
         Math.round(bossGalleon.y),
@@ -1770,8 +1773,10 @@
     for (var c = 0; c < ammoCrates.length; c++) {
       cData.push([Math.round(ammoCrates[c].x), Math.round(ammoCrates[c].y), -1]);
     }
-    for (var pu = 0; pu < hordePowerups.length; pu++) {
-      cData.push([Math.round(hordePowerups[pu].x), Math.round(hordePowerups[pu].y), hordePowerups[pu].type]);
+    if (selectedMode === MODE_HORDE) {
+      for (var pu = 0; pu < hordePowerups.length; pu++) {
+        cData.push([Math.round(hordePowerups[pu].x), Math.round(hordePowerups[pu].y), hordePowerups[pu].type]);
+      }
     }
 
     var syncPayload = {
@@ -1783,7 +1788,7 @@
       cd: Math.round(countdownTime * 10) / 10,
       rt: Math.round(roundTimer),
       ts: teamScores,
-      up: hordeUpgrades,
+      up: (selectedMode === MODE_HORDE) ? hordeUpgrades : null,
       sh: sData,
       cb: bData,
       pi: pData,
@@ -1856,9 +1861,12 @@
         ship.targetX = item[1];
         ship.targetY = item[2];
         ship.targetAngle = item[3];
+        if (typeof item[13] === "number") {
+          ship.remoteSpeed = item[13];
+        }
 
         var distSq = (ship.x - ship.targetX) * (ship.x - ship.targetX) + (ship.y - ship.targetY) * (ship.y - ship.targetY);
-        if (distSq > 20000 || ship.x === 960) {
+        if (distSq > 15000 || ship.x === 960) {
           ship.x = ship.targetX;
           ship.y = ship.targetY;
           ship.rotation = ship.targetAngle;
@@ -1888,18 +1896,27 @@
       }
     }
 
-    // 3. Sincronizar piratas
-    pirateShips = [];
+    // 3. Sincronizar piratas reutilizando instancias para evitar basura y micro-tirones
     if (msg.pi) {
+      while (pirateShips.length < msg.pi.length) {
+        pirateShips.push(new PirateShip(0, 0, currentWave));
+      }
+      if (pirateShips.length > msg.pi.length) {
+        pirateShips.length = msg.pi.length;
+      }
       for (var p = 0; p < msg.pi.length; p++) {
         var pItem = msg.pi[p];
-        var ps = new PirateShip(pItem[0], pItem[1], currentWave);
+        var ps = pirateShips[p];
+        ps.x = pItem[0];
+        ps.y = pItem[1];
         ps.rotation = pItem[2];
         ps.health = pItem[3];
         ps.maxHealth = pItem[4];
+        ps.isAlive = true;
         if (pItem[5] === 1) ps.flashTimer = 0.2;
-        pirateShips.push(ps);
       }
+    } else {
+      pirateShips = [];
     }
 
     // 4. Sincronizar jefe
@@ -1912,6 +1929,7 @@
       bossGalleon.rotation = msg.bo[2];
       bossGalleon.health = msg.bo[3];
       bossGalleon.maxHealth = msg.bo[4];
+      bossGalleon.isAlive = true;
       if (msg.bo[5] === 1) bossGalleon.flashTimer = 0.2;
     } else {
       bossGalleon = null;
@@ -1938,13 +1956,39 @@
     // 1. Interpolación suave de barcos
     for (var s = 0; s < activeShips.length; s++) {
       var ship = activeShips[s];
-      if (ship.targetX !== undefined) {
-        ship.x += (ship.targetX - ship.x) * 0.45;
-        ship.y += (ship.targetY - ship.y) * 0.45;
 
-        var aDiff = Math.atan2(Math.sin(ship.targetAngle - ship.rotation), Math.cos(ship.targetAngle - ship.rotation));
-        ship.rotation += aDiff * 0.45;
+      // Barco propio en cliente remoto: control táctil responsivo sin lag
+      if (ship.slot === remoteSlot && ship.isAlive) {
+        if (localInputState.turn !== 0) {
+          ship.rotation += localInputState.turn * 2.8 * dt;
+        }
+        var currentSpeed = (localInputState.thrust) ? 190 : 80;
+        ship.x += Math.cos(ship.rotation) * currentSpeed * dt;
+        ship.y += Math.sin(ship.rotation) * currentSpeed * dt;
+
+        // Suave convergencia hacia la posición del anfitrión
+        if (ship.targetX !== undefined) {
+          ship.x += (ship.targetX - ship.x) * 0.12;
+          ship.y += (ship.targetY - ship.y) * 0.12;
+          var aDiffLocal = Math.atan2(Math.sin(ship.targetAngle - ship.rotation), Math.cos(ship.targetAngle - ship.rotation));
+          ship.rotation += aDiffLocal * 0.10;
+        }
+      } else {
+        // Barcos remotos: avance continuo y convergencia
+        if (ship.targetX !== undefined) {
+          var rSpeed = ship.remoteSpeed || 80;
+          if (ship.isAlive) {
+            ship.x += Math.cos(ship.rotation) * rSpeed * dt;
+            ship.y += Math.sin(ship.rotation) * rSpeed * dt;
+          }
+          ship.x += (ship.targetX - ship.x) * 0.22;
+          ship.y += (ship.targetY - ship.y) * 0.22;
+
+          var aDiff = Math.atan2(Math.sin(ship.targetAngle - ship.rotation), Math.cos(ship.targetAngle - ship.rotation));
+          ship.rotation += aDiff * 0.25;
+        }
       }
+
       if (ship.flashTimer > 0) ship.flashTimer -= dt;
       if (ship.ramCooldown > 0) ship.ramCooldown -= dt;
 
@@ -2019,20 +2063,26 @@
                   (localInputState.thrust !== lastSentLocalInput.thrust) ||
                   (localInputState.shoot !== lastSentLocalInput.shoot);
 
-    if (changed || (now - lastInputSendTime > 45)) {
-      lastSentLocalInput.turn = localInputState.turn;
-      lastSentLocalInput.thrust = localInputState.thrust;
-      lastSentLocalInput.shoot = localInputState.shoot;
-      lastInputSendTime = now;
-
-      window.CloudNet.sendToHost({
-        type: "input",
-        uuid: myPlayerUUID,
-        turn: localInputState.turn,
-        thrust: localInputState.thrust,
-        shoot: localInputState.shoot
-      });
+    // Si cambió el input (girar, acelerar, disparar): enviar de inmediato con throttle máx 60ms
+    // Si NO cambió: enviar solo un latido cada 350ms (~3 Hz) para mantener viva la sesión sin saturar la red
+    if (changed) {
+      if (now - lastInputSendTime < 60) return;
+    } else {
+      if (now - lastInputSendTime < 350) return;
     }
+
+    lastSentLocalInput.turn = localInputState.turn;
+    lastSentLocalInput.thrust = localInputState.thrust;
+    lastSentLocalInput.shoot = localInputState.shoot;
+    lastInputSendTime = now;
+
+    window.CloudNet.sendToHost({
+      type: "input",
+      uuid: myPlayerUUID,
+      turn: localInputState.turn,
+      thrust: localInputState.thrust,
+      shoot: localInputState.shoot
+    });
   }
 
   function handleClientIncomingMessage(topic, msg) {
@@ -2294,6 +2344,7 @@
   var clientJoinRetryCount = 0;
   function startClientJoinRetry() {
     stopClientJoinRetry();
+    if (remoteSlot !== -1) return;
     clientJoinRetryCount = 0;
     var slotBadge = document.getElementById("remote-player-slot");
     if (slotBadge && remoteSlot === -1) {
@@ -2396,14 +2447,24 @@
             console.log("[Online] Cliente conectado a la sala:", currentRoomCode);
             updateStatusUI("online", "Conectado a la sala " + currentRoomCode);
 
-            // Solicitar unirse a la partida con reintentos
-            window.CloudNet.sendToHost({
-              type: "join",
-              uuid: myPlayerUUID,
-              name: myCustomNickname,
-              team: mySelectedTeam
-            });
-            startClientJoinRetry();
+            // Si ya teníamos slot asignado, re-sincronizar de inmediato sin perder el barco
+            if (remoteSlot !== -1) {
+              window.CloudNet.sendToHost({
+                type: "rejoin",
+                uuid: myPlayerUUID,
+                slot: remoteSlot,
+                name: myCustomNickname,
+                team: mySelectedTeam
+              });
+            } else {
+              window.CloudNet.sendToHost({
+                type: "join",
+                uuid: myPlayerUUID,
+                name: myCustomNickname,
+                team: mySelectedTeam
+              });
+              startClientJoinRetry();
+            }
           },
           onStatus: function(status, msg) {
             updateStatusUI(status, msg);
@@ -2628,14 +2689,22 @@
   function handleIncomingMessage(msg) {
     if (!msg || !msg.type) return;
 
-    if (msg.type === "join") {
+    if (msg.type === "join" || msg.type === "rejoin") {
       var uuid = msg.uuid;
       if (!uuid) return;
 
       var slot = -1;
       if (uuidToSlot[uuid] !== undefined) {
         slot = uuidToSlot[uuid];
-      } else {
+      } else if (typeof msg.slot === "number" && msg.slot >= 0 && msg.slot < 8) {
+        if (!playersData[msg.slot].uuid || playersData[msg.slot].uuid === uuid) {
+          slot = msg.slot;
+          uuidToSlot[uuid] = slot;
+          playersData[slot].uuid = uuid;
+        }
+      }
+
+      if (slot === -1) {
         // En anfitrión, el slot 0 pertenece al anfitrión local. Los amigos online ocupan slots del 1 al 7.
         var startSlot = isRemoteClient ? 0 : 1;
         for (var s = startSlot; s < 8; s++) {
@@ -2660,6 +2729,22 @@
       }
       if (msg.team && (msg.team === "red" || msg.team === "blue")) {
         playersData[slot].team = msg.team;
+      }
+
+      // Si la partida ya está en curso (STATE_ARENA), asegurarse de que el barco exista en activeShips
+      if (currentState === STATE_ARENA) {
+        var shipExists = false;
+        for (var as = 0; as < activeShips.length; as++) {
+          if (activeShips[as].slot === slot) {
+            shipExists = true;
+            break;
+          }
+        }
+        if (!shipExists) {
+          var spawnAng = Math.random() * Math.PI * 2;
+          var newS = new Ship(slot, 960 + Math.cos(spawnAng) * 200, 540 + Math.sin(spawnAng) * 200, spawnAng);
+          activeShips.push(newS);
+        }
       }
 
       if (window.CloudNet) {

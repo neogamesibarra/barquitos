@@ -100,9 +100,9 @@
     };
 
     var options = {
-      timeout: 15,
+      timeout: 10,
       useSSL: true,
-      keepAliveInterval: 25,
+      keepAliveInterval: 30,
       cleanSession: true,
       onSuccess: function () {
         isConnected = true;
@@ -125,9 +125,12 @@
           client.subscribe(stateSub, { qos: 0 });
         }
 
-        if (callbacks && callbacks.onConnected) {
-          callbacks.onConnected();
-        }
+        // Dar un pequeño respiro de 60ms para que el broker registre las suscripciones antes de enviar join/inputs
+        setTimeout(function () {
+          if (callbacks && callbacks.onConnected) {
+            callbacks.onConnected();
+          }
+        }, 60);
       },
       onFailure: function (err) {
         isConnected = false;
@@ -148,11 +151,12 @@
       clearTimeout(fallbackTimeout);
       fallbackTimeout = null;
     }
-    if (onStatusCb) onStatusCb('connecting', 'Reconectando con ' + brokerHost + '...');
+    var bHost = brokerHost || BROKERS[currentBrokerIdx].host;
+    if (onStatusCb) onStatusCb('connecting', 'Reconectando con ' + bHost + '...');
     fallbackTimeout = setTimeout(function () {
       fallbackTimeout = null;
       connect(savedCallbacks);
-    }, 1500);
+    }, 1200);
   }
 
   function handleConnectionError(errMsg) {
@@ -161,8 +165,8 @@
       fallbackTimeout = null;
     }
     consecutiveFailures++;
-    // Alternar al siguiente broker si falla 2 veces seguidas
-    if (consecutiveFailures >= 2) {
+    // Solo alternar de broker si la conexión inicial jamás se estableció y no hay sala activa bloqueada
+    if (!brokerLocked && !activeRoom && consecutiveFailures >= 3) {
       currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
       consecutiveFailures = 0;
     }
@@ -171,7 +175,7 @@
     fallbackTimeout = setTimeout(function () {
       fallbackTimeout = null;
       connect(savedCallbacks);
-    }, 1500);
+    }, 1200);
   }
 
   function publish(topic, data) {

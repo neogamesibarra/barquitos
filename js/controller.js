@@ -447,14 +447,18 @@
   }
 
   // Envío constante a 60 Hz al host (TV)
+  var lastSentInputTime = 0;
   function sendInputUpdate() {
     if (mySlot === -1 || !window.CloudNet || !window.CloudNet.isConnected()) return;
 
-    var diff = Math.abs(inputState.turn - lastSentInput.turn) > 0.02 ||
+    var diff = Math.abs(inputState.turn - lastSentInput.turn) > 0.04 ||
                inputState.thrust !== lastSentInput.thrust ||
                inputState.shoot !== lastSentInput.shoot;
 
+    var now = Date.now();
     if (diff) {
+      if (now - lastSentInputTime < 50) return;
+      lastSentInputTime = now;
       lastSentInput.turn = inputState.turn;
       lastSentInput.thrust = inputState.thrust;
       lastSentInput.shoot = inputState.shoot;
