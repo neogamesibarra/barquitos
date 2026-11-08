@@ -22,6 +22,8 @@
   }
 
   var currentBrokerIdx = getPreferredBrokerIdx();
+  var brokerLocked = false;
+  var hostConnectFailures = 0;
   var client = null;
   var isConnected = false;
   var activeRoom = '';
@@ -64,7 +66,7 @@
     try {
       client = new Paho.MQTT.Client(broker.host, broker.port, broker.path, clientId);
     } catch (e) {
-      fallbackConnect();
+      handleConnectionError('Error inicializando cliente MQTT');
       return;
     }
 
@@ -72,7 +74,7 @@
       isConnected = false;
       var errReason = (responseObject && responseObject.errorMessage) ? responseObject.errorMessage : 'Conexión interrumpida';
       if (onStatusCb) onStatusCb('offline', 'Conexión perdida (' + errReason + '). Reconectando...');
-      fallbackConnect();
+      scheduleReconnect(broker.host);
     };
 
     client.onMessageArrived = function (message) {
@@ -98,7 +100,9 @@
       cleanSession: true,
       onSuccess: function () {
         isConnected = true;
-        if (onStatusCb) onStatusCb('online', 'Conectado a la nube');
+        brokerLocked = true;
+        hostConnectFailures = 0;
+        if (onStatusCb) onStatusCb('online', 'Conectado a la nube (' + broker.host + ')');
 
         // Suscribirse a los canales de la sala
         if (isHost) {
@@ -122,30 +126,48 @@
       onFailure: function (err) {
         isConnected = false;
         var errMsg = (err && err.errorMessage) ? err.errorMessage : 'Error de enlace';
-        if (onStatusCb) onStatusCb('connecting', 'Reintentando (' + errMsg + ')...');
-        fallbackConnect();
+        handleConnectionError(errMsg);
       }
     };
 
     try {
       client.connect(options);
     } catch (err) {
-      fallbackConnect();
+      handleConnectionError('Fallo de conexión');
     }
   }
 
-  function fallbackConnect() {
+  function scheduleReconnect(brokerHost) {
     if (fallbackTimeout) {
       clearTimeout(fallbackTimeout);
       fallbackTimeout = null;
     }
-    currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
-    var nextBroker = BROKERS[currentBrokerIdx];
-    if (onStatusCb) onStatusCb('connecting', 'Probando con ' + nextBroker.host + '...');
+    if (onStatusCb) onStatusCb('connecting', 'Reconectando con ' + brokerHost + '...');
     fallbackTimeout = setTimeout(function () {
       fallbackTimeout = null;
       connect(savedCallbacks);
-    }, 1200);
+    }, 1500);
+  }
+
+  function handleConnectionError(errMsg) {
+    if (fallbackTimeout) {
+      clearTimeout(fallbackTimeout);
+      fallbackTimeout = null;
+    }
+    // Solo el Host puede alternar de broker si el inicial falla antes de conectar
+    if (!brokerLocked && isHost) {
+      hostConnectFailures++;
+      if (hostConnectFailures >= 2) {
+        currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
+        hostConnectFailures = 0;
+      }
+    }
+    var nextBroker = BROKERS[currentBrokerIdx];
+    if (onStatusCb) onStatusCb('connecting', 'Reintentando con ' + nextBroker.host + ' (' + errMsg + ')...');
+    fallbackTimeout = setTimeout(function () {
+      fallbackTimeout = null;
+      connect(savedCallbacks);
+    }, 1500);
   }
 
   function publish(topic, data) {
@@ -162,6 +184,8 @@
     // Inicializar la TV como anfitrion (Host)
     initHost: function (roomCode, callbacks) {
       isHost = true;
+      currentBrokerIdx = getPreferredBrokerIdx();
+      hostConnectFailures = 0;
       activeRoom = roomCode.toUpperCase();
       myId = 'tv_host';
       onMessageCb = callbacks.onMessage;
@@ -169,6 +193,7 @@
 
       connect({
         onConnected: function () {
+          brokerLocked = true;
           if (callbacks.onReady) callbacks.onReady();
         }
       });
@@ -177,6 +202,8 @@
     // Inicializar el telefono como mando (Cliente)
     initClient: function (roomCode, playerUuid, callbacks) {
       isHost = false;
+      brokerLocked = true;
+      currentBrokerIdx = getPreferredBrokerIdx();
       activeRoom = roomCode.toUpperCase();
       myId = playerUuid;
       onMessageCb = callbacks.onMessage;

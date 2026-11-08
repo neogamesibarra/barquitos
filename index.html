@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
-  <link rel="stylesheet" href="css/tv.css?v=19">
+  <link rel="stylesheet" href="css/tv.css?v=20">
 </head>
 <body>
   <script>
@@ -122,7 +122,8 @@
       </div>
 
       <div class="join-modal-actions">
-        <button id="btn-confirm-join" class="join-modal-btn confirm" type="button">ENTRAR A LA SALA ⚓</button>
+        <button id="btn-join-controller" class="join-modal-btn confirm" type="button">📱 ENTRAR COMO MANDO MÓVIL</button>
+        <button id="btn-confirm-join" class="join-modal-btn screen" type="button">🖥️ JUGAR EN PANTALLA</button>
         <button id="btn-cancel-join" class="join-modal-btn cancel" type="button">Cancelar</button>
       </div>
     </div>
@@ -143,6 +144,10 @@
       </div>
       <button id="remote-btn-ready" class="remote-ready-btn" type="button">PREPARARSE</button>
     </div>
+    <div id="remote-waiting-help" class="remote-waiting-help" style="display: none;">
+      <button id="btn-become-host" class="remote-become-host-btn" type="button">👑 Crear mi propia partida</button>
+      <button id="btn-open-controller-quick" class="remote-controller-switch-btn" type="button">📱 Usar Mando Móvil</button>
+    </div>
     <div class="remote-controls-guide">
       <span class="guide-pc">⌨️ <strong>PC:</strong> Flechas/WASD Girar/Acelerar | ESPACIO Disparar | SHIFT Embestida</span>
     </div>
@@ -162,10 +167,10 @@
 
   <!-- Scripts en orden de dependencia estricta ES5 (Compatible con Tizen 2015) -->
   <script src="js/paho-mqtt.min.js"></script>
-  <script src="js/cloud_network.js?v=19"></script>
+  <script src="js/cloud_network.js?v=20"></script>
   <script src="js/qrcode.min.js"></script>
-  <script src="js/sound_synth.js?v=19"></script>
-  <script src="js/tizen_keys.js?v=19"></script>
-  <script src="js/game_engine.js?v=19"></script>
+  <script src="js/sound_synth.js?v=20"></script>
+  <script src="js/tizen_keys.js?v=20"></script>
+  <script src="js/game_engine.js?v=20"></script>
 </body>
 </html>

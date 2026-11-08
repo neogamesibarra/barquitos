@@ -574,18 +574,21 @@ html, body {
 .join-modal-actions {
   display: flex;
   display: -webkit-flex;
-  gap: 10px;
+  flex-direction: column;
+  -webkit-flex-direction: column;
+  gap: 8px;
   margin-top: 14px;
 }
 
 .join-modal-btn {
-  flex: 1;
+  width: 100%;
   padding: 10px 14px;
   font-size: 14px;
   font-weight: 800;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
 .join-modal-btn.confirm {
@@ -597,6 +600,17 @@ html, body {
 .join-modal-btn.confirm:hover {
   background: #2ecc71;
   box-shadow: 0 0 12px rgba(46, 204, 113, 0.6);
+}
+
+.join-modal-btn.screen {
+  background: #0284c7;
+  border: 2px solid #38bdf8;
+  color: #ffffff;
+}
+
+.join-modal-btn.screen:hover {
+  background: #0369a1;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
 }
 
 .join-modal-btn.cancel {
@@ -623,9 +637,13 @@ html, body {
   padding: 10px 18px;
   display: flex;
   display: -webkit-flex;
+  flex-wrap: wrap;
+  -webkit-flex-wrap: wrap;
+  justify-content: center;
+  -webkit-justify-content: center;
   align-items: center;
   -webkit-align-items: center;
-  gap: 14px;
+  gap: 12px;
   z-index: 500;
   max-width: 95%;
   box-sizing: border-box;
@@ -741,6 +759,48 @@ html, body {
   font-size: 11px;
   color: #90a4ae;
   white-space: nowrap;
+}
+
+.remote-waiting-help {
+  display: flex;
+  display: -webkit-flex;
+  align-items: center;
+  -webkit-align-items: center;
+  gap: 8px;
+}
+
+.remote-become-host-btn {
+  background: #f59e0b;
+  border: 1px solid #fbbf24;
+  color: #0f172a;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.remote-become-host-btn:hover {
+  background: #d97706;
+}
+
+.remote-controller-switch-btn {
+  background: #0284c7;
+  border: 1px solid #38bdf8;
+  color: #ffffff;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.remote-controller-switch-btn:hover {
+  background: #0369a1;
 }
 
 /* Controles táctiles transparentes en pantalla (móviles/tablets) */

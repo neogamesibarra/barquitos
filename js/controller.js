@@ -118,20 +118,26 @@
   };
 
   var joinRetryTimer = null;
+  var joinRetryCount = 0;
   function startJoinRetry() {
     stopJoinRetry();
+    joinRetryCount = 0;
     joinRetryTimer = setInterval(function () {
       if (mySlot !== -1 || !window.CloudNet || !window.CloudNet.isConnected()) {
         stopJoinRetry();
         return;
       }
-      console.log('[Controller] Reintentando solicitud join a sala:', currentRoom);
+      joinRetryCount++;
+      console.log('[Controller] Reintentando solicitud join a sala:', currentRoom, 'intento:', joinRetryCount);
       window.CloudNet.sendToHost({
         type: 'join',
         uuid: playerUUID,
         name: myCustomName,
         team: myTeam
       });
+      if (joinRetryCount >= 4 && mySlot === -1 && elPlayerName) {
+        elPlayerName.textContent = 'ESPERANDO AL ANFITRIÓN (SALA ' + currentRoom + ')...';
+      }
     }, 1500);
   }
 
@@ -140,6 +146,7 @@
       clearInterval(joinRetryTimer);
       joinRetryTimer = null;
     }
+    joinRetryCount = 0;
   }
 
   function connectToRoom(roomCode) {

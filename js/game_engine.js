@@ -2015,11 +2015,13 @@
           myCustomNickname = savedName;
           var inp = document.getElementById("remote-nickname-input");
           if (inp) inp.value = savedName;
-          CloudNet.sendToHost({
-            type: "set_name",
-            uuid: myPlayerUUID,
-            name: savedName
-          });
+          if (window.CloudNet && window.CloudNet.isConnected()) {
+            window.CloudNet.sendToHost({
+              type: "set_name",
+              uuid: myPlayerUUID,
+              name: savedName
+            });
+          }
         }
       } catch(e){}
 
@@ -2028,12 +2030,14 @@
         var savedTeam = window.localStorage.getItem("barquitos_team");
         if (savedTeam === "red" || savedTeam === "blue") {
           mySelectedTeam = savedTeam;
-          CloudNet.sendToHost({
-            type: "set_team",
-            uuid: myPlayerUUID,
-            slot: remoteSlot,
-            team: mySelectedTeam
-          });
+          if (window.CloudNet && window.CloudNet.isConnected()) {
+            window.CloudNet.sendToHost({
+              type: "set_team",
+              uuid: myPlayerUUID,
+              slot: remoteSlot,
+              team: mySelectedTeam
+            });
+          }
           updateRemoteTeamUI();
         }
       } catch(e){}
@@ -2131,20 +2135,40 @@
   }
 
   var clientJoinRetryTimer = null;
+  var clientJoinRetryCount = 0;
   function startClientJoinRetry() {
     stopClientJoinRetry();
+    clientJoinRetryCount = 0;
+    var slotBadge = document.getElementById("remote-player-slot");
+    if (slotBadge && remoteSlot === -1) {
+      slotBadge.textContent = "Buscando anfitrión...";
+      slotBadge.style.backgroundColor = "#d97706";
+    }
     clientJoinRetryTimer = setInterval(function () {
       if (remoteSlot !== -1 || !window.CloudNet || !window.CloudNet.isConnected()) {
         stopClientJoinRetry();
         return;
       }
-      console.log("[Online] Reintentando envío de solicitud join a sala:", currentRoomCode);
+      clientJoinRetryCount++;
+      console.log("[Online] Reintentando envío de solicitud join a sala:", currentRoomCode, "intento:", clientJoinRetryCount);
       window.CloudNet.sendToHost({
         type: "join",
         uuid: myPlayerUUID,
         name: myCustomNickname,
         team: mySelectedTeam
       });
+
+      if (clientJoinRetryCount >= 4 && remoteSlot === -1) {
+        var sb = document.getElementById("remote-player-slot");
+        if (sb) {
+          sb.textContent = "Esperando al anfitrión de sala " + currentRoomCode + "...";
+          sb.style.backgroundColor = "#b91c1c";
+        }
+        var helpBox = document.getElementById("remote-waiting-help");
+        if (helpBox) {
+          helpBox.style.display = "inline-flex";
+        }
+      }
     }, 1500);
   }
 
@@ -2152,6 +2176,11 @@
     if (clientJoinRetryTimer) {
       clearInterval(clientJoinRetryTimer);
       clientJoinRetryTimer = null;
+    }
+    clientJoinRetryCount = 0;
+    var helpBox = document.getElementById("remote-waiting-help");
+    if (helpBox) {
+      helpBox.style.display = "none";
     }
   }
 
@@ -2162,8 +2191,9 @@
       var stLabel = document.getElementById("cloud-status") || document.getElementById("server-status");
       if (stLabel) {
         if (status === "online" || status === "connected") {
+          var bHost = (window.CloudNet && window.CloudNet.getCurrentBrokerHost) ? window.CloudNet.getCurrentBrokerHost() : "";
           stLabel.className = "status-tag online";
-          stLabel.textContent = "● CONECTADO A LA NUBE";
+          stLabel.textContent = "● CONECTADO A LA NUBE" + (bHost ? " (" + bHost + ")" : "");
         } else if (status === "offline" || status === "error") {
           stLabel.className = "status-tag offline";
           stLabel.textContent = "○ " + (msg || "DESCONECTADO").toUpperCase();
@@ -2326,6 +2356,21 @@
         }
       };
     }
+
+    var btnBecomeHost = document.getElementById("btn-become-host");
+    if (btnBecomeHost) {
+      btnBecomeHost.onclick = function() {
+        window.location.href = window.location.pathname;
+      };
+    }
+
+    var btnOpenCtl = document.getElementById("btn-open-controller-quick");
+    if (btnOpenCtl) {
+      btnOpenCtl.onclick = function() {
+        var bIdx = (window.CloudNet && window.CloudNet.getCurrentBrokerIdx) ? window.CloudNet.getCurrentBrokerIdx() : 0;
+        window.location.href = "controller.html?room=" + encodeURIComponent(currentRoomCode) + "&b=" + bIdx;
+      };
+    }
   }
 
   function setupInviteButtons() {
@@ -2370,6 +2415,7 @@
     var btnOpenJoin = document.getElementById("btn-open-join-modal");
     var joinModal = document.getElementById("join-modal");
     var btnConfirmJoin = document.getElementById("btn-confirm-join");
+    var btnJoinCtl = document.getElementById("btn-join-controller");
     var btnCancelJoin = document.getElementById("btn-cancel-join");
     var inputJoinRoom = document.getElementById("input-join-room");
     var inputJoinName = document.getElementById("input-join-name");
@@ -2390,18 +2436,33 @@
       };
     }
 
+    function doJoin(asController) {
+      var codeVal = (inputJoinRoom.value || "").trim().toUpperCase();
+      if (codeVal.length >= 3) {
+        var nameVal = (inputJoinName ? inputJoinName.value : "").trim();
+        if (nameVal) {
+          try { window.localStorage.setItem("barquitos_nickname", nameVal); } catch(e){}
+        }
+        var currentBIdx = (window.CloudNet && window.CloudNet.getCurrentBrokerIdx) ? window.CloudNet.getCurrentBrokerIdx() : 0;
+        if (asController) {
+          window.location.href = "controller.html?room=" + encodeURIComponent(codeVal) + "&b=" + currentBIdx;
+        } else {
+          window.location.href = "index.html?sala=" + encodeURIComponent(codeVal) + "&b=" + currentBIdx;
+        }
+      } else {
+        alert("Por favor ingresa un código de sala válido de 4 letras");
+      }
+    }
+
     if (btnConfirmJoin && joinModal && inputJoinRoom) {
       btnConfirmJoin.onclick = function () {
-        var codeVal = (inputJoinRoom.value || "").trim().toUpperCase();
-        if (codeVal.length >= 3) {
-          var nameVal = (inputJoinName ? inputJoinName.value : "").trim();
-          if (nameVal) {
-            try { window.localStorage.setItem("barquitos_nickname", nameVal); } catch(e){}
-          }
-          window.location.search = "?sala=" + encodeURIComponent(codeVal);
-        } else {
-          alert("Por favor ingresa un código de sala válido de 4 letras");
-        }
+        doJoin(false);
+      };
+    }
+
+    if (btnJoinCtl && joinModal && inputJoinRoom) {
+      btnJoinCtl.onclick = function () {
+        doJoin(true);
       };
     }
   }
@@ -2503,7 +2564,9 @@
         }
         updateLobbyShips();
         // Confirmar el equipo al controlador
-        window.CloudNet.sendToPlayer(tSlot, { type: "team_confirmed", team: tm });
+        if (window.CloudNet && playersData[tSlot] && playersData[tSlot].uuid) {
+          window.CloudNet.sendToPlayer(playersData[tSlot].uuid, { type: "team_confirmed", team: tm });
+        }
       }
     } else if (msg.type === "input") {
       var inSlot = -1;
