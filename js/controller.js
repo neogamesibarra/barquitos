@@ -44,7 +44,7 @@
   }
 
   var playerUUID = getOrCreateUUID();
-  var currentRoom = getQueryParam('room');
+  var currentRoom = (getQueryParam('room') || getQueryParam('sala') || getQueryParam('join')).trim().toUpperCase();
   var mySlot = -1;
   var isReady = false;
   var currentGameState = 'lobby';
@@ -117,6 +117,31 @@
     bolt: '⚡'
   };
 
+  var joinRetryTimer = null;
+  function startJoinRetry() {
+    stopJoinRetry();
+    joinRetryTimer = setInterval(function () {
+      if (mySlot !== -1 || !window.CloudNet || !window.CloudNet.isConnected()) {
+        stopJoinRetry();
+        return;
+      }
+      console.log('[Controller] Reintentando solicitud join a sala:', currentRoom);
+      window.CloudNet.sendToHost({
+        type: 'join',
+        uuid: playerUUID,
+        name: myCustomName,
+        team: myTeam
+      });
+    }, 1500);
+  }
+
+  function stopJoinRetry() {
+    if (joinRetryTimer) {
+      clearInterval(joinRetryTimer);
+      joinRetryTimer = null;
+    }
+  }
+
   function connectToRoom(roomCode) {
     currentRoom = roomCode.trim().toUpperCase();
     if (!currentRoom) return;
@@ -135,17 +160,21 @@
           if (elConnDot) elConnDot.className = 'conn-dot online';
           if (elConnText) elConnText.textContent = 'Sala: ' + currentRoom;
 
-          // Enviar solicitud de unirse a la partida con apodo y equipo
+          // Enviar solicitud de unirse a la partida con apodo y equipo con reintentos
           window.CloudNet.sendToHost({
             type: 'join',
             uuid: playerUUID,
             name: myCustomName,
             team: myTeam
           });
+          startJoinRetry();
         },
         onStatus: function (status, text) {
           if (elConnDot) elConnDot.className = 'conn-dot ' + (status === 'online' ? 'online' : (status === 'offline' ? 'offline' : ''));
           if (elConnText) elConnText.textContent = text;
+          if (status !== 'online') {
+            stopJoinRetry();
+          }
         },
         onMessage: function (topic, msg) {
           handleServerMessage(msg);
@@ -158,6 +187,7 @@
     if (!msg || !msg.type) return;
 
     if (msg.type === 'init') {
+      stopJoinRetry();
       mySlot = msg.slot;
       isReady = !!msg.ready;
       if (msg.mode !== undefined) currentMode = msg.mode;
@@ -329,32 +359,40 @@
     var container = document.getElementById("gamepad-container");
     if (!container) return;
 
-    document.documentElement.style.width = "100%";
-    document.documentElement.style.height = "100%";
+    var vp = getViewportSize();
+    var w = vp.w;
+    var h = vp.h;
+
+    document.documentElement.style.width = w + "px";
+    document.documentElement.style.height = h + "px";
+    document.documentElement.style.maxWidth = w + "px";
+    document.documentElement.style.maxHeight = h + "px";
     document.documentElement.style.overflow = "hidden";
     document.documentElement.style.margin = "0";
     document.documentElement.style.padding = "0";
 
-    document.body.style.width = "100%";
-    document.body.style.height = "100%";
+    document.body.style.width = w + "px";
+    document.body.style.height = h + "px";
+    document.body.style.maxWidth = w + "px";
+    document.body.style.maxHeight = h + "px";
     document.body.style.overflow = "hidden";
     document.body.style.margin = "0";
     document.body.style.padding = "0";
 
-    // Mando responsive nativo: siempre sin rotaciones forzadas para no distorsionar ni expandir fuera de pantalla
+    // Mando responsive nativo: dimensiones en píxeles exactos del viewport visible
     container.style.position = "fixed";
     container.style.top = "0px";
     container.style.left = "0px";
     container.style.right = "0px";
     container.style.bottom = "0px";
-    container.style.width = "100%";
-    container.style.height = "100%";
-    container.style.maxWidth = "100vw";
-    container.style.maxHeight = "100vh";
+    container.style.width = w + "px";
+    container.style.height = h + "px";
+    container.style.maxWidth = w + "px";
+    container.style.maxHeight = h + "px";
+    container.style.overflow = "hidden";
     container.style.transform = "none";
     container.style.transformOrigin = "initial";
 
-    // Limpiar alturas forzadas en línea para que flexbox CSS calcule la altura perfecta en cualquier orientación
     var controlsArea = document.querySelector(".controls-area");
     if (controlsArea) {
       controlsArea.style.height = "";
@@ -368,8 +406,8 @@
       overlay.style.left = "0px";
       overlay.style.right = "0px";
       overlay.style.bottom = "0px";
-      overlay.style.width = "100%";
-      overlay.style.height = "100%";
+      overlay.style.width = w + "px";
+      overlay.style.height = h + "px";
       overlay.style.transform = "none";
       overlay.style.transformOrigin = "initial";
     }

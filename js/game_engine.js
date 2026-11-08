@@ -1764,6 +1764,9 @@
 
   function applyClientSync(msg) {
     if (!isRemoteClient || !msg) return;
+    if (islands.length === 0) {
+      initArenaIslands();
+    }
 
     if (typeof msg.st === "number") {
       currentState = msg.st;
@@ -1996,6 +1999,7 @@
     if (!msg || !msg.type) return;
 
     if (msg.type === "init") {
+      stopClientJoinRetry();
       remoteSlot = msg.slot;
       var slotBadge = document.getElementById("remote-player-slot");
       if (slotBadge) {
@@ -2126,6 +2130,31 @@
     bindBtn(btnShoot, "shoot", true, false);
   }
 
+  var clientJoinRetryTimer = null;
+  function startClientJoinRetry() {
+    stopClientJoinRetry();
+    clientJoinRetryTimer = setInterval(function () {
+      if (remoteSlot !== -1 || !window.CloudNet || !window.CloudNet.isConnected()) {
+        stopClientJoinRetry();
+        return;
+      }
+      console.log("[Online] Reintentando envío de solicitud join a sala:", currentRoomCode);
+      window.CloudNet.sendToHost({
+        type: "join",
+        uuid: myPlayerUUID,
+        name: myCustomNickname,
+        team: mySelectedTeam
+      });
+    }, 1500);
+  }
+
+  function stopClientJoinRetry() {
+    if (clientJoinRetryTimer) {
+      clearInterval(clientJoinRetryTimer);
+      clientJoinRetryTimer = null;
+    }
+  }
+
   // Conexión CloudNet (Soporta Anfitrión y Jugador Remoto Online)
   function connectCloudNet() {
     var joinCode = getQueryParam("sala") || getQueryParam("join");
@@ -2179,16 +2208,20 @@
             console.log("[Online] Cliente conectado a la sala:", currentRoomCode);
             updateStatusUI("online", "Conectado a la sala " + currentRoomCode);
 
-            // Solicitar unirse a la partida
+            // Solicitar unirse a la partida con reintentos
             window.CloudNet.sendToHost({
               type: "join",
               uuid: myPlayerUUID,
               name: myCustomNickname,
               team: mySelectedTeam
             });
+            startClientJoinRetry();
           },
           onStatus: function(status, msg) {
             updateStatusUI(status, msg);
+            if (status !== "online" && status !== "connected") {
+              stopClientJoinRetry();
+            }
           },
           onMessage: function(topic, msg) {
             handleClientIncomingMessage(topic, msg);
@@ -2198,7 +2231,10 @@
     } else {
       // ---------------- MODO ANFITRIÓN (Host / Pantalla Grande) ----------------
       isRemoteClient = false;
-      currentRoomCode = generateRoomCode();
+      if (!currentRoomCode) {
+        currentRoomCode = generateRoomCode();
+      }
+      currentRoomCode = currentRoomCode.trim().toUpperCase();
 
       var roomDisp = document.getElementById("room-code-text") || document.getElementById("room-code-display");
       if (roomDisp) roomDisp.textContent = currentRoomCode;
@@ -2417,7 +2453,8 @@
           symbol: playersData[slot].symbol,
           ready: playersData[slot].ready,
           team: playersData[slot].team,
-          mode: selectedMode
+          mode: selectedMode,
+          state: currentState
         });
       }
 
@@ -4087,6 +4124,7 @@
 
     elLobbyUI = document.getElementById("lobby-ui");
     resizeCanvas();
+    initArenaIslands();
 
     // Generar código de sala inmediatamente para que nunca muestre ----
     if (!currentRoomCode && !getQueryParam("sala") && !getQueryParam("join")) {

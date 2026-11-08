@@ -723,10 +723,10 @@ html, body {
     padding: 4px 6px !important;
   }
   .wheel-outer {
-    width: min(105px, 34vh, 26vw) !important;
-    height: min(105px, 34vh, 26vw) !important;
-    max-width: 105px !important;
-    max-height: 105px !important;
+    width: min(100px, 28vh, 24vw) !important;
+    height: min(100px, 28vh, 24vw) !important;
+    max-width: 100px !important;
+    max-height: 100px !important;
   }
   .wheel-knob {
     width: min(46px, 15vh) !important;
