@@ -2147,6 +2147,103 @@
     }
   }
 
+  // Prevención de doble toque para hacer zoom en móviles y tablets
+  (function preventMobileDoubleTapZoom() {
+    var lastTouchEnd = 0;
+    document.addEventListener("touchend", function(e) {
+      var now = Date.now();
+      if (now - lastTouchEnd <= 320) {
+        if (e.cancelable) e.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, { passive: false });
+
+    // Evitar gestos de zoom involuntario
+    document.addEventListener("gesturestart", function(e) {
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+    document.addEventListener("gesturechange", function(e) {
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+    document.addEventListener("gestureend", function(e) {
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+
+    // Evitar dblclick que provoca saltos de zoom en navegadores móviles
+    document.addEventListener("dblclick", function(e) {
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+  })();
+
+  function setupFullscreenButton() {
+    var fsBtn = document.getElementById("btn-fullscreen-toggle");
+    if (!fsBtn) return;
+    var fsIcon = document.getElementById("fs-icon");
+    var fsLabel = fsBtn.querySelector ? fsBtn.querySelector(".fs-label") : (document.querySelector ? document.querySelector("#btn-fullscreen-toggle .fs-label") : null);
+
+    function isFullscreen() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+    }
+
+    function updateFsState() {
+      if (isFullscreen()) {
+        if (fsBtn.classList && fsBtn.classList.add) fsBtn.classList.add("is-fullscreen");
+        if (fsIcon) fsIcon.textContent = "🗗";
+        if (fsLabel) fsLabel.textContent = "SALIR PANTALLA";
+      } else {
+        if (fsBtn.classList && fsBtn.classList.remove) fsBtn.classList.remove("is-fullscreen");
+        if (fsIcon) fsIcon.textContent = "⛶";
+        if (fsLabel) fsLabel.textContent = "PANTALLA COMPLETA";
+      }
+    }
+
+    function toggleFullscreen(e) {
+      if (e) {
+        if (e.cancelable) e.preventDefault();
+        if (e.stopPropagation) e.stopPropagation();
+      }
+      try {
+        if (!isFullscreen()) {
+          var root = document.documentElement;
+          if (root.requestFullscreen) {
+            root.requestFullscreen().catch(function(err){ console.warn("FS error:", err); });
+          } else if (root.webkitRequestFullscreen) {
+            root.webkitRequestFullscreen();
+          } else if (root.mozRequestFullScreen) {
+            root.mozRequestFullScreen();
+          } else if (root.msRequestFullscreen) {
+            root.msRequestFullscreen();
+          }
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen().catch(function(err){ console.warn("Exit FS error:", err); });
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen();
+          } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+          }
+        }
+      } catch (err) {
+        console.warn("Fullscreen toggle failed:", err);
+      }
+      setTimeout(updateFsState, 150);
+    }
+
+    fsBtn.addEventListener("click", toggleFullscreen, false);
+    fsBtn.addEventListener("touchend", function(e) {
+      toggleFullscreen(e);
+    }, { passive: false });
+
+    document.addEventListener("fullscreenchange", updateFsState, false);
+    document.addEventListener("webkitfullscreenchange", updateFsState, false);
+    document.addEventListener("mozfullscreenchange", updateFsState, false);
+    document.addEventListener("MSFullscreenChange", updateFsState, false);
+
+    updateFsState();
+  }
+
   function setupOnscreenControls() {
     var btnLeft = document.getElementById("touch-steer-left");
     var btnRight = document.getElementById("touch-steer-right");
@@ -2157,8 +2254,11 @@
     function bindBtn(el, prop, valStart, valEnd) {
       if (!el) return;
       function onStart(e) {
-        if (e && e.preventDefault) e.preventDefault();
-        el.className = el.className + " pressed";
+        if (e) {
+          if (e.cancelable) e.preventDefault();
+          if (e.stopPropagation) e.stopPropagation();
+        }
+        el.classList.add("pressed");
         keyState[prop] = valStart;
         updateLocalInputValues();
         if (window.navigator && window.navigator.vibrate) {
@@ -2166,8 +2266,11 @@
         }
       }
       function onEnd(e) {
-        if (e && e.preventDefault) e.preventDefault();
-        el.className = el.className.replace(/\bpressed\b/g, "").trim();
+        if (e) {
+          if (e.cancelable) e.preventDefault();
+          if (e.stopPropagation) e.stopPropagation();
+        }
+        el.classList.remove("pressed");
         keyState[prop] = valEnd;
         updateLocalInputValues();
       }
@@ -4251,6 +4354,7 @@
     }
 
     connectCloudNet();
+    setupFullscreenButton();
     setupOnscreenControls();
     bindLobbyButtons();
 

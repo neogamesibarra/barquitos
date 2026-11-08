@@ -15,6 +15,8 @@ html, body {
   color: #ffffff;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
 }
 
 #game-canvas {
@@ -26,6 +28,9 @@ html, body {
   display: block;
   z-index: 1;
   background-color: #0b2230;
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 /* Overlay UI del Lobby */
@@ -803,87 +808,173 @@ html, body {
   background: #0369a1;
 }
 
+/* Botón Flotante de Pantalla Completa (Móvil y PC) */
+.floating-fullscreen-btn {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 1500;
+  display: flex;
+  display: -webkit-flex;
+  align-items: center;
+  -webkit-align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(10, 25, 45, 0.88);
+  border: 2px solid #00e5ff;
+  border-radius: 22px;
+  color: #00e5ff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), 0 0 12px rgba(0, 229, 255, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+  touch-action: none !important;
+  transition: all 0.15s ease;
+}
+
+.floating-fullscreen-btn:hover {
+  background: rgba(0, 229, 255, 0.22);
+  color: #ffffff;
+  border-color: #38ef7d;
+  box-shadow: 0 0 18px rgba(56, 239, 125, 0.5);
+  transform: scale(1.05);
+}
+
+.floating-fullscreen-btn:active,
+.floating-fullscreen-btn.active {
+  transform: scale(0.94);
+  background: rgba(0, 229, 255, 0.35);
+}
+
+.floating-fullscreen-btn #fs-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.floating-fullscreen-btn.is-fullscreen {
+  border-color: #ffaa00;
+  color: #ffea79;
+  box-shadow: 0 0 15px rgba(255, 170, 0, 0.4);
+}
+
 /* Controles táctiles transparentes en pantalla (móviles/tablets) */
 .onscreen-touch-controls {
   position: fixed;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 140px;
+  height: 180px;
   display: flex;
   display: -webkit-flex;
   justify-content: space-between;
   -webkit-justify-content: space-between;
   pointer-events: none;
   z-index: 600;
-  padding: 10px 16px;
+  padding: 16px 24px env(safe-area-inset-bottom, 20px) 24px;
   box-sizing: border-box;
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
 }
 
 .touch-zone-left, .touch-zone-right {
   display: flex;
   display: -webkit-flex;
-  gap: 12px;
+  gap: 14px;
   pointer-events: auto;
   align-items: flex-end;
   -webkit-align-items: flex-end;
+  touch-action: none !important;
 }
 
 .onscreen-btn {
-  background: rgba(15, 28, 46, 0.65);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  border: 2px solid rgba(0, 229, 255, 0.6);
-  border-radius: 12px;
+  background: rgba(12, 26, 44, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 2.5px solid rgba(0, 229, 255, 0.75);
+  border-radius: 18px;
   color: #ffffff;
-  font-weight: 900;
-  font-size: 14px;
   display: flex;
   display: -webkit-flex;
+  flex-direction: column;
+  -webkit-flex-direction: column;
   align-items: center;
   -webkit-align-items: center;
   justify-content: center;
   -webkit-justify-content: center;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: none;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-  transition: transform 0.05s ease, background 0.05s ease;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+  touch-action: none !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: transform 0.06s ease, background 0.06s ease, border-color 0.06s ease, box-shadow 0.06s ease;
   cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.onscreen-btn .btn-glyph {
+  font-size: 26px;
+  line-height: 1.1;
+  pointer-events: none;
+  margin-bottom: 2px;
+}
+
+.onscreen-btn .btn-text {
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 .onscreen-btn.steer-btn {
-  width: 90px;
-  height: 70px;
+  width: 105px;
+  height: 90px;
+  background: rgba(14, 40, 65, 0.88);
+  border-color: #00e5ff;
 }
 
 .onscreen-btn.thrust-btn {
-  width: 100px;
-  height: 75px;
-  background: rgba(30, 80, 50, 0.75);
+  width: 105px;
+  height: 90px;
+  background: rgba(20, 85, 45, 0.88);
   border-color: #2ecc71;
-}
-
-.onscreen-btn.shoot-btn {
-  width: 100px;
-  height: 75px;
-  background: rgba(100, 30, 30, 0.75);
-  border-color: #e74c3c;
+  color: #d4fcd8;
 }
 
 .onscreen-btn.ram-btn {
-  width: 95px;
-  height: 75px;
-  background: rgba(140, 90, 20, 0.75);
+  width: 105px;
+  height: 90px;
+  background: rgba(130, 80, 15, 0.88);
   border-color: #f39c12;
+  color: #fff2d6;
 }
 
-.onscreen-btn.pressed {
-  transform: scale(0.92);
-  filter: brightness(1.4);
+.onscreen-btn.shoot-btn {
+  width: 110px;
+  height: 90px;
+  background: rgba(120, 25, 25, 0.90);
+  border-color: #e74c3c;
+  color: #ffdede;
 }
 
-/* Adaptación responsive para pantallas móviles / smartphones */
+.onscreen-btn.pressed,
+.onscreen-btn:active {
+  transform: scale(0.90);
+  filter: brightness(1.35);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.8), 0 0 20px currentColor;
+}
+
+/* Adaptación responsive para pantallas móviles / smartphones en vertical */
 @media (max-width: 900px), (max-aspect-ratio: 1/1) {
   .lobby-container {
     overflow-y: auto;
@@ -914,20 +1005,89 @@ html, body {
   .mode-btn {
     padding: 10px 14px;
   }
+
+  /* En modo vertical móvil, damos amplio espacio y tamaño cómodo a los botones */
   .onscreen-touch-controls {
-    height: 120px;
-    padding: 8px 12px;
+    height: auto;
+    min-height: 160px;
+    padding: 14px 16px env(safe-area-inset-bottom, 24px) 16px;
+    background: linear-gradient(to top, rgba(7, 16, 27, 0.88) 0%, rgba(7, 16, 27, 0.45) 75%, transparent 100%);
+  }
+  .touch-zone-left {
+    gap: 10px;
+  }
+  .touch-zone-right {
+    gap: 8px;
   }
   .onscreen-btn.steer-btn {
-    width: 75px;
-    height: 60px;
-    font-size: 12px;
+    width: 84px;
+    height: 84px;
+    border-radius: 16px;
   }
   .onscreen-btn.thrust-btn,
-  .onscreen-btn.shoot-btn,
-  .onscreen-btn.ram-btn {
-    width: 75px;
-    height: 60px;
+  .onscreen-btn.ram-btn,
+  .onscreen-btn.shoot-btn {
+    width: 80px;
+    height: 84px;
+    border-radius: 16px;
+  }
+  .onscreen-btn .btn-glyph {
+    font-size: 24px;
+  }
+  .onscreen-btn .btn-text {
     font-size: 11px;
+    font-weight: 900;
+  }
+
+  .floating-fullscreen-btn {
+    top: 8px;
+    right: 8px;
+    padding: 7px 12px;
+    font-size: 11px;
+    border-radius: 18px;
+  }
+  .floating-fullscreen-btn .fs-label {
+    display: none; /* En pantallas móviles estrechas mostramos el icono ⛶ para no chocar con la barra */
+  }
+}
+
+/* Adaptación responsive para pantallas móviles en horizontal (landscape) */
+@media (orientation: landscape) and (max-height: 600px) {
+  .onscreen-touch-controls {
+    height: 120px;
+    padding: 8px 16px env(safe-area-inset-bottom, 10px) 16px;
+  }
+  .touch-zone-left {
+    gap: 10px;
+  }
+  .touch-zone-right {
+    gap: 8px;
+  }
+  .onscreen-btn.steer-btn {
+    width: 80px;
+    height: 68px;
+    border-radius: 14px;
+  }
+  .onscreen-btn.thrust-btn,
+  .onscreen-btn.ram-btn,
+  .onscreen-btn.shoot-btn {
+    width: 76px;
+    height: 68px;
+    border-radius: 14px;
+  }
+  .onscreen-btn .btn-glyph {
+    font-size: 20px;
+    margin-bottom: 0px;
+  }
+  .onscreen-btn .btn-text {
+    font-size: 10px;
+  }
+  .floating-fullscreen-btn {
+    top: 6px;
+    right: 6px;
+    padding: 5px 10px;
+  }
+  .floating-fullscreen-btn .fs-label {
+    display: none;
   }
 }

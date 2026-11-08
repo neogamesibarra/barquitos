@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
-  <link rel="stylesheet" href="css/tv.css?v=22">
+  <link rel="stylesheet" href="css/tv.css?v=23">
 </head>
 <body>
   <script>
@@ -18,6 +18,12 @@
       }
     })();
   </script>
+
+  <!-- Botón Flotante de Pantalla Completa (Móvil y PC) -->
+  <button id="btn-fullscreen-toggle" class="floating-fullscreen-btn" type="button" title="Pantalla Completa">
+    <span id="fs-icon">⛶</span>
+    <span class="fs-label">PANTALLA COMPLETA</span>
+  </button>
 
   <!-- Canvas principal renderizado en Canvas 2D a 60 FPS (100% altura y anchura) -->
   <canvas id="game-canvas"></canvas>
@@ -155,22 +161,37 @@
   <!-- Controles Táctiles en Pantalla para Móviles y Tablets en Modo Online -->
   <div id="onscreen-touch-controls" class="onscreen-touch-controls" style="display: none;">
     <div class="touch-zone-left">
-      <div id="touch-steer-left" class="onscreen-btn steer-btn">◀ BABOR</div>
-      <div id="touch-steer-right" class="onscreen-btn steer-btn">ESTRIBOR ▶</div>
+      <button id="touch-steer-left" class="onscreen-btn steer-btn" type="button" aria-label="Girar Babor">
+        <span class="btn-glyph">◀</span>
+        <span class="btn-text">BABOR</span>
+      </button>
+      <button id="touch-steer-right" class="onscreen-btn steer-btn" type="button" aria-label="Girar Estribor">
+        <span class="btn-glyph">▶</span>
+        <span class="btn-text">ESTRIBOR</span>
+      </button>
     </div>
     <div class="touch-zone-right">
-      <div id="touch-thrust" class="onscreen-btn thrust-btn">💨 VELAS</div>
-      <div id="touch-ram" class="onscreen-btn ram-btn">⚡ EMBESTIR</div>
-      <div id="touch-shoot" class="onscreen-btn shoot-btn">💣 FUEGO</div>
+      <button id="touch-thrust" class="onscreen-btn thrust-btn" type="button" aria-label="Avanzar Velas">
+        <span class="btn-glyph">💨</span>
+        <span class="btn-text">VELAS</span>
+      </button>
+      <button id="touch-ram" class="onscreen-btn ram-btn" type="button" aria-label="Embestida">
+        <span class="btn-glyph">⚡</span>
+        <span class="btn-text">EMBESTIR</span>
+      </button>
+      <button id="touch-shoot" class="onscreen-btn shoot-btn" type="button" aria-label="Disparar Cañones">
+        <span class="btn-glyph">💣</span>
+        <span class="btn-text">FUEGO</span>
+      </button>
     </div>
   </div>
 
   <!-- Scripts del juego (Moderno ES6+) -->
   <script src="js/paho-mqtt.min.js"></script>
-  <script src="js/cloud_network.js?v=22"></script>
+  <script src="js/cloud_network.js?v=23"></script>
   <script src="js/qrcode.min.js"></script>
-  <script src="js/sound_synth.js?v=22"></script>
-  <script src="js/tizen_keys.js?v=22"></script>
-  <script src="js/game_engine.js?v=22"></script>
+  <script src="js/sound_synth.js?v=23"></script>
+  <script src="js/tizen_keys.js?v=23"></script>
+  <script src="js/game_engine.js?v=23"></script>
 </body>
 </html>
