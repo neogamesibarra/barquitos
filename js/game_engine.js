@@ -266,8 +266,8 @@
     }
     var pL = document.getElementById("hud-panel-left");
     var pR = document.getElementById("hud-panel-right");
-    if (pL) pL.style.display = (!visible && currentState === STATE_ARENA) ? "flex" : "none";
-    if (pR) pR.style.display = (!visible && currentState === STATE_ARENA) ? "flex" : "none";
+    if (pL) pL.style.display = "none";
+    if (pR) pR.style.display = "none";
   }
 
   // Estados del juego
@@ -1182,6 +1182,8 @@
           }
         }
       }
+      this.cachedNearest = nearest;
+      this.cachedNearDistSq = nearDistSq;
       this.cachedDesiredAng = dAng;
     }
     var desiredAng = this.cachedDesiredAng;
@@ -1232,7 +1234,7 @@
     }
 
     // Disparar a los jugadores
-    if (nearest && nearDistSq < 302500 && this.shootCooldown <= 0) { // 550^2
+    if (this.cachedNearest && this.cachedNearDistSq < 302500 && this.shootCooldown <= 0) { // 550^2
       this.shootCooldown = Math.max(2.5, 5.0 - this.wave * 0.08) + Math.random() * 1.0;
       var bX = this.x + fwdX * 28;
       var bY = this.y + fwdY * 28;
@@ -1498,13 +1500,15 @@
     c.restore();
   };
 
-  // Partículas y Efectos con Object Pooling y límite estricto de 80
+  // Partículas y Efectos con Object Pooling y ring-buffer estricto de 80
   var MAX_PARTICLES = 80;
+  var particleOverwriteIdx = 0;
   function addParticle(p) {
     if (particles.length >= MAX_PARTICLES) {
-      particles[0] = p; // Reutilizar la partícula más antigua (swap-and-pop O(1))
+      particles[particleOverwriteIdx] = p;
+      particleOverwriteIdx = (particleOverwriteIdx + 1) % MAX_PARTICLES;
     } else {
-      addParticle(p);
+      particles.push(p);
     }
   }
 
@@ -2267,7 +2271,7 @@
       }
     }
 
-    updateLateralScoreboards();
+    updateAllShipsHUD(); updateTeamScoresHUD(); updateHordeUpgradesHUD();
   }
 
   function updateRemoteClient(dt) {
@@ -4130,14 +4134,14 @@
       }
     }
 
-    // 2. Olas animadas sobre el mar
+    // 2. Olas animadas sobre el mar (limitadas al océano central navegable, 50% menos cálculos trigonométricos)
     ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
     ctx.lineWidth = 1.8;
-    for (var wy = 60; wy < V_HEIGHT; wy += 80) {
+    for (var wy = 70; wy < V_HEIGHT; wy += 90) {
       ctx.beginPath();
-      for (var wx = 0; wx <= V_WIDTH; wx += 35) {
+      for (var wx = 280; wx <= 1640; wx += 45) {
         var offY = Math.sin((wx * 0.01) + (waveAnim * 2.2) + wy) * 7;
-        if (wx === 0) ctx.moveTo(wx, wy + offY);
+        if (wx === 280) ctx.moveTo(wx, wy + offY);
         else ctx.lineTo(wx, wy + offY);
       }
       ctx.stroke();
@@ -4201,50 +4205,7 @@
     var cardW = 240;
     var cardH = 86;
 
-    // 1. Fondos sólidos y bordes divisores de las franjas laterales
-    // Panel Izquierdo
-    var leftGrad = ctx.createLinearGradient(0, 0, panelW, 0);
-    leftGrad.addColorStop(0, "#05111c");
-    leftGrad.addColorStop(1, "#0a1d30");
-    ctx.fillStyle = leftGrad;
-    ctx.fillRect(leftPanelX, 0, panelW, V_HEIGHT);
-
-    // Borde divisor derecho del panel izquierdo (frontera con el mar)
-    ctx.strokeStyle = "rgba(0, 229, 255, 0.55)";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(panelW, 0);
-    ctx.lineTo(panelW, V_HEIGHT);
-    ctx.stroke();
-
-    ctx.strokeStyle = "rgba(255, 215, 0, 0.7)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(panelW - 2, 0);
-    ctx.lineTo(panelW - 2, V_HEIGHT);
-    ctx.stroke();
-
-    // Panel Derecho
-    var rightGrad = ctx.createLinearGradient(rightPanelX, 0, V_WIDTH, 0);
-    rightGrad.addColorStop(0, "#0a1d30");
-    rightGrad.addColorStop(1, "#05111c");
-    ctx.fillStyle = rightGrad;
-    ctx.fillRect(rightPanelX, 0, panelW, V_HEIGHT);
-
-    // Borde divisor izquierdo del panel derecho (frontera con el mar)
-    ctx.strokeStyle = "rgba(0, 229, 255, 0.55)";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(rightPanelX, 0);
-    ctx.lineTo(rightPanelX, V_HEIGHT);
-    ctx.stroke();
-
-    ctx.strokeStyle = "rgba(255, 215, 0, 0.7)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(rightPanelX + 2, 0);
-    ctx.lineTo(rightPanelX + 2, V_HEIGHT);
-    ctx.stroke();
+    // Fondos laterales y bordes pre-renderizados en mapOffscreenCanvas (cero repintado redundante)
 
     // 2. Obtener ÚNICAMENTE los jugadores que están en partida
     var inMatchPlayers = [];
