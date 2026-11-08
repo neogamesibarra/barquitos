@@ -1248,7 +1248,7 @@
     }
   };
 
-  PirateShip.prototype.applyHit = function(dirX, dirY, force, dmg) {
+  PirateShip.prototype.applyHit = function(dirX, dirY, force, dmg, attackerSlot) {
     if (!this.isAlive) return;
     Sound.playHit();
     this.health -= (dmg !== undefined ? dmg : 1);
@@ -1256,16 +1256,29 @@
     this.vx += dirX * (force || 300);
     this.vy += dirY * (force || 300);
 
+    // Sumar puntos por impacto
+    if (typeof attackerSlot === "number" && attackerSlot >= 0 && playersData[attackerSlot]) {
+      playersData[attackerSlot].score += 25;
+      updateShipHUD(attackerSlot);
+    }
+
     if (this.health <= 0) {
-      this.die();
+      this.die(attackerSlot);
     }
   };
 
-  PirateShip.prototype.die = function() {
+  PirateShip.prototype.die = function(killerSlot) {
     if (!this.isAlive) return;
     this.isAlive = false;
     Sound.playSplash();
     triggerScreenShake(0.25, 7);
+
+    // Sumar puntos al jugador que hundió el barco pirata
+    if (typeof killerSlot === "number" && killerSlot >= 0 && playersData[killerSlot]) {
+      playersData[killerSlot].score += 100;
+      addFloatingText("+100", this.x, this.y - 20, "#ffca28", 22);
+      updateShipHUD(killerSlot);
+    }
 
     for (var i = 0; i < 24; i++) {
       var spd = 40 + Math.random() * 180;
@@ -1421,7 +1434,7 @@
     }
   };
 
-  BossGalleon.prototype.applyHit = function(dirX, dirY, force, dmg) {
+  BossGalleon.prototype.applyHit = function(dirX, dirY, force, dmg, attackerSlot) {
     if (!this.isAlive) return;
     Sound.playHit();
     triggerScreenShake(0.2, 5);
@@ -1430,16 +1443,29 @@
     this.vx += dirX * 60;
     this.vy += dirY * 60;
 
+    // Sumar puntos por impacto al jefe
+    if (typeof attackerSlot === "number" && attackerSlot >= 0 && playersData[attackerSlot]) {
+      playersData[attackerSlot].score += 35;
+      updateShipHUD(attackerSlot);
+    }
+
     if (this.health <= 0) {
-      this.die();
+      this.die(attackerSlot);
     }
   };
 
-  BossGalleon.prototype.die = function() {
+  BossGalleon.prototype.die = function(killerSlot) {
     if (!this.isAlive) return;
     this.isAlive = false;
     Sound.playFanfare();
     triggerScreenShake(1.2, 18);
+
+    // Sumar puntos al jugador que derrotó al Galeón Jefe
+    if (typeof killerSlot === "number" && killerSlot >= 0 && playersData[killerSlot]) {
+      playersData[killerSlot].score += 500;
+      addFloatingText("+500", this.x, this.y - 40, "#ffd700", 36);
+      updateShipHUD(killerSlot);
+    }
 
     for (var i = 0; i < 70; i++) {
       var spd = 60 + Math.random() * 260;
@@ -2039,7 +2065,8 @@
         (sh.data && sh.data.customName) ? sh.data.customName : "",
         sh.isRamming ? 1 : 0,
         sh.flashTimer > 0 ? 1 : 0,
-        Math.round(sh.speed || 80)
+        Math.round(sh.speed || 80),
+        (sh.data && typeof sh.data.score === "number") ? sh.data.score : (playersData[sh.slot] ? playersData[sh.slot].score : 0)
       ]);
     }
 
@@ -2117,7 +2144,8 @@
       bo: boData,
       cr: cData,
       rw: roundWinner ? roundWinner.name : null,
-      mw: matchWinner ? matchWinner.name : null
+      mw: matchWinner ? matchWinner.name : null,
+      psc: playersData.map(function(p){ return p.score || 0; })
     };
 
     window.CloudNet.broadcastState(syncPayload);
@@ -2144,6 +2172,11 @@
     countdownTime = msg.cd;
     roundTimer = msg.rt;
     if (msg.ts) teamScores = msg.ts;
+    if (msg.psc && msg.psc.length) {
+      for (var pi = 0; pi < msg.psc.length; pi++) {
+        if (playersData[pi]) playersData[pi].score = msg.psc[pi];
+      }
+    }
     if (msg.up) hordeUpgrades = msg.up;
     if (msg.rw) roundWinner = { name: msg.rw, hull: "#ffca28" };
     if (msg.mw) matchWinner = { name: msg.mw, hull: "#ffd700" };
@@ -2205,6 +2238,10 @@
         }
         ship.isRamming = (item[11] === 1);
         if (item[12] === 1) ship.flashTimer = 0.2;
+        if (typeof item[14] === "number") {
+          if (ship.data) ship.data.score = item[14];
+          if (playersData[slot]) playersData[slot].score = item[14];
+        }
       }
     }
 
@@ -3683,6 +3720,10 @@
           var acDy = crate.y - ship.y;
           if (acDx * acDx + acDy * acDy < 784) {
             if (ship.collectAmmo()) {
+              if (playersData[ship.slot]) {
+                playersData[ship.slot].score += 25;
+                updateShipHUD(ship.slot);
+              }
               ammoCrates[c] = ammoCrates[ammoCrates.length - 1];
               ammoCrates.pop();
             }
@@ -3696,6 +3737,10 @@
           var puDy = pUp.y - ship.y;
           if (puDx * puDx + puDy * puDy < 900) {
             applyGlobalPowerup(pUp.type, ship);
+            if (playersData[ship.slot]) {
+              playersData[ship.slot].score += 50;
+              updateShipHUD(ship.slot);
+            }
             hordePowerups[p] = hordePowerups[hordePowerups.length - 1];
             hordePowerups.pop();
           }
@@ -3762,7 +3807,7 @@
 
           if ((pShip.isRamming || pSpdFwd > 130) && cpDot > 0.45 && pShip.ramCooldown <= 0) {
             pShip.ramCooldown = 0.65;
-            pirShip.applyHit(cpnX, cpnY, 380, 0.5);
+            pirShip.applyHit(cpnX, cpnY, 380, 0.5, pShip.slot);
             spawnMetalRamSparks(pShip.x + pfwdX * 30, pShip.y + pfwdY * 30, -cpnX, -cpnY);
             addFloatingText("💥 -0.5", pirShip.x, pirShip.y - 25, "#ff3d00", 28);
             triggerScreenShake(0.22, 6);
@@ -3789,7 +3834,7 @@
 
           if ((pShip.isRamming || pSpdFwd > 130) && bgDot > 0.45 && pShip.ramCooldown <= 0) {
             pShip.ramCooldown = 0.65;
-            bossGalleon.applyHit(bgnX, bgnY, 80, 0.5);
+            bossGalleon.applyHit(bgnX, bgnY, 80, 0.5, pShip.slot);
             spawnMetalRamSparks(pShip.x + pfwdX * 30, pShip.y + pfwdY * 30, -bgnX, -bgnY);
             addFloatingText("💥 -0.5", bossGalleon.x, bossGalleon.y - 35, "#ffd700", 32);
             triggerScreenShake(0.26, 7);
@@ -3871,7 +3916,7 @@
           var pDx = pir.x - ball.x;
           var pDy = pir.y - ball.y;
           if (pDx * pDx + pDy * pDy < 520) {
-            pir.applyHit(ball.dx, ball.dy, 460, ball.damage);
+            pir.applyHit(ball.dx, ball.dy, 460, ball.damage, ball.shooterSlot);
             ball.isDead = true;
             hitEnemy = true;
             cannonballs[b] = cannonballs[cannonballs.length - 1];
@@ -3884,7 +3929,7 @@
           var bgDx = bossGalleon.x - ball.x;
           var bgDy = bossGalleon.y - ball.y;
           if (bgDx * bgDx + bgDy * bgDy < 2300) {
-            bossGalleon.applyHit(ball.dx, ball.dy, 120, ball.damage);
+            bossGalleon.applyHit(ball.dx, ball.dy, 120, ball.damage, ball.shooterSlot);
             ball.isDead = true;
             cannonballs[b] = cannonballs[cannonballs.length - 1];
             cannonballs.pop();
@@ -3912,9 +3957,14 @@
         addFloatingText("💚 ¡SALUD AL MÁXIMO RESTAURADA!", 960, 390, "#76ff03", 34);
         Sound.playPowerup();
 
-        // Recuperar la vida al máximo para todos los barcos aliados y revivir a los caídos
+        // Bonificación de puntos por sobrevivir la oleada para todos los aliados
+        var waveBonus = currentWave * 200;
         for (var hs = 0; hs < activeShips.length; hs++) {
           var aShip = activeShips[hs];
+          if (playersData[aShip.slot]) {
+            playersData[aShip.slot].score += waveBonus;
+            updateShipHUD(aShip.slot);
+          }
           aShip.health = aShip.maxHealth;
           aShip.isAlive = true;
           aShip.flashTimer = 0.4;
