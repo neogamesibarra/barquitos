@@ -1091,3 +1091,188 @@ html, body {
     display: none;
   }
 }
+
+/* PANELES LATERALES DE HUD DESACOPLADOS DEL CANVAS (Cero manipulacion DOM por frame) */
+.lateral-hud-panel {
+  position: absolute;
+  top: 0;
+  width: 270px;
+  height: 100%;
+  z-index: 4;
+  pointer-events: none;
+  display: none;
+  flex-direction: column;
+  padding: 16px 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+  transform-origin: top left;
+}
+
+.lateral-hud-panel.panel-left {
+  left: 0;
+}
+
+.lateral-hud-panel.panel-right {
+  right: 0;
+  transform-origin: top right;
+}
+
+.hud-panel-header {
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 1px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.hud-panel-header.blue {
+  background: rgba(13, 71, 161, 0.92);
+  border-color: #42a5f5;
+  color: #ffffff;
+}
+
+.hud-panel-header.red {
+  background: rgba(183, 28, 28, 0.92);
+  border-color: #ef5350;
+  color: #ffffff;
+}
+
+.hud-panel-header.horde {
+  background: rgba(10, 28, 44, 0.92);
+  border-color: #00e5ff;
+  color: #00e5ff;
+}
+
+.hud-panel-header.battle {
+  background: rgba(10, 28, 44, 0.92);
+  border-color: #ffd700;
+  color: #ffd700;
+}
+
+.hud-header-sub {
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 3px;
+  opacity: 0.9;
+}
+
+.hud-card {
+  position: relative;
+  background: rgba(10, 24, 38, 0.92);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 7px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+
+.hud-card.sunk {
+  opacity: 0.45;
+  border-color: rgba(255, 23, 68, 0.45);
+}
+
+.hud-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.hud-card-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 145px;
+}
+
+.hud-card-status {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.hud-card-status.alive {
+  background: rgba(0, 230, 118, 0.22);
+  color: #00e676;
+  border: 1px solid #00e676;
+}
+
+.hud-card-status.sunk {
+  background: rgba(255, 23, 68, 0.22);
+  color: #ff1744;
+  border: 1px solid #ff1744;
+}
+
+.hud-health-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.hud-health-fill {
+  height: 100%;
+  width: 100%;
+  background: #00e676;
+  border-radius: 3px;
+  transition: width 0.12s linear;
+}
+
+.hud-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+
+.hud-ammo-text {
+  color: #ffd600;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.hud-score-text {
+  color: #80deea;
+  font-weight: 700;
+}
+
+.hud-horde-upgrades-box {
+  background: rgba(10, 28, 44, 0.95);
+  border: 2px solid #ffd700;
+  border-radius: 8px;
+  padding: 12px;
+  color: #ffffff;
+}
+
+.hud-horde-upgrades-box h4 {
+  color: #ffd700;
+  text-align: center;
+  font-size: 15px;
+  margin-bottom: 10px;
+}
+
+.hud-horde-item {
+  font-size: 13px;
+  margin-bottom: 7px;
+  font-weight: 700;
+}
+
+.hud-horde-pirates-count {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 900;
+  margin-top: 14px;
+  color: #ffffff;
+}

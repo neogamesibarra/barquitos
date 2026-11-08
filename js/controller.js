@@ -446,31 +446,47 @@
     }
   }
 
-  // Envío constante a 60 Hz al host (TV)
+  // Envío controlado y optimizado por red MQTT (15-20 Hz / 50ms-66ms)
   var lastSentInputTime = 0;
-  function sendInputUpdate() {
+  var lastHeartbeatTime = 0;
+  var MIN_INPUT_INTERVAL_MS = 55; // Throttle estricto ~18 Hz
+
+  function sendInputUpdate(isImmediate) {
     if (mySlot === -1 || !window.CloudNet || !window.CloudNet.isConnected()) return;
 
-    var diff = Math.abs(inputState.turn - lastSentInput.turn) > 0.04 ||
-               inputState.thrust !== lastSentInput.thrust ||
-               inputState.shoot !== lastSentInput.shoot;
-
     var now = Date.now();
-    if (diff) {
-      if (now - lastSentInputTime < 50) return;
-      lastSentInputTime = now;
-      lastSentInput.turn = inputState.turn;
-      lastSentInput.thrust = inputState.thrust;
-      lastSentInput.shoot = inputState.shoot;
+    var turnDiff = Math.abs(inputState.turn - lastSentInput.turn);
+    var thrustDiff = inputState.thrust !== lastSentInput.thrust;
+    var shootDiff = inputState.shoot !== lastSentInput.shoot;
+    var stateChanged = (turnDiff > 0.04) || thrustDiff || shootDiff;
+    var needsHeartbeat = (now - lastHeartbeatTime > 350);
 
-      window.CloudNet.sendToHost({
-        type: 'input',
-        uuid: playerUUID,
-        turn: inputState.turn,
-        thrust: inputState.thrust,
-        shoot: inputState.shoot
-      });
+    if (!isImmediate && !stateChanged && !needsHeartbeat) {
+      return;
     }
+
+    if (!isImmediate && (now - lastSentInputTime < MIN_INPUT_INTERVAL_MS)) {
+      return;
+    }
+
+    lastSentInputTime = now;
+    lastHeartbeatTime = now;
+    lastSentInput.turn = inputState.turn;
+    lastSentInput.thrust = inputState.thrust;
+    lastSentInput.shoot = inputState.shoot;
+
+    // Payload ultraligero con claves compactas y redondeo a 2 decimales
+    window.CloudNet.sendToHost({
+      type: 'input',
+      uuid: playerUUID,
+      slot: mySlot,
+      t: inputState.turn,
+      th: inputState.thrust ? 1 : 0,
+      sh: inputState.shoot ? 1 : 0,
+      turn: inputState.turn,
+      thrust: inputState.thrust,
+      shoot: inputState.shoot
+    });
   }
 
   function setupSteeringControls() {
@@ -483,8 +499,13 @@
       var deltaX = touch.clientX - centerX;
       var normalized = Math.max(-1, Math.min(1, deltaX / maxDistX));
 
+      // Deadzone de 0.05 y redondeo a 2 decimales
+      if (Math.abs(normalized) < 0.05) {
+        normalized = 0;
+      }
       inputState.turn = Math.round(normalized * 100) / 100;
 
+      // Actualizar knob a 60 FPS sin saturar MQTT
       var maxTravel = maxDistX * 0.7;
       var knobOffset = normalized * maxTravel;
       elWheelKnob.style.transform = "translate(" + knobOffset + "px, 0px)";
@@ -494,6 +515,7 @@
       inputState.turn = 0;
       elWheelKnob.style.transform = "translate(0px, 0px)";
       touchSteerId = null;
+      sendInputUpdate(true);
     }
 
     elSteeringZone.addEventListener("touchstart", function (e) {
@@ -665,9 +687,10 @@
   }
 
   function setupActionButtons() {
-    // Acelerar
+    // Acelerar (Velas)
     if (elBtnThrust) {
       function setThrust(active) {
+        if (inputState.thrust === active) return;
         inputState.thrust = active;
         if (active) {
           elBtnThrust.className = 'touch-btn thrust-btn pressed';
@@ -675,6 +698,7 @@
         } else {
           elBtnThrust.className = 'touch-btn thrust-btn';
         }
+        sendInputUpdate(true); // Envío inmediato al presionar o soltar
       }
 
       elBtnThrust.addEventListener('touchstart', function (e) {
@@ -702,9 +726,15 @@
       });
     }
 
-    // Disparar
+    // Disparar Cañones (con debounce de 120ms para evitar doble disparo accidental)
     if (elBtnShoot) {
+      var lastShootTapTime = 0;
       function setShoot(active) {
+        if (active) {
+          var now = Date.now();
+          if (now - lastShootTapTime < 120) return; // Debounce 120ms
+          lastShootTapTime = now;
+        }
         inputState.shoot = active;
         if (active) {
           elBtnShoot.className = 'touch-btn shoot-btn pressed';
@@ -712,6 +742,7 @@
         } else {
           elBtnShoot.className = 'touch-btn shoot-btn';
         }
+        sendInputUpdate(true); // Envío inmediato
       }
 
       elBtnShoot.addEventListener('touchstart', function (e) {
@@ -889,22 +920,34 @@
       }
     } catch (e) {}
 
-    // Sincronizar cambio de apodo en tiempo real
+    // Sincronizar cambio de apodo con debounce para no saturar la red al escribir
     if (elInputNickname) {
-      function syncNickname() {
+      var nicknameDebounceTimer = null;
+      function syncNickname(isImmediate) {
         var name = (elInputNickname.value || '').trim().substr(0, 12);
         myCustomName = name;
         try { window.localStorage.setItem('barquitos_nickname', name); } catch(e){}
-        if (window.CloudNet && window.CloudNet.isConnected()) {
-          window.CloudNet.sendToHost({
-            type: 'set_name',
-            uuid: playerUUID,
-            name: name
-          });
+        if (nicknameDebounceTimer) {
+          clearTimeout(nicknameDebounceTimer);
+          nicknameDebounceTimer = null;
+        }
+        function sendNick() {
+          if (window.CloudNet && window.CloudNet.isConnected()) {
+            window.CloudNet.sendToHost({
+              type: 'set_name',
+              uuid: playerUUID,
+              name: name
+            });
+          }
+        }
+        if (isImmediate) {
+          sendNick();
+        } else {
+          nicknameDebounceTimer = setTimeout(sendNick, 250);
         }
       }
-      elInputNickname.addEventListener('input', syncNickname, false);
-      elInputNickname.addEventListener('change', syncNickname, false);
+      elInputNickname.addEventListener('input', function () { syncNickname(false); }, false);
+      elInputNickname.addEventListener('change', function () { syncNickname(true); }, false);
     }
 
     // Selección de equipo (Batalla por Equipos)
@@ -1016,7 +1059,7 @@
       if (elRoomOverlay) elRoomOverlay.style.display = 'flex';
     }
 
-    setInterval(sendInputUpdate, 35);
+    setInterval(sendInputUpdate, 55);
   };
 
 })(window);

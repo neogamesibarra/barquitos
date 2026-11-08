@@ -19,6 +19,241 @@
   };
 
   var elLobbyUI = null;
+
+  // Desacoplamiento del HUD lateral en DOM (Cero manipulación en bucle de 60 FPS)
+  var cachedHUD = {
+    leftEl: null,
+    rightEl: null,
+    cards: {},
+    teamBlueScore: null,
+    teamRedScore: null,
+    hordeWave: null,
+    hordeUpgrades: null
+  };
+
+  function initHUDPanels() {
+    cachedHUD.leftEl = document.getElementById("hud-panel-left");
+    cachedHUD.rightEl = document.getElementById("hud-panel-right");
+    if (!cachedHUD.leftEl || !cachedHUD.rightEl) return;
+
+    cachedHUD.cards = {};
+    cachedHUD.leftEl.innerHTML = "";
+    cachedHUD.rightEl.innerHTML = "";
+
+    var panelW = 270;
+    cachedHUD.leftEl.style.left = offsetX + "px";
+    cachedHUD.leftEl.style.top = offsetY + "px";
+    cachedHUD.leftEl.style.width = (panelW * scale) + "px";
+    cachedHUD.leftEl.style.height = (V_HEIGHT * scale) + "px";
+    cachedHUD.leftEl.style.transform = "scale(" + scale + ")";
+    cachedHUD.leftEl.style.transformOrigin = "top left";
+    cachedHUD.leftEl.style.display = (currentState === STATE_ARENA) ? "flex" : "none";
+
+    cachedHUD.rightEl.style.left = (offsetX + (V_WIDTH - panelW) * scale) + "px";
+    cachedHUD.rightEl.style.top = offsetY + "px";
+    cachedHUD.rightEl.style.width = (panelW * scale) + "px";
+    cachedHUD.rightEl.style.height = (V_HEIGHT * scale) + "px";
+    cachedHUD.rightEl.style.transform = "scale(" + scale + ")";
+    cachedHUD.rightEl.style.transformOrigin = "top left";
+    cachedHUD.rightEl.style.display = (currentState === STATE_ARENA) ? "flex" : "none";
+
+    if (selectedMode === MODE_TEAMS) {
+      var hBlue = document.createElement("div");
+      hBlue.className = "hud-panel-header blue";
+      hBlue.innerHTML = "<div>🔵 EQUIPO AZUL</div><div class='hud-header-sub' id='hud-blue-score'>" + teamScores.blue + " PUNTOS</div>";
+      cachedHUD.leftEl.appendChild(hBlue);
+      cachedHUD.teamBlueScore = hBlue.querySelector("#hud-blue-score");
+
+      var hRed = document.createElement("div");
+      hRed.className = "hud-panel-header red";
+      hRed.innerHTML = "<div>🔴 EQUIPO ROJO</div><div class='hud-header-sub' id='hud-red-score'>" + teamScores.red + " PUNTOS</div>";
+      cachedHUD.rightEl.appendChild(hRed);
+      cachedHUD.teamRedScore = hRed.querySelector("#hud-red-score");
+
+      for (var s = 0; s < activeShips.length; s++) {
+        var sh = activeShips[s];
+        var parentEl = (sh.data.team === "red") ? cachedHUD.rightEl : cachedHUD.leftEl;
+        createPlayerHUDCard(parentEl, sh);
+      }
+    } else if (selectedMode === MODE_HORDE) {
+      var hHorde = document.createElement("div");
+      hHorde.className = "hud-panel-header horde";
+      hHorde.innerHTML = "<div>⚓ FLOTA ALIADA</div><div class='hud-header-sub' id='hud-horde-wave'>OLEADA " + currentWave + "</div>";
+      cachedHUD.leftEl.appendChild(hHorde);
+      cachedHUD.hordeWave = hHorde.querySelector("#hud-horde-wave");
+
+      for (var a = 0; a < activeShips.length; a++) {
+        createPlayerHUDCard(cachedHUD.leftEl, activeShips[a]);
+      }
+
+      var upBox = document.createElement("div");
+      upBox.className = "hud-horde-upgrades-box";
+      upBox.id = "hud-horde-upgrades";
+      upBox.innerHTML = "<h4>⭐ MEJORAS EQUIPO</h4>" +
+        "<div class='hud-horde-item' style='color:#ff4081;'>💥 Armas: Nivel <span id='hud-w-lvl'>" + hordeUpgrades.weaponLevel + "</span></div>" +
+        "<div class='hud-horde-item' style='color:#29b6f6;'>📦 Munición: Máx <span id='hud-m-ammo'>" + hordeUpgrades.maxAmmo + "</span></div>" +
+        "<div class='hud-horde-item' style='color:#ffd700;'>🛡️ Casco: <span id='hud-m-hp'>" + hordeUpgrades.maxHealth + "</span> Vidas</div>" +
+        "<div class='hud-horde-item' style='color:#00e676;'>💚 Revivir Usados: <span id='hud-rep-cnt'>" + hordeUpgrades.repairs + "</span></div>" +
+        "<div class='hud-horde-pirates-count'>☠️ Piratas: <span id='hud-pir-cnt'>" + (pirateShips.length + waveEnemiesToSpawn) + "</span></div>";
+      cachedHUD.rightEl.appendChild(upBox);
+      cachedHUD.hordeUpgrades = upBox;
+    } else {
+      var hBatL = document.createElement("div");
+      hBatL.className = "hud-panel-header battle";
+      hBatL.innerHTML = "<div>⚔️ JUGADORES 1-4</div><div class='hud-header-sub'>RONDA " + currentRound + "/" + TOTAL_ROUNDS + "</div>";
+      cachedHUD.leftEl.appendChild(hBatL);
+
+      var hBatR = document.createElement("div");
+      hBatR.className = "hud-panel-header battle";
+      hBatR.innerHTML = "<div>⚔️ JUGADORES 5-8</div><div class='hud-header-sub'>COMBATE NAVAL</div>";
+      cachedHUD.rightEl.appendChild(hBatR);
+
+      for (var b = 0; b < activeShips.length; b++) {
+        var shB = activeShips[b];
+        var parentB = (shB.slot < 4) ? cachedHUD.leftEl : cachedHUD.rightEl;
+        createPlayerHUDCard(parentB, shB);
+      }
+    }
+  }
+
+  function createPlayerHUDCard(parentEl, ship) {
+    var p = ship.data;
+    var card = document.createElement("div");
+    card.className = "hud-card";
+    card.style.borderLeftColor = p.hull || "#00e5ff";
+    card.style.borderLeftWidth = "4px";
+
+    var topRow = document.createElement("div");
+    topRow.className = "hud-card-top";
+
+    var nameSpan = document.createElement("span");
+    nameSpan.className = "hud-card-name";
+    nameSpan.textContent = p.customName || p.name;
+    nameSpan.style.color = p.hull || "#ffffff";
+
+    var statusSpan = document.createElement("span");
+    statusSpan.className = "hud-card-status " + (ship.isAlive ? "alive" : "sunk");
+    statusSpan.textContent = ship.isAlive ? "VIVO" : "HUNDIDO";
+
+    topRow.appendChild(nameSpan);
+    topRow.appendChild(statusSpan);
+
+    var track = document.createElement("div");
+    track.className = "hud-health-track";
+    var fill = document.createElement("div");
+    fill.className = "hud-health-fill";
+    var pct = Math.max(0, Math.min(100, (ship.health / ship.maxHealth) * 100));
+    fill.style.width = pct + "%";
+    track.appendChild(fill);
+
+    var botRow = document.createElement("div");
+    botRow.className = "hud-card-bottom";
+
+    var ammoSpan = document.createElement("span");
+    ammoSpan.className = "hud-ammo-text";
+    var ammoDots = "";
+    for (var a = 0; a < ship.ammo; a++) ammoDots += "● ";
+    ammoSpan.textContent = ammoDots || "RECARGANDO...";
+
+    var scoreSpan = document.createElement("span");
+    scoreSpan.className = "hud-score-text";
+    scoreSpan.textContent = p.score + " PTS";
+
+    botRow.appendChild(ammoSpan);
+    botRow.appendChild(scoreSpan);
+
+    card.appendChild(topRow);
+    card.appendChild(track);
+    card.appendChild(botRow);
+
+    parentEl.appendChild(card);
+
+    cachedHUD.cards[ship.slot] = {
+      cardEl: card,
+      nameEl: nameSpan,
+      statusEl: statusSpan,
+      healthFill: fill,
+      ammoEl: ammoSpan,
+      scoreEl: scoreSpan,
+      lastHp: ship.health,
+      lastMaxHp: ship.maxHealth,
+      lastAmmo: ship.ammo,
+      lastAlive: ship.isAlive,
+      lastScore: p.score
+    };
+  }
+
+  function updateShipHUD(slot) {
+    var c = cachedHUD.cards[slot];
+    if (!c) return;
+    var ship = null;
+    for (var i = 0; i < activeShips.length; i++) {
+      if (activeShips[i].slot === slot) {
+        ship = activeShips[i];
+        break;
+      }
+    }
+    if (!ship) return;
+
+    if (c.lastHp !== ship.health || c.lastMaxHp !== ship.maxHealth) {
+      c.lastHp = ship.health;
+      c.lastMaxHp = ship.maxHealth;
+      var pct = Math.max(0, Math.min(100, (ship.health / ship.maxHealth) * 100));
+      c.healthFill.style.width = pct + "%";
+      if (pct < 30) c.healthFill.style.backgroundColor = "#ff1744";
+      else if (pct < 60) c.healthFill.style.backgroundColor = "#ffd600";
+      else c.healthFill.style.backgroundColor = "#00e676";
+    }
+
+    if (c.lastAlive !== ship.isAlive) {
+      c.lastAlive = ship.isAlive;
+      c.statusEl.className = "hud-card-status " + (ship.isAlive ? "alive" : "sunk");
+      c.statusEl.textContent = ship.isAlive ? "VIVO" : "HUNDIDO";
+      if (!ship.isAlive) {
+        c.cardEl.className = "hud-card sunk";
+      } else {
+        c.cardEl.className = "hud-card";
+      }
+    }
+
+    if (c.lastAmmo !== ship.ammo) {
+      c.lastAmmo = ship.ammo;
+      var dots = "";
+      for (var a = 0; a < ship.ammo; a++) dots += "● ";
+      c.ammoEl.textContent = dots || "RECARGANDO...";
+    }
+
+    if (c.lastScore !== ship.data.score) {
+      c.lastScore = ship.data.score;
+      c.scoreEl.textContent = ship.data.score + " PTS";
+    }
+  }
+
+  function updateAllShipsHUD() {
+    for (var slot in cachedHUD.cards) {
+      updateShipHUD(parseInt(slot, 10));
+    }
+  }
+
+  function updateTeamScoresHUD() {
+    if (cachedHUD.teamBlueScore) cachedHUD.teamBlueScore.textContent = teamScores.blue + " PUNTOS";
+    if (cachedHUD.teamRedScore) cachedHUD.teamRedScore.textContent = teamScores.red + " PUNTOS";
+  }
+
+  function updateHordeUpgradesHUD() {
+    if (!cachedHUD.hordeUpgrades) return;
+    var wLvl = document.getElementById("hud-w-lvl");
+    var mAmmo = document.getElementById("hud-m-ammo");
+    var mHp = document.getElementById("hud-m-hp");
+    var rCnt = document.getElementById("hud-rep-cnt");
+    var pCnt = document.getElementById("hud-pir-cnt");
+    if (wLvl) wLvl.textContent = hordeUpgrades.weaponLevel;
+    if (mAmmo) mAmmo.textContent = hordeUpgrades.maxAmmo;
+    if (mHp) mHp.textContent = hordeUpgrades.maxHealth;
+    if (rCnt) rCnt.textContent = hordeUpgrades.repairs;
+    if (pCnt) pCnt.textContent = (pirateShips.length + waveEnemiesToSpawn);
+  }
+
   function setLobbyUIVisible(visible) {
     if (!elLobbyUI) {
       elLobbyUI = document.getElementById("lobby-ui");
@@ -29,6 +264,10 @@
         elLobbyUI.style.display = targetDisplay;
       }
     }
+    var pL = document.getElementById("hud-panel-left");
+    var pR = document.getElementById("hud-panel-right");
+    if (pL) pL.style.display = (!visible && currentState === STATE_ARENA) ? "flex" : "none";
+    if (pR) pR.style.display = (!visible && currentState === STATE_ARENA) ? "flex" : "none";
   }
 
   // Estados del juego
@@ -298,6 +537,7 @@
     if (this.shootInput) {
       if (this.shootCooldown <= 0 && this.ammo > 0 && this.stunTimer <= 0) {
         this.ammo--;
+      updateShipHUD(this.slot);
         this.shootCooldown = 0.42;
 
         this.vx -= fwdX * 180;
@@ -364,7 +604,7 @@
     for (var p = 0; p < 8; p++) {
       var pAng = Math.random() * Math.PI * 2;
       var pSpd = 40 + Math.random() * 90;
-      particles.push({
+      addParticle({
         x: this.x, y: this.y,
         vx: Math.cos(pAng) * pSpd, vy: Math.sin(pAng) * pSpd,
         radius: 2 + Math.random() * 3,
@@ -374,7 +614,8 @@
 
     if (currentState !== STATE_LOBBY) {
       this.health -= damage;
-      if (this.health <= 0) {
+      updateShipHUD(this.slot);
+    if (this.health <= 0) {
         this.health = 0;
         this.die();
       }
@@ -412,7 +653,7 @@
     for (var i = 0; i < 35; i++) {
       var spd = 60 + Math.random() * 220;
       var ang = Math.random() * Math.PI * 2;
-      particles.push({
+      addParticle({
         x: this.x, y: this.y,
         vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
         radius: 3 + Math.random() * 6,
@@ -908,34 +1149,57 @@
     if (this.flashTimer > 0) this.flashTimer -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
 
-    // Buscar jugador vivo más cercano
-    var nearest = null;
-    var nearDistSq = 99999999;
-    for (var i = 0; i < activeShips.length; i++) {
-      var s = activeShips[i];
-      if (!s.isAlive) continue;
-      var dSq = (s.x - this.x) * (s.x - this.x) + (s.y - this.y) * (s.y - this.y);
-      if (dSq < nearDistSq) {
-        nearDistSq = dSq;
-        nearest = s;
+    // Optimización IA: Recalcular ángulo objetivo cada 12 frames
+    this.aiTick = (this.aiTick || 0) + 1;
+    if (this.aiTick % 12 === 1 || this.cachedDesiredAng === undefined) {
+      var nearest = null;
+      var nearDistSq = 99999999;
+      for (var i = 0; i < activeShips.length; i++) {
+        var s = activeShips[i];
+        if (!s.isAlive) continue;
+        var dSq = (s.x - this.x) * (s.x - this.x) + (s.y - this.y) * (s.y - this.y);
+        if (dSq < nearDistSq) {
+          nearDistSq = dSq;
+          nearest = s;
+        }
       }
-    }
 
-    var desiredAng = this.rotation;
-    if (nearest) {
-      desiredAng = Math.atan2(nearest.y - this.y, nearest.x - this.x);
-    }
+      var dAng = this.rotation;
+      if (nearest) {
+        dAng = Math.atan2(nearest.y - this.y, nearest.x - this.x);
+      }
 
-    // Esquivar islas
-    for (var ii = 0; ii < islands.length; ii++) {
-      var isl = islands[ii];
-      var idX = this.x - isl.x;
-      var idY = this.y - isl.y;
-      var iDist = Math.sqrt(idX * idX + idY * idY);
-      if (iDist < isl.rad + 70) {
-        var avoidAng = Math.atan2(idY, idX);
-        desiredAng = avoidAng;
-        break;
+      // Esquivar islas con AABB y distancia al cuadrado
+      for (var ii = 0; ii < islands.length; ii++) {
+        var isl = islands[ii];
+        var idX = this.x - isl.x;
+        var idY = this.y - isl.y;
+        var avoidDist = isl.rad + 70;
+        if (Math.abs(idX) <= avoidDist && Math.abs(idY) <= avoidDist) {
+          if (idX * idX + idY * idY < avoidDist * avoidDist) {
+            dAng = Math.atan2(idY, idX);
+            break;
+          }
+        }
+      }
+      this.cachedDesiredAng = dAng;
+    }
+    var desiredAng = this.cachedDesiredAng;
+
+    // Fuerza de separación entre piratas para evitar amontonamiento (Boids separation)
+    for (var p2 = 0; p2 < pirateShips.length; p2++) {
+      var otherPirate = pirateShips[p2];
+      if (otherPirate === this || !otherPirate.isAlive) continue;
+      var pDx = this.x - otherPirate.x;
+      var pDy = this.y - otherPirate.y;
+      if (Math.abs(pDx) < 45 && Math.abs(pDy) < 45) {
+        var pDistSq = pDx * pDx + pDy * pDy;
+        if (pDistSq < 2025 && pDistSq > 1) {
+          var pDist = Math.sqrt(pDistSq);
+          var push = (45 - pDist) * 2.2;
+          this.vx += (pDx / pDist) * push * dt * 60;
+          this.vy += (pDy / pDist) * push * dt * 60;
+        }
       }
     }
 
@@ -1004,7 +1268,7 @@
     for (var i = 0; i < 24; i++) {
       var spd = 40 + Math.random() * 180;
       var ang = Math.random() * Math.PI * 2;
-      particles.push({
+      addParticle({
         x: this.x, y: this.y,
         vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
         radius: 2 + Math.random() * 4,
@@ -1178,7 +1442,7 @@
     for (var i = 0; i < 70; i++) {
       var spd = 60 + Math.random() * 260;
       var ang = Math.random() * Math.PI * 2;
-      particles.push({
+      addParticle({
         x: this.x, y: this.y,
         vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
         radius: 4 + Math.random() * 8,
@@ -1234,12 +1498,21 @@
     c.restore();
   };
 
-  // Partículas y Efectos
+  // Partículas y Efectos con Object Pooling y límite estricto de 80
+  var MAX_PARTICLES = 80;
+  function addParticle(p) {
+    if (particles.length >= MAX_PARTICLES) {
+      particles[0] = p; // Reutilizar la partícula más antigua (swap-and-pop O(1))
+    } else {
+      addParticle(p);
+    }
+  }
+
   function spawnSplash(x, y) {
     for (var i = 0; i < 14; i++) {
       var ang = Math.random() * Math.PI * 2;
       var spd = 20 + Math.random() * 80;
-      particles.push({
+      addParticle({
         x: x, y: y,
         vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
         radius: 2 + Math.random() * 3,
@@ -1253,7 +1526,7 @@
     for (var i = 0; i < 7; i++) {
       var ang = rot + (Math.random() - 0.5) * 0.7;
       var spd = 80 + Math.random() * 160;
-      particles.push({
+      addParticle({
         x: x, y: y,
         vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
         radius: 3 + Math.random() * 4,
@@ -1266,7 +1539,7 @@
     for (var i = 0; i < 14; i++) {
       var ang = Math.random() * Math.PI * 2;
       var spd = 30 + Math.random() * 95;
-      particles.push({
+      addParticle({
         x: x, y: y,
         vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
         radius: 2.5 + Math.random() * 4,
@@ -1282,7 +1555,7 @@
       var sAng = baseAng + (Math.random() - 0.5) * 1.8;
       var sSpd = 90 + Math.random() * 220;
       var col = (i % 3 === 0) ? "#ffffff" : (i % 2 === 0 ? "#fff176" : "#ff9100");
-      particles.push({
+      addParticle({
         x: x + (Math.random() - 0.5) * 6,
         y: y + (Math.random() - 0.5) * 6,
         vx: Math.cos(sAng) * sSpd,
@@ -1296,7 +1569,7 @@
   }
 
   function spawnWaterFoam(x, y, dirX, dirY) {
-    particles.push({
+    addParticle({
       x: x + (Math.random() - 0.5) * 8,
       y: y + (Math.random() - 0.5) * 8,
       vx: dirX * 15 + (Math.random() - 0.5) * 10,
@@ -1312,7 +1585,7 @@
     var colors = ["#E67E22", "#1E60D5", "#D81B60", "#43A047", "#FDD835", "#FF80AB", "#00E5FF", "#FF2A2A"];
     for (var i = 0; i < count; i++) {
       var x = 200 + Math.random() * 1520;
-      particles.push({
+      addParticle({
         x: x, y: 1040,
         vx: (Math.random() - 0.5) * 350,
         vy: -400 - Math.random() * 450,
@@ -1387,6 +1660,35 @@
   }
 
   // Configuración de Islas
+
+  // Comprobación segura de islas para spawn de barcos y cajas (Anti-atascos)
+  function isInsideIsland(x, y, margin) {
+    var m = margin || 30;
+    for (var i = 0; i < islands.length; i++) {
+      var isl = islands[i];
+      var dx = x - isl.x;
+      var dy = y - isl.y;
+      var checkRad = isl.rad + m;
+      if (Math.abs(dx) <= checkRad && Math.abs(dy) <= checkRad) {
+        if (dx * dx + dy * dy < checkRad * checkRad) return true;
+      }
+    }
+    return false;
+  }
+
+  function getSafeSpawnPoint(bounds, margin) {
+    var b = bounds || currentBounds || arenaBounds;
+    var m = margin || 40;
+    for (var attempt = 0; attempt < 30; attempt++) {
+      var rx = b.x + 80 + Math.random() * (b.w - 160);
+      var ry = b.y + 80 + Math.random() * (b.h - 160);
+      if (!isInsideIsland(rx, ry, m)) {
+        return { x: rx, y: ry };
+      }
+    }
+    return { x: b.x + 120, y: b.y + 120 };
+  }
+
   function initArenaIslands() {
     islands = [
       { x: 960, y: 540, rad: 70 },
@@ -1398,7 +1700,21 @@
   }
 
   // Inicio de Rondas y Modos
+
+  function clearRoundEntities() {
+    cannonballs = [];
+    ammoCrates = [];
+    hordePowerups = [];
+    pirateShips = [];
+    bossGalleon = null;
+    particles = [];
+    floatingTexts = [];
+    roundWinner = null;
+    roundOverTimer = 0;
+  }
+
   function startBattleRound() {
+    clearRoundEntities();
     currentState = STATE_ARENA;
     countdownTime = 3.5;
     lastCountdownStep = -1;
@@ -1447,6 +1763,7 @@
   }
 
   function startTeamsRound() {
+    clearRoundEntities();
     currentState = STATE_ARENA;
     countdownTime = 3.5;
     lastCountdownStep = -1;
@@ -1504,6 +1821,7 @@
   }
 
   function startHordeMode() {
+    clearRoundEntities();
     currentState = STATE_ARENA;
     currentWave = 1;
     countdownTime = 3.5;
@@ -2825,9 +3143,9 @@
       if (inSlot !== -1) {
         for (var sh = 0; sh < activeShips.length; sh++) {
           if (activeShips[sh].slot === inSlot) {
-            activeShips[sh].turnInput = typeof msg.turn === "number" ? msg.turn : 0;
-            activeShips[sh].thrustInput = !!msg.thrust;
-            activeShips[sh].shootInput = !!msg.shoot;
+            activeShips[sh].turnInput = typeof msg.turn === "number" ? msg.turn : (typeof msg.t === "number" ? msg.t : 0);
+            activeShips[sh].thrustInput = !!(msg.thrust || msg.th);
+            activeShips[sh].shootInput = !!(msg.shoot || msg.sh);
             break;
           }
         }
@@ -2929,7 +3247,8 @@
   function gameLoop(time) {
     if (!lastTime) lastTime = time;
     var dt = (time - lastTime) / 1000;
-    if (dt > 0.1) dt = 0.1;
+    if (!dt || dt < 0.001 || isNaN(dt)) dt = 0.016;
+    else if (dt > 0.1) dt = 0.1;
     lastTime = time;
 
     try {
@@ -3055,22 +3374,30 @@
 
       if (!ship.isAlive) continue;
 
-      // Colisión con islas
+      // Colisión con islas (descarte rápido AABB + deslizamiento tangencial suave sin vibraciones)
       for (var i = 0; i < islands.length; i++) {
         var isl = islands[i];
         var dX = ship.x - isl.x;
         var dY = ship.y - isl.y;
-        var minDist = isl.rad + 18;
+        var minDist = isl.rad + 20;
+        if (Math.abs(dX) > minDist || Math.abs(dY) > minDist) continue;
         var distSq = dX * dX + dY * dY;
         if (distSq < minDist * minDist) {
-          var dist = Math.sqrt(distSq);
-          var nx = dX / (dist || 1);
-          var ny = dY / (dist || 1);
-          ship.x = isl.x + nx * minDist;
-          ship.y = isl.y + ny * minDist;
-          ship.vx = nx * 120;
-          ship.vy = ny * 120;
-          ship.applyRam(nx, ny, 140);
+          var dist = Math.sqrt(distSq) || 1;
+          var nx = dX / dist;
+          var ny = dY / dist;
+          ship.x = isl.x + nx * (minDist + 0.5);
+          ship.y = isl.y + ny * (minDist + 0.5);
+          var vDotN = ship.vx * nx + ship.vy * ny;
+          if (vDotN < 0) {
+            ship.vx -= vDotN * nx * 1.1;
+            ship.vy -= vDotN * ny * 1.1;
+          }
+          if (ship.isRamming) {
+            ship.isRamming = false;
+            Sound.playIslandThud();
+            spawnIslandImpactParticles(ship.x, ship.y);
+          }
         }
       }
 
@@ -3164,13 +3491,14 @@
         continue;
       }
 
-      // Colisión de proyectil con islas (¡Jamás atraviesan las islas!)
+      // Colisión de proyectil con islas (descarte rápido AABB + distancia al cuadrado)
       var hitIsland = false;
       for (var ii = 0; ii < islands.length; ii++) {
         var isObj = islands[ii];
         var idX = ball.x - isObj.x;
         var idY = ball.y - isObj.y;
         var hitDist = isObj.rad + 5;
+        if (Math.abs(idX) > hitDist || Math.abs(idY) > hitDist) continue;
         if (idX * idX + idY * idY <= hitDist * hitDist) {
           hitIsland = true;
           break;
@@ -3212,10 +3540,8 @@
       ammoCrates[cr].update(dt);
     }
     if (Math.random() < (0.35 * dt) && ammoCrates.length < 5) {
-      ammoCrates.push(new AmmoCrate(
-        currentBounds.x + 80 + Math.random() * (currentBounds.w - 160),
-        currentBounds.y + 80 + Math.random() * (currentBounds.h - 160)
-      ));
+      var pt = getSafeSpawnPoint(currentBounds, 40);
+      ammoCrates.push(new AmmoCrate(pt.x, pt.y));
     }
 
     checkRoundSurvivor();
@@ -3690,17 +4016,121 @@
     setLobbyUIVisible(true);
   }
 
+
+  // Pre-renderizado de alta velocidad del océano e islas (OffscreenCanvas)
+  var mapOffscreenCanvas = null;
+  var mapOffscreenCtx = null;
+
+  function initMapOffscreen() {
+    if (!mapOffscreenCanvas) {
+      if (typeof OffscreenCanvas !== "undefined") {
+        try {
+          mapOffscreenCanvas = new OffscreenCanvas(V_WIDTH, V_HEIGHT);
+        } catch (e) {
+          mapOffscreenCanvas = document.createElement("canvas");
+          mapOffscreenCanvas.width = V_WIDTH;
+          mapOffscreenCanvas.height = V_HEIGHT;
+        }
+      } else {
+        mapOffscreenCanvas = document.createElement("canvas");
+        mapOffscreenCanvas.width = V_WIDTH;
+        mapOffscreenCanvas.height = V_HEIGHT;
+      }
+      mapOffscreenCtx = mapOffscreenCanvas.getContext("2d");
+    }
+
+    if (!mapOffscreenCtx) return;
+
+    // 1. Océano base
+    var grad = mapOffscreenCtx.createLinearGradient(0, 0, 0, V_HEIGHT);
+    grad.addColorStop(0, "#0e345a");
+    grad.addColorStop(1, "#092038");
+    mapOffscreenCtx.fillStyle = grad;
+    mapOffscreenCtx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+
+    // 2. Islas hexagonales pre-renderizadas
+    for (var i = 0; i < islands.length; i++) {
+      renderHexIslandToCtx(mapOffscreenCtx, islands[i].x, islands[i].y, islands[i].rad);
+    }
+
+    // 3. Fondos y bordes divisorios de los paneles laterales
+    var panelW = 270;
+    var rightPanelX = 1650;
+
+    var leftGrad = mapOffscreenCtx.createLinearGradient(0, 0, panelW, 0);
+    leftGrad.addColorStop(0, "#05111c");
+    leftGrad.addColorStop(1, "#0a1d30");
+    mapOffscreenCtx.fillStyle = leftGrad;
+    mapOffscreenCtx.fillRect(0, 0, panelW, V_HEIGHT);
+
+    mapOffscreenCtx.strokeStyle = "rgba(0, 229, 255, 0.55)";
+    mapOffscreenCtx.lineWidth = 3;
+    mapOffscreenCtx.beginPath();
+    mapOffscreenCtx.moveTo(panelW, 0);
+    mapOffscreenCtx.lineTo(panelW, V_HEIGHT);
+    mapOffscreenCtx.stroke();
+
+    mapOffscreenCtx.strokeStyle = "rgba(255, 215, 0, 0.7)";
+    mapOffscreenCtx.lineWidth = 1;
+    mapOffscreenCtx.beginPath();
+    mapOffscreenCtx.moveTo(panelW - 2, 0);
+    mapOffscreenCtx.lineTo(panelW - 2, V_HEIGHT);
+    mapOffscreenCtx.stroke();
+
+    var rightGrad = mapOffscreenCtx.createLinearGradient(rightPanelX, 0, V_WIDTH, 0);
+    rightGrad.addColorStop(0, "#0a1d30");
+    rightGrad.addColorStop(1, "#05111c");
+    mapOffscreenCtx.fillStyle = rightGrad;
+    mapOffscreenCtx.fillRect(rightPanelX, 0, panelW, V_HEIGHT);
+
+    mapOffscreenCtx.strokeStyle = "rgba(0, 229, 255, 0.55)";
+    mapOffscreenCtx.lineWidth = 3;
+    mapOffscreenCtx.beginPath();
+    mapOffscreenCtx.moveTo(rightPanelX, 0);
+    mapOffscreenCtx.lineTo(rightPanelX, V_HEIGHT);
+    mapOffscreenCtx.stroke();
+
+    mapOffscreenCtx.strokeStyle = "rgba(255, 215, 0, 0.7)";
+    mapOffscreenCtx.lineWidth = 1;
+    mapOffscreenCtx.beginPath();
+    mapOffscreenCtx.moveTo(rightPanelX + 2, 0);
+    mapOffscreenCtx.lineTo(rightPanelX + 2, V_HEIGHT);
+    mapOffscreenCtx.stroke();
+
+    // 4. Borde delimitador de la arena central
+    mapOffscreenCtx.strokeStyle = "rgba(0, 229, 255, 0.35)";
+    mapOffscreenCtx.lineWidth = 2.5;
+    mapOffscreenCtx.strokeRect(arenaBounds.x, arenaBounds.y, arenaBounds.w, arenaBounds.h);
+  }
+
+  function renderHexIslandToCtx(c, cx, cy, radius) {
+    drawHexagon(c, cx, cy + 6, radius + 4, "rgba(4, 18, 30, 0.45)", null);
+    drawHexagon(c, cx, cy, radius, "#E6C280", "#C59B53", 4);
+    drawHexagon(c, cx, cy, radius - 8, "#D4AD6B", null);
+    drawHexagon(c, cx, cy, radius - 16, "#2E7D32", "#1B5E20", 3);
+    drawHexagon(c, cx, cy, radius - 28, "#1B5E20", null);
+    drawHexagon(c, cx, cy, radius - 38, "#90A4AE", "#607D8B", 2);
+  }
+
   function renderArena(dt) {
     setLobbyUIVisible(false);
 
-    // Fondo del océano
-    var grad = ctx.createLinearGradient(0, 0, 0, V_HEIGHT);
-    grad.addColorStop(0, "#0e345a");
-    grad.addColorStop(1, "#092038");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+    // 1. Dibujar mapa base e islas pre-renderizadas en una sola llamada ultrarrápida
+    if (!mapOffscreenCanvas) initMapOffscreen();
+    if (mapOffscreenCanvas) {
+      ctx.drawImage(mapOffscreenCanvas, 0, 0);
+    } else {
+      var grad = ctx.createLinearGradient(0, 0, 0, V_HEIGHT);
+      grad.addColorStop(0, "#0e345a");
+      grad.addColorStop(1, "#092038");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+      for (var i = 0; i < islands.length; i++) {
+        renderHexIsland(islands[i].x, islands[i].y, islands[i].rad);
+      }
+    }
 
-    // Olas activas
+    // 2. Olas animadas sobre el mar
     ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
     ctx.lineWidth = 1.8;
     for (var wy = 60; wy < V_HEIGHT; wy += 80) {
@@ -3711,11 +4141,6 @@
         else ctx.lineTo(wx, wy + offY);
       }
       ctx.stroke();
-    }
-
-    // Islas
-    for (var i = 0; i < islands.length; i++) {
-      renderHexIsland(islands[i].x, islands[i].y, islands[i].rad);
     }
 
     // Cajas de munición y Mejoras de Horda
@@ -4371,6 +4796,21 @@
     scale = Math.min(canvas.width / V_WIDTH, canvas.height / V_HEIGHT);
     offsetX = (canvas.width - V_WIDTH * scale) / 2;
     offsetY = (canvas.height - V_HEIGHT * scale) / 2;
+    if (currentState === STATE_ARENA) {
+      var panelW = 270;
+      var pL = document.getElementById("hud-panel-left");
+      var pR = document.getElementById("hud-panel-right");
+      if (pL) {
+        pL.style.left = offsetX + "px";
+        pL.style.top = offsetY + "px";
+        pL.style.transform = "scale(" + scale + ")";
+      }
+      if (pR) {
+        pR.style.left = (offsetX + (V_WIDTH - panelW) * scale) + "px";
+        pR.style.top = offsetY + "px";
+        pR.style.transform = "scale(" + scale + ")";
+      }
+    }
   }
 
   window.addEventListener("resize", resizeCanvas, false);

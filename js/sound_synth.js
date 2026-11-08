@@ -41,6 +41,29 @@
     return buffer;
   }
 
+  // Limitador de polifonía para evitar saturación de CPU y saturación de audio
+  var lastSoundTimes = {};
+  function canPlay(type, cooldownMs) {
+    var cd = cooldownMs || 50;
+    var now = Date.now();
+    if (lastSoundTimes[type] && (now - lastSoundTimes[type] < cd)) {
+      return false;
+    }
+    lastSoundTimes[type] = now;
+    return true;
+  }
+
+  function scheduleCleanup(nodes, delaySec) {
+    setTimeout(function() {
+      if (!nodes) return;
+      for (var i = 0; i < nodes.length; i++) {
+        try {
+          if (nodes[i] && nodes[i].disconnect) nodes[i].disconnect();
+        } catch(e) {}
+      }
+    }, Math.ceil((delaySec + 0.05) * 1000));
+  }
+
   var SoundSynth = {
     init: initAudio,
 
@@ -63,6 +86,7 @@
 
     playCannon: function() {
       if (!ctx || isMuted || masterVolume <= 0.01) return;
+      if (!canPlay('cannon', 50)) return;
       initAudio();
       var now = ctx.currentTime;
 
@@ -82,6 +106,7 @@
 
       osc.start(now);
       osc.stop(now + 0.46);
+      scheduleCleanup([osc, gain], 0.50);
 
       // 2. Ruido blanco de explosión corto
       var noiseBuf = createNoiseBuffer(0.18);
@@ -97,11 +122,14 @@
         noiseGain.connect(ctx.destination);
 
         noise.start(now);
+        noise.stop(now + 0.19);
+        scheduleCleanup([noise, noiseGain], 0.22);
       }
     },
 
     playHit: function() {
       if (!ctx || isMuted || masterVolume <= 0.01) return;
+      if (!canPlay('hit', 40)) return;
       initAudio();
       var now = ctx.currentTime;
 
@@ -120,10 +148,12 @@
 
       osc.start(now);
       osc.stop(now + 0.23);
+      scheduleCleanup([osc, gain], 0.25);
     },
 
     playPickup: function() {
       if (!ctx || isMuted || masterVolume <= 0.01) return;
+      if (!canPlay('pickup', 50)) return;
       initAudio();
       var now = ctx.currentTime;
 
@@ -138,6 +168,7 @@
       gain1.connect(ctx.destination);
       osc1.start(now);
       osc1.stop(now + 0.13);
+      scheduleCleanup([osc1, gain1], 0.15);
 
       // Nota 2: Mi5 (659.25 Hz)
       var osc2 = ctx.createOscillator();
@@ -150,10 +181,12 @@
       gain2.connect(ctx.destination);
       osc2.start(now + 0.10);
       osc2.stop(now + 0.33);
+      scheduleCleanup([osc2, gain2], 0.35);
     },
 
     playSplash: function() {
       if (!ctx || isMuted || masterVolume <= 0.01) return;
+      if (!canPlay('splash', 60)) return;
       initAudio();
       var now = ctx.currentTime;
 
@@ -168,6 +201,7 @@
       gain.connect(ctx.destination);
       osc.start(now);
       osc.stop(now + 0.86);
+      scheduleCleanup([osc, gain], 0.90);
 
       var noiseBuf = createNoiseBuffer(0.7);
       if (noiseBuf) {
@@ -179,6 +213,8 @@
         noise.connect(noiseGain);
         noiseGain.connect(ctx.destination);
         noise.start(now);
+        noise.stop(now + 0.72);
+        scheduleCleanup([noise, noiseGain], 0.75);
       }
     },
 
@@ -246,6 +282,7 @@
     // Impacto seco contra roca / isla
     playIslandThud: function() {
       if (!ctx || isMuted || masterVolume <= 0.01) return;
+      if (!canPlay('thud', 60)) return;
       initAudio();
       var now = ctx.currentTime;
 
@@ -262,6 +299,7 @@
       gain.connect(ctx.destination);
       osc.start(now);
       osc.stop(now + 0.16);
+      scheduleCleanup([osc, gain], 0.18);
 
       var noiseBuf = createNoiseBuffer(0.08);
       if (noiseBuf) {
@@ -273,12 +311,15 @@
         noise.connect(noiseGain);
         noiseGain.connect(ctx.destination);
         noise.start(now);
+        noise.stop(now + 0.09);
+        scheduleCleanup([noise, noiseGain], 0.12);
       }
     },
 
     // Chime mágico para recolección de mejoras globales (Pack-a-Punch / Power-ups)
     playPowerup: function() {
       if (!ctx || isMuted || masterVolume <= 0.01) return;
+      if (!canPlay('powerup', 60)) return;
       initAudio();
       var now = ctx.currentTime;
 
@@ -297,6 +338,7 @@
         gain.connect(ctx.destination);
         osc.start(t);
         osc.stop(t + 0.23);
+        scheduleCleanup([osc, gain], 0.28 + i * 0.07);
       }
     },
 
