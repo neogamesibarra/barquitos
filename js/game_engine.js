@@ -69,6 +69,7 @@
   var pirateShips = [];
   var bossGalleon = null;
   var particles = [];
+  var wakeParticles = [];
   var floatingTexts = [];
   var islands = [];
 
@@ -1948,24 +1949,22 @@
       if (ship.ramCooldown > 0) ship.ramCooldown -= dt;
 
       // Estela de espuma si el barco se mueve
-      if (ship.isAlive && Math.random() < 0.3) {
+      if (ship.isAlive && Math.random() < 0.35) {
         var rearX = ship.x - Math.cos(ship.rotation) * 26;
         var rearY = ship.y - Math.sin(ship.rotation) * 26;
-        wakeParticles.push({
-          x: rearX + (Math.random() - 0.5) * 8,
-          y: rearY + (Math.random() - 0.5) * 8,
-          life: 0.6,
-          maxLife: 0.6,
-          size: 4 + Math.random() * 4
-        });
+        spawnWaterFoam(rearX, rearY, -Math.cos(ship.rotation), -Math.sin(ship.rotation));
       }
     }
 
     // 2. Partículas
-    for (var wp = wakeParticles.length - 1; wp >= 0; wp--) {
-      wakeParticles[wp].life -= dt;
-      if (wakeParticles[wp].life <= 0) {
-        wakeParticles.splice(wp, 1);
+    for (var pt = particles.length - 1; pt >= 0; pt--) {
+      var p = particles[pt];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+      if (p.life <= 0) {
+        particles[pt] = particles[particles.length - 1];
+        particles.pop();
       }
     }
 
@@ -2317,6 +2316,9 @@
     } else {
       // ---------------- MODO ANFITRIÓN (Host / Pantalla Grande) ----------------
       isRemoteClient = false;
+      playersData[0].connected = true;
+      playersData[0].ready = true;
+      updateLobbyShips();
       if (!currentRoomCode) {
         currentRoomCode = generateRoomCode();
       }
@@ -2423,8 +2425,7 @@
     var btnOpenCtl = document.getElementById("btn-open-controller-quick");
     if (btnOpenCtl) {
       btnOpenCtl.onclick = function() {
-        var bIdx = (window.CloudNet && window.CloudNet.getCurrentBrokerIdx) ? window.CloudNet.getCurrentBrokerIdx() : 0;
-        window.location.href = "controller.html?room=" + encodeURIComponent(currentRoomCode) + "&b=" + bIdx;
+        window.location.href = "controller.html?room=" + encodeURIComponent(currentRoomCode);
       };
     }
   }
@@ -2434,8 +2435,7 @@
     if (baseHref.indexOf("/controller.html") !== -1) {
       baseHref = baseHref.replace("/controller.html", "/index.html");
     }
-    var bIdx = (window.CloudNet && window.CloudNet.getCurrentBrokerIdx) ? window.CloudNet.getCurrentBrokerIdx() : 0;
-    var onlineInviteUrl = baseHref + "?sala=" + currentRoomCode + "&b=" + bIdx;
+    var onlineInviteUrl = baseHref + "?sala=" + currentRoomCode;
 
     var btnCopy = document.getElementById("btn-copy-invite");
     var btnWa = document.getElementById("btn-whatsapp-share");
@@ -2499,11 +2499,10 @@
         if (nameVal) {
           try { window.localStorage.setItem("barquitos_nickname", nameVal); } catch(e){}
         }
-        var currentBIdx = (window.CloudNet && window.CloudNet.getCurrentBrokerIdx) ? window.CloudNet.getCurrentBrokerIdx() : 0;
         if (asController) {
-          window.location.href = "controller.html?room=" + encodeURIComponent(codeVal) + "&b=" + currentBIdx;
+          window.location.href = "controller.html?room=" + encodeURIComponent(codeVal);
         } else {
-          window.location.href = "index.html?sala=" + encodeURIComponent(codeVal) + "&b=" + currentBIdx;
+          window.location.href = "index.html?sala=" + encodeURIComponent(codeVal);
         }
       } else {
         alert("Por favor ingresa un código de sala válido de 4 letras");
@@ -2534,7 +2533,9 @@
       if (uuidToSlot[uuid] !== undefined) {
         slot = uuidToSlot[uuid];
       } else {
-        for (var s = 0; s < 8; s++) {
+        // En anfitrión, el slot 0 pertenece al anfitrión local. Los amigos online ocupan slots del 1 al 7.
+        var startSlot = isRemoteClient ? 0 : 1;
+        for (var s = startSlot; s < 8; s++) {
           if (!playersData[s].uuid) {
             slot = s;
             uuidToSlot[uuid] = slot;
@@ -2690,8 +2691,7 @@
       } else if (controllerUrl.indexOf("controller.html") === -1) {
         controllerUrl = controllerUrl.replace(/\/+$/, "") + "/controller.html";
       }
-      var bIdx = (window.CloudNet && window.CloudNet.getCurrentBrokerIdx) ? window.CloudNet.getCurrentBrokerIdx() : 0;
-      controllerUrl += "?room=" + currentRoomCode + "&b=" + bIdx;
+      controllerUrl += "?room=" + currentRoomCode;
 
       window.drawQRCodeToCanvas(qrCanvas, controllerUrl, 230);
 
@@ -2700,7 +2700,7 @@
 
       var ctlLink = document.querySelector(".controller-link");
       if (ctlLink) {
-        ctlLink.href = "controller.html?room=" + currentRoomCode + "&b=" + bIdx;
+        ctlLink.href = "controller.html?room=" + currentRoomCode;
       }
     }
   }

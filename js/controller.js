@@ -1,6 +1,6 @@
 /**
- * BARQUITOS - Controlador Web para GitHub Pages / Neocities (Sin Computadora)
- * Compatible con iOS Safari y Android Chrome en ES5 estricto.
+ * BARQUITOS - Mando Móvil Multijugador Online (GitHub Pages)
+ * Compatible con iOS Safari, Android Chrome y navegadores modernos.
  */
 
 (function (window) {
@@ -845,8 +845,7 @@
       function openGameScreen(e) {
         if (e && e.preventDefault) e.preventDefault();
         var room = currentRoom || '';
-        var bIdx = (window.CloudNet && window.CloudNet.getCurrentBrokerIdx) ? window.CloudNet.getCurrentBrokerIdx() : 0;
-        window.location.href = 'index.html' + (room ? ('?sala=' + encodeURIComponent(room) + '&b=' + bIdx) : ('?b=' + bIdx));
+        window.location.href = 'index.html' + (room ? ('?sala=' + encodeURIComponent(room)) : '');
       }
       elBtnViewGame.addEventListener('click', openGameScreen, false);
       elBtnViewGame.addEventListener('touchend', openGameScreen, false);
@@ -1013,7 +1012,7 @@
       if (elRoomOverlay) elRoomOverlay.style.display = 'flex';
     }
 
-    setInterval(sendInputUpdate, 16);
+    setInterval(sendInputUpdate, 35);
   };
 
 })(window);
