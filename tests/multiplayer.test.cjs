@@ -122,6 +122,13 @@ const engineHooks = `
     state: function () { return currentState; },
     localSlot: function () { return localPlayerSlot; },
     ships: function () { return activeShips.length; },
+    defeatBoss: function (wave) {
+      var boss = new BossGalleon(960, 150, wave);
+      boss.die();
+      boss.die();
+      return { rank: boss.rank, fleetRank: hordeUpgrades.fleetRank };
+    },
+    rescue: updateRescues,
     lootAtIsland: function () { return getLootPosition(960, 540); },
     nearIsland: isInsideIsland,
     connected: function () { return playersData.filter(function (p) { return p.connected; }).length; },
@@ -425,4 +432,36 @@ test('en Horda online la pantalla móvil no añade un barco sin jugador', () => 
   game.start();
   assert.equal(game.ships(), 1);
   assert.equal(game.localSlot(), -1);
+});
+
+test('cada jefe mejora una sola vez el casco de toda la flota y permite rescatar aliados', () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const host = browser(broker, clock);
+  const phone = browser(broker, clock);
+  host.load('game_engine.js', engineHooks);
+  phone.load('controller.js', controllerHooks);
+  const game = host.window.testGame;
+  game.host();
+  host.window.BarquitosGame.setMode(2);
+  game.start();
+  phone.window.testController.join();
+  phone.flushTimers();
+  const local = game.ship(1);
+  const orange = game.ship(0);
+  assert.equal(game.defeatBoss(10).fleetRank, 1);
+  assert.equal(local.maxHealth, 4);
+  assert.equal(orange.maxHealth, 4);
+  const secondBoss = game.defeatBoss(20);
+  assert.equal(secondBoss.rank, 2);
+  assert.equal(secondBoss.fleetRank, 2);
+  assert.equal(local.maxHealth, 5);
+  orange.die();
+  local.x = orange.x;
+  local.y = orange.y;
+  game.rescue(1);
+  assert.equal(orange.isAlive, false);
+  game.rescue(1);
+  assert.equal(orange.isAlive, true);
+  assert.equal(orange.health, 1);
 });

@@ -325,6 +325,7 @@
     weaponLevel: 1, // 1: normal, 2: cañón doble, 3: cañón triple, 4: cañón explosivo
     maxAmmo: 3,     // Bodega ampliada
     maxHealth: 3,   // Casco reforzado
+    fleetRank: 0,
     repairs: 0
   };
 
@@ -476,6 +477,7 @@
     this.turnInput = 0;
     this.thrustInput = false;
     this.shootInput = false;
+    this.rescueTime = 0;
   }
 
   Ship.prototype.update = function(dt) {
@@ -648,6 +650,12 @@
   Ship.prototype.die = function() {
     if (!this.isAlive) return;
     this.isAlive = false;
+    this.rescueTime = 0;
+    if (selectedMode === MODE_HORDE) {
+      var raft = getLootPosition(this.x, this.y);
+      this.x = raft.x;
+      this.y = raft.y;
+    }
     Sound.playSplash();
     triggerScreenShake(0.35, 10);
     sendTvAction("vibrate", this.slot, 300);
@@ -666,7 +674,28 @@
   };
 
   Ship.prototype.draw = function(c) {
-    if (!this.isAlive) return;
+    if (!this.isAlive) {
+      if (selectedMode === MODE_HORDE) {
+        c.save();
+        c.beginPath();
+        c.arc(this.x, this.y, 15, 0, Math.PI * 2);
+        c.fillStyle = "#763949";
+        c.fill();
+        c.strokeStyle = "#ffdc79";
+        c.lineWidth = 5;
+        c.stroke();
+        c.beginPath();
+        c.arc(this.x, this.y, 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * this.rescueTime);
+        c.strokeStyle = "#86ffaf";
+        c.stroke();
+        c.font = "bold 13px sans-serif";
+        c.textAlign = "center";
+        c.fillStyle = "#ffffff";
+        c.fillText("RESCATE", this.x, this.y - 30);
+        c.restore();
+      }
+      return;
+    }
     c.save();
     c.translate(this.x, this.y);
     c.rotate(this.rotation);
@@ -697,6 +726,20 @@
     c.strokeStyle = outlineCol;
     c.lineWidth = 3;
     c.stroke();
+
+    if (selectedMode === MODE_HORDE && hordeUpgrades.fleetRank > 0) {
+      var rank = hordeUpgrades.fleetRank;
+      c.fillStyle = ["#ffd76a", "#c4ebff", "#df9dff", "#65f4d6"][Math.min(rank - 1, 3)];
+      for (var armor = 0; armor < Math.min(rank + 1, 6); armor++) {
+        c.fillRect(-23 + armor * 7, -17, 5, 6);
+        c.fillRect(-23 + armor * 7, 11, 5, 6);
+      }
+      if (rank >= 2) {
+        c.fillRect(-29, -16, 7, 32);
+        c.fillRect(11, -13, 9, 5);
+        c.fillRect(11, 8, 9, 5);
+      }
+    }
 
     // 1b. Espolón metálico frontal puntiagudo (Ariete de acero)
     // Collar metálico de la base
@@ -1364,7 +1407,10 @@
     this.maxHealth = 20 + Math.floor(wave / 10) * 10;
     this.health = this.maxHealth;
     this.speed = 70;
+    this.rank = Math.max(1, Math.floor(wave / 10));
     this.specialTimer = 4.8;
+    this.attackCount = 0;
+    this.warning = 0;
     this.isAlive = true;
     this.flashTimer = 0;
   }
@@ -1415,22 +1461,34 @@
       this.vy = -Math.abs(this.vy) * 0.5 - 10;
     }
 
-    // Ataques especiales del Jefe
+    // Anunciar la próxima salva antes de disparar.
+    var frontal = this.health <= this.maxHealth / 2 && this.attackCount % 2 === 1;
+    this.warning = this.specialTimer <= 0.75 ? (frontal ? 2 : 1) : 0;
     if (this.specialTimer <= 0) {
       this.specialTimer = 4.8;
+      this.attackCount++;
+      this.warning = 0;
       Sound.playCannon();
       triggerScreenShake(0.3, 7);
 
-      // Disparo frontal moderado (3 cañones)
-      for (var f = -1; f <= 1; f++) {
-        var fAng = this.rotation + f * 0.25;
-        cannonballs.push(new Cannonball(this.x + fwdX * 50, this.y + fwdY * 50, Math.cos(fAng), Math.sin(fAng), -1, true, 1));
-      }
+      if (frontal) {
+        var spread = Math.min(4, this.rank + 1);
+        for (var f = -spread; f <= spread; f++) {
+          var fAng = this.rotation + f * 0.25;
+          cannonballs.push(new Cannonball(this.x + fwdX * 50, this.y + fwdY * 50, Math.cos(fAng), Math.sin(fAng), -1, true, 1));
+        }
 
-      // Salva lateral moderada (1 cañón por cada banda)
-      cannonballs.push(new Cannonball(this.x + latX * 25, this.y + latY * 25, latX, latY, -1, true, 1));
-      cannonballs.push(new Cannonball(this.x - latX * 25, this.y - latY * 25, -latX, -latY, -1, true, 1));
-      spawnMuzzleFlash(this.x + fwdX * 50, this.y + fwdY * 50, this.rotation);
+        spawnMuzzleFlash(this.x + fwdX * 50, this.y + fwdY * 50, this.rotation);
+      } else {
+        var guns = Math.min(4, this.rank + 1);
+        for (var gun = 0; gun < guns; gun++) {
+          var offset = (gun - (guns - 1) / 2) * 23;
+          var gunX = this.x + fwdX * offset;
+          var gunY = this.y + fwdY * offset;
+          cannonballs.push(new Cannonball(gunX + latX * 29, gunY + latY * 29, latX, latY, -1, true, 1));
+          cannonballs.push(new Cannonball(gunX - latX * 29, gunY - latY * 29, -latX, -latY, -1, true, 1));
+        }
+      }
     }
 
     if (Math.random() < 0.6) {
@@ -1483,12 +1541,9 @@
       });
     }
 
-    // Suelta 2 mejoras garantizadas
-    var weaponLoot = getLootPosition(this.x - 30, this.y);
-    var repairLoot = getLootPosition(this.x + 30, this.y);
-    hordePowerups.push(new HordePowerup(weaponLoot.x, weaponLoot.y, 3));
-    hordePowerups.push(new HordePowerup(repairLoot.x, repairLoot.y, 0));
-    addFloatingText("👑 ¡GALEÓN JEFE DERROTADO!", 960, 380, "#ffd700", 52);
+    hordeUpgrades.fleetRank++;
+    applyGlobalPowerup(4, this);
+    addFloatingText("👑 ¡FLOTA BLINDADA! NIVEL " + hordeUpgrades.fleetRank, 960, 380, "#ffd700", 52);
   };
 
   BossGalleon.prototype.draw = function(c) {
@@ -1497,8 +1552,10 @@
     c.translate(this.x, this.y);
     c.rotate(this.rotation);
 
-    var hullCol = this.flashTimer > 0 ? "#ffffff" : "#0d0d11";
-    var sailCol = this.flashTimer > 0 ? "#ffffff" : "#212121";
+    var tier = Math.min(this.rank - 1, 3);
+    var accent = ["#ffd76a", "#ff6a47", "#dd83ff", "#5ef5e2"][tier];
+    var hullCol = this.flashTimer > 0 ? "#ffffff" : ["#321c46", "#551d35", "#342066", "#153d57"][tier];
+    var sailCol = this.flashTimer > 0 ? "#ffffff" : ["#70408c", "#a42f44", "#6943b3", "#236e83"][tier];
 
     // Casco gigante
     c.beginPath();
@@ -1511,8 +1568,27 @@
     c.lineWidth = 4;
     c.stroke();
 
-    // 3 Mástiles y Velas
-    var mastOffsets = [-24, 4, 30];
+    c.fillStyle = accent;
+    for (var plate = 0; plate < Math.min(this.rank + 1, 6); plate++) {
+      c.fillRect(-44 + plate * 13, -29, 8, 7);
+      c.fillRect(-44 + plate * 13, 22, 8, 7);
+    }
+    if (this.rank >= 2) {
+      c.beginPath();
+      c.moveTo(40, -11); c.lineTo(65 + tier * 4, 0); c.lineTo(40, 11);
+      c.closePath();
+      c.fill();
+    }
+    if (this.warning === 1) {
+      c.fillStyle = "#fff597";
+      c.fillRect(-44, -32, 78, 5);
+      c.fillRect(-44, 27, 78, 5);
+    } else if (this.warning === 2) {
+      c.fillStyle = "#fff597";
+      c.fillRect(42, -10, 13, 20);
+    }
+
+    var mastOffsets = this.rank >= 3 ? [-35, -12, 11, 34] : [-24, 4, 30];
     for (var m = 0; m < 3; m++) {
       var mx = mastOffsets[m];
       c.beginPath();
@@ -1530,6 +1606,14 @@
     c.fillText("☠️", 6, 8);
 
     c.restore();
+    c.font = "bold 16px sans-serif";
+    c.textAlign = "center";
+    c.strokeStyle = "#241332";
+    c.lineWidth = 4;
+    var title = ["Galeón Corsario", "Acorazado Carmesí", "Dreadnought Abisal", "Leviatán"][tier] + " " + this.rank;
+    c.strokeText(title, this.x, this.y - 43);
+    c.fillStyle = accent;
+    c.fillText(title, this.x, this.y - 43);
   };
 
   // Partículas y Efectos con Object Pooling y ring-buffer estricto de 80
@@ -1878,6 +1962,7 @@
       weaponLevel: 1,
       maxAmmo: 3,
       maxHealth: 3,
+      fleetRank: 0,
       repairs: 0
     };
 
@@ -2079,7 +2164,8 @@
         sh.isRamming ? 1 : 0,
         sh.flashTimer > 0 ? 1 : 0,
         Math.round(sh.speed || 80),
-        (sh.data && typeof sh.data.score === "number") ? sh.data.score : (playersData[sh.slot] ? playersData[sh.slot].score : 0)
+        (sh.data && typeof sh.data.score === "number") ? sh.data.score : (playersData[sh.slot] ? playersData[sh.slot].score : 0),
+        Math.round(sh.rescueTime * 10) / 10
       ]);
     }
 
@@ -2126,7 +2212,8 @@
         Math.round(bossGalleon.rotation * 100) / 100,
         bossGalleon.health,
         bossGalleon.maxHealth,
-        bossGalleon.flashTimer > 0 ? 1 : 0
+        bossGalleon.flashTimer > 0 ? 1 : 0,
+        bossGalleon.warning
       ];
     }
 
@@ -2241,6 +2328,7 @@
         ship.maxHealth = item[5];
         ship.ammo = item[6];
         ship.isAlive = (item[7] === 1);
+        ship.rescueTime = item[15] || 0;
         if (ship.data) {
           ship.data.team = item[8];
           if (item[9]) ship.data.name = item[9];
@@ -2301,7 +2389,7 @@
 
     // 4. Sincronizar jefe
     if (msg.bo) {
-      if (!bossGalleon) {
+      if (!bossGalleon || bossGalleon.wave !== currentWave) {
         bossGalleon = new BossGalleon(msg.bo[0], msg.bo[1], currentWave);
       }
       bossGalleon.x = msg.bo[0];
@@ -2310,6 +2398,7 @@
       bossGalleon.health = msg.bo[3];
       bossGalleon.maxHealth = msg.bo[4];
       bossGalleon.isAlive = true;
+      bossGalleon.warning = msg.bo[6] || 0;
       if (msg.bo[5] === 1) bossGalleon.flashTimer = 0.2;
     } else {
       bossGalleon = null;
@@ -3749,6 +3838,29 @@
     }
   }
 
+  function updateRescues(dt) {
+    for (var i = 0; i < activeShips.length; i++) {
+      var fallen = activeShips[i];
+      if (fallen.isAlive) continue;
+      var nearby = activeShips.some(function (ally) {
+        if (!ally.isAlive) return false;
+        var dx = ally.x - fallen.x;
+        var dy = ally.y - fallen.y;
+        return dx * dx + dy * dy <= 100 * 100;
+      });
+      fallen.rescueTime = nearby ? fallen.rescueTime + dt : 0;
+      if (fallen.rescueTime >= 2) {
+        fallen.isAlive = true;
+        fallen.health = 1;
+        fallen.rescueTime = 0;
+        fallen.vx = 0;
+        fallen.vy = 0;
+        fallen.stunTimer = 0;
+        addFloatingText("¡RESCATADO!", fallen.x, fallen.y - 25, "#86ffaf", 26);
+      }
+    }
+  }
+
   function updateHorde(dt) {
     if (countdownTime > 0.5) {
       countdownTime -= dt;
@@ -3775,6 +3887,8 @@
         waveEnemiesToSpawn--;
       }
     }
+
+    updateRescues(dt);
 
     // Actualizar barcos aliados
     var anyAllyAlive = false;
