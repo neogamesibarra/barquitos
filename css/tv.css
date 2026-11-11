@@ -1276,3 +1276,96 @@ html, body {
   margin-top: 14px;
   color: #ffffff;
 }
+
+/* Identificación del barco y controles que caben en móviles estrechos. */
+.touch-player-label {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 70%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: bold 13px sans-serif;
+  text-shadow: 0 2px 4px #000;
+  pointer-events: none;
+}
+
+.podium-actions {
+  position: fixed;
+  bottom: 18px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  z-index: 650;
+}
+
+.mode-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+#btn-local-player {
+  margin-top: 12px;
+  min-height: 44px;
+}
+
+@media (max-width: 600px) {
+  .onscreen-touch-controls {
+    min-height: 112px;
+    padding: 22px 10px 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+  }
+
+  .touch-zone-left,
+  .touch-zone-right {
+    gap: 6px;
+  }
+
+  .onscreen-btn.steer-btn,
+  .onscreen-btn.thrust-btn,
+  .onscreen-btn.shoot-btn {
+    width: calc((100vw - 52px) / 4);
+    max-width: 76px;
+    min-width: 44px;
+    height: 72px;
+    padding: 4px 2px;
+  }
+
+  .onscreen-btn .btn-text {
+    font-size: 9px;
+    letter-spacing: 0;
+  }
+
+  .podium-actions {
+    bottom: 12px;
+    padding: 0 10px;
+    box-sizing: border-box;
+  }
+
+  .podium-actions .online-btn {
+    min-height: 44px;
+    font-size: 12px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .lobby-container {
+    overflow-y: auto;
+    justify-content: flex-start;
+    padding: 10px;
+  }
+
+  .onscreen-touch-controls {
+    min-height: 0;
+    height: 104px;
+    padding-top: 20px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+}

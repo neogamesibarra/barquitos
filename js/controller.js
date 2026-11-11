@@ -802,6 +802,7 @@
         if (window.CloudNet) {
           window.CloudNet.sendToHost({
             type: "host_action",
+            uuid: playerUUID,
             action: "start"
           });
         }
@@ -821,6 +822,7 @@
         if (window.CloudNet) {
           window.CloudNet.sendToHost({
             type: "host_action",
+            uuid: playerUUID,
             action: "toggle_mode"
           });
         }

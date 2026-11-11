@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
-  <link rel="stylesheet" href="css/tv.css?v=27">
+  <link rel="stylesheet" href="css/tv.css?v=29">
 </head>
 <body>
   <script>
@@ -52,7 +52,7 @@
           <canvas id="qr-canvas" width="230" height="230"></canvas>
         </div>
         <p class="qr-instructions">Escanea el QR con la cámara de tu teléfono</p>
-        <p class="qr-subinstructions">¡No requiere instalar apps ni usar computadora!</p>
+        <p class="qr-subinstructions">El primer mando será el naranja y elegirá el modo y el inicio.</p>
         <div class="url-badge">
           O abre en el navegador: <strong id="url-text">Generando enlace...</strong>
         </div>
@@ -95,7 +95,8 @@
           </button>
         </div>
 
-        <button id="btn-start-game" class="start-btn" type="button" onclick="if(window.BarquitosGame){window.BarquitosGame.startNewMatch();}">
+        <button id="btn-local-player" class="online-btn" type="button">JUGAR EN ESTA PANTALLA</button>
+        <button id="btn-start-game" class="start-btn" type="button">
           ⚓ INICIAR PARTIDA ⚓
         </button>
 
@@ -158,8 +159,14 @@
     </div>
   </div>
 
-  <!-- Controles Táctiles en Pantalla para Móviles y Tablets en Modo Online -->
+  <div id="podium-actions" class="podium-actions" style="display: none;">
+    <button id="btn-play-again" class="online-btn" type="button">OTRA PARTIDA</button>
+    <button id="btn-back-lobby" class="online-btn" type="button">VOLVER A LA SALA</button>
+  </div>
+
+  <!-- Controles táctiles del anfitrión móvil y de jugadores online -->
   <div id="onscreen-touch-controls" class="onscreen-touch-controls" style="display: none;">
+    <span id="touch-player-label" class="touch-player-label"></span>
     <div class="touch-zone-left">
       <button id="touch-steer-left" class="onscreen-btn steer-btn" type="button" aria-label="Girar Babor">
         <span class="btn-glyph">◀</span>
@@ -173,11 +180,7 @@
     <div class="touch-zone-right">
       <button id="touch-thrust" class="onscreen-btn thrust-btn" type="button" aria-label="Avanzar Velas">
         <span class="btn-glyph">💨</span>
-        <span class="btn-text">VELAS</span>
-      </button>
-      <button id="touch-ram" class="onscreen-btn ram-btn" type="button" aria-label="Embestida">
-        <span class="btn-glyph">⚡</span>
-        <span class="btn-text">EMBESTIR</span>
+        <span class="btn-text">VELAS / TURBO</span>
       </button>
       <button id="touch-shoot" class="onscreen-btn shoot-btn" type="button" aria-label="Disparar Cañones">
         <span class="btn-glyph">💣</span>
@@ -192,6 +195,6 @@
   <script src="js/qrcode.min.js"></script>
   <script src="js/sound_synth.js?v=27"></script>
   <script src="js/tizen_keys.js?v=27"></script>
-  <script src="js/game_engine.js?v=28"></script>
+  <script src="js/game_engine.js?v=29"></script>
 </body>
 </html>

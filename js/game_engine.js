@@ -349,6 +349,8 @@
   // Variables Multijugador Online (Jugar con amigos en otros países)
   var isRemoteClient = false;
   var remoteSlot = -1;
+  var localPlayerSlot = -1;
+  var releaseTouchControls = releaseLocalInputs;
   var myPlayerUUID = null;
   var myCustomNickname = "";
   var mySelectedTeam = "blue";
@@ -1981,6 +1983,8 @@
   }
 
   function startNewMatch() {
+    if (isRemoteClient) { requestLobbyAction("start"); return; }
+    if (isTouchDevice()) ensureLocalPlayer();
     console.log("[BARQUITOS] INICIANDO NUEVA PARTIDA! Modo:", selectedMode);
     currentRound = 0;
     teamScores.blue = 0;
@@ -1994,7 +1998,9 @@
   }
 
   function startRoundByMode() {
+    if (isRemoteClient) { requestLobbyAction("start"); return; }
     try {
+      releaseLocalInputs();
       // Ocultar de inmediato la interfaz del lobby
       setLobbyUIVisible(false);
       var el = document.getElementById("lobby-ui");
@@ -2171,6 +2177,7 @@
     currentWave = msg.w || 1;
     countdownTime = msg.cd;
     roundTimer = msg.rt;
+    updateLobbyModeUI();
     if (msg.ts) teamScores = msg.ts;
     if (msg.psc && msg.psc.length) {
       for (var pi = 0; pi < msg.psc.length; pi++) {
@@ -2188,14 +2195,8 @@
     }
 
     // Controles táctiles en pantalla durante la partida en móviles/tablets
-    var touchControls = document.getElementById("onscreen-touch-controls");
-    if (touchControls) {
-      if (currentState === STATE_ARENA && isTouchDevice()) {
-        touchControls.style.display = "flex";
-      } else {
-        touchControls.style.display = "none";
-      }
-    }
+    updateTouchControlsVisibility();
+    updateLobbyPermissions();
 
     // 1. Sincronizar barcos
     if (msg.sh) {
@@ -2398,23 +2399,59 @@
     sendLocalInputsToHost();
   }
 
+  function ensureLocalPlayer() {
+    if (isRemoteClient) return -1;
+    if (localPlayerSlot !== -1) return localPlayerSlot;
+    // El naranja queda disponible para el primer mando que se conecte por QR.
+    for (var i = 1; i < playersData.length; i++) {
+      if (!playersData[i].connected && !playersData[i].uuid) {
+        localPlayerSlot = i;
+        playersData[i].connected = true;
+        playersData[i].ready = true;
+        updateLobbyShips();
+        if (currentState === STATE_ARENA && !activeShips.some(function (ship) { return ship.slot === i; })) {
+          activeShips.push(new Ship(i, 960, 800, -Math.PI / 2));
+        }
+        updateLocalPlayerButton();
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  function updateLocalPlayerButton() {
+    var button = document.getElementById("btn-local-player");
+    if (!button) return;
+    button.style.display = isRemoteClient ? "none" : "";
+    button.disabled = localPlayerSlot !== -1;
+    if (localPlayerSlot !== -1) {
+      button.textContent = "JUGANDO AQUÍ · " + playersData[localPlayerSlot].name;
+      button.style.borderColor = playersData[localPlayerSlot].hull;
+    }
+  }
+
+  var touchState = { left: false, right: false, thrust: false, shoot: false };
+
   function updateLocalInputValues(immediate) {
     var turn = 0;
-    if (keyState.left && !keyState.right) turn = -1.0;
-    else if (keyState.right && !keyState.left) turn = 1.0;
+    var left = keyState.left || touchState.left;
+    var right = keyState.right || touchState.right;
+    if (left && !right) turn = -1.0;
+    else if (right && !left) turn = 1.0;
 
     localInputState.turn = turn;
-    localInputState.thrust = keyState.thrust;
-    localInputState.shoot = keyState.shoot;
+    localInputState.thrust = keyState.thrust || touchState.thrust;
+    localInputState.shoot = keyState.shoot || touchState.shoot;
 
     if (isRemoteClient) {
       sendLocalInputsToHost(immediate);
     } else {
-      // Anfitrión en PC o táctil local: solo controla el barco local asignado (sin UUID remoto asignado)
+      if (localInputState.turn || localInputState.thrust || localInputState.shoot) ensureLocalPlayer();
+      // El anfitrión solo puede conducir el barco asignado a esta pantalla.
       var localShip = null;
       for (var s = 0; s < activeShips.length; s++) {
         var sh = activeShips[s];
-        if (sh && sh.isAlive && (!playersData[sh.slot] || !playersData[sh.slot].uuid)) {
+        if (sh && sh.isAlive && sh.slot === localPlayerSlot) {
           localShip = sh;
           break;
         }
@@ -2432,6 +2469,10 @@
     keyState.right = false;
     keyState.thrust = false;
     keyState.shoot = false;
+    touchState.left = false;
+    touchState.right = false;
+    touchState.thrust = false;
+    touchState.shoot = false;
     updateLocalInputValues(true);
   }
 
@@ -2467,6 +2508,9 @@
     if (msg.type === "init") {
       stopClientJoinRetry();
       remoteSlot = msg.slot;
+      if (typeof msg.mode === "number") selectedMode = msg.mode;
+      if (typeof msg.state === "number") currentState = msg.state;
+      updateLobbyPermissions();
       var slotBadge = document.getElementById("remote-player-slot");
       if (slotBadge) {
         var profile = PLAYER_PROFILES[remoteSlot] || {};
@@ -2560,16 +2604,20 @@
   }
 
   function isTouchDevice() {
-    return (("ontouchstart" in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
+    return (("ontouchstart" in window) || !!(window.navigator && (window.navigator.maxTouchPoints > 0 || window.navigator.msMaxTouchPoints > 0)));
   }
 
   function updateTouchControlsVisibility() {
     var touchControls = document.getElementById("onscreen-touch-controls");
     if (!touchControls) return;
-    if (currentState === STATE_ARENA && isTouchDevice()) {
-      touchControls.style.display = "flex";
-    } else {
-      touchControls.style.display = "none";
+    var playerSlot = isRemoteClient ? remoteSlot : localPlayerSlot;
+    var visible = currentState === STATE_ARENA && isTouchDevice() && playerSlot !== -1;
+    if (!visible && touchControls.style.display === "flex") releaseTouchControls();
+    touchControls.style.display = visible ? "flex" : "none";
+    var badge = document.getElementById("touch-player-label");
+    if (badge && playerSlot !== -1 && playersData[playerSlot]) {
+      badge.textContent = playersData[playerSlot].customName || playersData[playerSlot].name;
+      badge.style.color = playersData[playerSlot].hull;
     }
   }
 
@@ -2674,54 +2722,76 @@
     var btnLeft = document.getElementById("touch-steer-left");
     var btnRight = document.getElementById("touch-steer-right");
     var btnThrust = document.getElementById("touch-thrust");
-    var btnRam = document.getElementById("touch-ram");
     var btnShoot = document.getElementById("touch-shoot");
 
-    function bindBtn(el, prop, valStart, valEnd) {
+    function bindBtn(el, prop) {
       if (!el) return;
-      function onStart(e) {
-        if (e) {
-          if (e.cancelable) e.preventDefault();
-          if (e.stopPropagation) e.stopPropagation();
-        }
+      var activeId = null;
+
+      function press(id, e) {
+        if (activeId !== null || currentState !== STATE_ARENA) return;
+        if (e.cancelable) e.preventDefault();
+        activeId = id;
         el.classList.add("pressed");
-        keyState[prop] = valStart;
-        updateLocalInputValues();
-        if (window.navigator && window.navigator.vibrate) {
-          try { window.navigator.vibrate(25); } catch(ev){}
-        }
+        touchState[prop] = true;
+        updateLocalInputValues(true);
       }
-      function onEnd(e) {
-        if (e) {
-          if (e.cancelable) e.preventDefault();
-          if (e.stopPropagation) e.stopPropagation();
-        }
+
+      function release(id, e) {
+        if (activeId !== id) return;
+        if (e && e.cancelable) e.preventDefault();
+        activeId = null;
         el.classList.remove("pressed");
-        keyState[prop] = valEnd;
-        updateLocalInputValues();
+        touchState[prop] = false;
+        updateLocalInputValues(true);
       }
-      el.addEventListener("touchstart", onStart, { passive: false });
-      el.addEventListener("touchend", onEnd, { passive: false });
-      el.addEventListener("touchcancel", onEnd, { passive: false });
-      el.addEventListener("mousedown", onStart, false);
-      el.addEventListener("mouseup", onEnd, false);
-      el.addEventListener("mouseleave", onEnd, false);
+
+      if (window.PointerEvent) {
+        el.addEventListener("pointerdown", function (e) {
+          if (e.pointerType === "mouse" && e.button !== 0) return;
+          press(e.pointerId, e);
+          if (activeId === e.pointerId && el.setPointerCapture) {
+            try { el.setPointerCapture(e.pointerId); } catch (errCapture) {}
+          }
+        }, false);
+        function releasePointer(e) { release(e.pointerId, e); }
+        el.addEventListener("pointerup", releasePointer, false);
+        el.addEventListener("pointercancel", releasePointer, false);
+        el.addEventListener("lostpointercapture", releasePointer, false);
+      } else {
+        el.addEventListener("touchstart", function (e) {
+          if (e.changedTouches.length) press(e.changedTouches[0].identifier, e);
+        }, { passive: false });
+        function releaseTouch(e) {
+          for (var i = 0; i < e.changedTouches.length; i++) {
+            release(e.changedTouches[i].identifier, e);
+          }
+        }
+        el.addEventListener("touchend", releaseTouch, { passive: false });
+        el.addEventListener("touchcancel", releaseTouch, { passive: false });
+        el.addEventListener("mousedown", function (e) { if (e.button === 0) press("mouse", e); }, false);
+        el.addEventListener("mouseup", function (e) { release("mouse", e); }, false);
+        el.addEventListener("mouseleave", function (e) { release("mouse", e); }, false);
+      }
+
+      // Una pérdida de foco puede ocurrir sin pointerup ni touchend.
+      el.releaseInput = function () { release(activeId); };
     }
 
-    bindBtn(btnLeft, "left", true, false);
-    bindBtn(btnRight, "right", true, false);
-    bindBtn(btnThrust, "thrust", true, false);
-    bindBtn(btnRam, "thrust", true, false);
-    bindBtn(btnShoot, "shoot", true, false);
+    bindBtn(btnLeft, "left");
+    bindBtn(btnRight, "right");
+    bindBtn(btnThrust, "thrust");
+    bindBtn(btnShoot, "shoot");
 
     function releaseControls() {
       releaseLocalInputs();
-      var buttons = [btnLeft, btnRight, btnThrust, btnRam, btnShoot];
+      var buttons = [btnLeft, btnRight, btnThrust, btnShoot];
       for (var i = 0; i < buttons.length; i++) {
-        if (buttons[i]) buttons[i].classList.remove("pressed");
+        if (buttons[i] && buttons[i].releaseInput) buttons[i].releaseInput();
       }
     }
 
+    releaseTouchControls = releaseControls;
     window.addEventListener("blur", releaseControls, false);
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) releaseControls();
@@ -2812,10 +2882,8 @@
       if (roomDisplay) roomDisplay.textContent = currentRoomCode;
 
       // Ocultar controles exclusivos del anfitrión y tarjeta QR en cliente
-      var btnStart = document.getElementById("btn-start-game");
-      if (btnStart) {
-        btnStart.style.display = "none";
-      }
+      updateLobbyPermissions();
+      updateLocalPlayerButton();
       var qrCard = document.querySelector(".qr-card");
       if (qrCard) {
         qrCard.style.display = "none";
@@ -2870,9 +2938,8 @@
     } else {
       // ---------------- MODO ANFITRIÓN (Host / Pantalla Grande) ----------------
       isRemoteClient = false;
-      playersData[0].connected = true;
-      playersData[0].ready = true;
-      updateLobbyShips();
+      if (isTouchDevice()) ensureLocalPlayer();
+      updateLocalPlayerButton();
       if (!currentRoomCode) {
         currentRoomCode = generateRoomCode();
       }
@@ -3086,19 +3153,12 @@
       var slot = -1;
       if (uuidToSlot[uuid] !== undefined) {
         slot = uuidToSlot[uuid];
-      } else if (typeof msg.slot === "number" && msg.slot >= 0 && msg.slot < 8) {
-        if (!playersData[msg.slot].uuid || playersData[msg.slot].uuid === uuid) {
-          slot = msg.slot;
-          uuidToSlot[uuid] = slot;
-          playersData[slot].uuid = uuid;
-        }
       }
 
       if (slot === -1) {
-        // En anfitrión, el slot 0 pertenece al anfitrión local. Los amigos online ocupan slots del 1 al 7.
-        var startSlot = isRemoteClient ? 0 : 1;
-        for (var s = startSlot; s < 8; s++) {
-          if (!playersData[s].uuid) {
+        // El primer mando ocupa el naranja. La pantalla local usa otro puesto.
+        for (var s = 0; s < playersData.length; s++) {
+          if (!playersData[s].uuid && !playersData[s].connected) {
             slot = s;
             uuidToSlot[uuid] = slot;
             playersData[slot].uuid = uuid;
@@ -3224,12 +3284,12 @@
         }
       }
     } else if (msg.type === "host_action") {
+      if (!msg.uuid || msg.uuid !== playersData[0].uuid) return;
+      if (currentState !== STATE_LOBBY && currentState !== STATE_PODIUM) return;
       if (msg.action === "start") {
-        if (currentState === STATE_LOBBY || currentState === STATE_PODIUM) {
-          startNewMatch();
-        } else {
-          startRoundByMode();
-        }
+        startNewMatch();
+      } else if (msg.action === "lobby") {
+        requestLobbyAction("lobby");
       } else if (msg.action === "set_mode") {
         if (typeof msg.mode === "number" && msg.mode >= 0 && msg.mode <= 2) {
           selectedMode = msg.mode;
@@ -4062,6 +4122,8 @@
 
   // RENDERIZADO (Optimizado a 60 FPS)
   function render(dt) {
+    updateTouchControlsVisibility();
+    updatePodiumActions();
     ctx.save();
     ctx.fillStyle = "#05111c";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -4753,6 +4815,11 @@
   // Control remoto Tizen / Teclado PC / Controles de Navegación y Combate
   window.addEventListener("keydown", function(e) {
     var k = e.keyCode;
+    if (isRemoteClient && currentState !== STATE_ARENA) {
+      if (k === 13) requestLobbyAction("start");
+      else if (k === 37 || k === 39) requestLobbyAction("set_mode", (selectedMode + (k === 37 ? 2 : 1)) % 3);
+      return;
+    }
 
     if (k === 77) { // Tecla M: Mute
       Sound.toggleMute();
@@ -4843,9 +4910,9 @@
     var b1 = document.getElementById("btn-mode-battle");
     var b2 = document.getElementById("btn-mode-teams");
     var b3 = document.getElementById("btn-mode-horde");
-    if (b1) b1.className = (selectedMode === MODE_BATTLE) ? "mode-card active" : "mode-card";
-    if (b2) b2.className = (selectedMode === MODE_TEAMS) ? "mode-card active" : "mode-card";
-    if (b3) b3.className = (selectedMode === MODE_HORDE) ? "mode-card active" : "mode-card";
+    if (b1) b1.className = (selectedMode === MODE_BATTLE) ? "mode-btn active" : "mode-btn";
+    if (b2) b2.className = (selectedMode === MODE_TEAMS) ? "mode-btn active" : "mode-btn";
+    if (b3) b3.className = (selectedMode === MODE_HORDE) ? "mode-btn active" : "mode-btn";
   }
 
   function resizeCanvas() {
@@ -4874,7 +4941,51 @@
 
   window.addEventListener("resize", resizeCanvas, false);
 
+  function updateLobbyPermissions() {
+    var canManage = !isRemoteClient || remoteSlot === 0;
+    var start = document.getElementById("btn-start-game");
+    if (start) {
+      start.style.display = canManage ? "" : "none";
+      start.disabled = !canManage;
+    }
+    var ids = ["btn-mode-battle", "btn-mode-teams", "btn-mode-horde"];
+    for (var i = 0; i < ids.length; i++) {
+      var modeButton = document.getElementById(ids[i]);
+      if (modeButton) modeButton.disabled = !canManage;
+    }
+  }
+
+  function requestLobbyAction(action, mode) {
+    if (currentState !== STATE_LOBBY && currentState !== STATE_PODIUM) return;
+    if (isRemoteClient) {
+      if (remoteSlot !== 0 || !window.CloudNet) return;
+      window.CloudNet.sendToHost({ type: "host_action", uuid: myPlayerUUID, action: action, mode: mode });
+    } else if (action === "start") {
+      startNewMatch();
+    } else if (action === "set_mode") {
+      selectedMode = mode;
+      updateLobbyModeUI();
+      broadcastCurrentMode();
+    } else if (action === "lobby") {
+      releaseLocalInputs();
+      currentState = STATE_LOBBY;
+      updateLobbyShips();
+      sendTvAction("state_change", null, STATE_LOBBY);
+    }
+  }
+
+  function updatePodiumActions() {
+    var panel = document.getElementById("podium-actions");
+    if (panel) panel.style.display = currentState === STATE_PODIUM && (!isRemoteClient || remoteSlot === 0) ? "flex" : "none";
+  }
+
   function bindLobbyButtons() {
+    var localButton = document.getElementById("btn-local-player");
+    if (localButton) localButton.addEventListener("click", function () { ensureLocalPlayer(); }, false);
+    var playAgain = document.getElementById("btn-play-again");
+    if (playAgain) playAgain.addEventListener("click", function () { requestLobbyAction("start"); }, false);
+    var backToLobby = document.getElementById("btn-back-lobby");
+    if (backToLobby) backToLobby.addEventListener("click", function () { requestLobbyAction("lobby"); }, false);
     var bBattle = document.getElementById("btn-mode-battle");
     var bTeams = document.getElementById("btn-mode-teams");
     var bHorde = document.getElementById("btn-mode-horde");
@@ -4888,9 +4999,7 @@
         if (now - lastTap < 300) return;
         lastTap = now;
         if (e && e.preventDefault) e.preventDefault();
-        selectedMode = modeVal;
-        updateLobbyModeUI();
-        broadcastCurrentMode();
+        requestLobbyAction("set_mode", modeVal);
       }
       btn.addEventListener("pointerup", setModeAction, false);
       btn.addEventListener("click", setModeAction, false);
@@ -4907,8 +5016,7 @@
         if (now - lastStartTap < 400) return;
         lastStartTap = now;
         if (e && e.preventDefault) e.preventDefault();
-        console.log("[LOBBY] INICIAR PARTIDA presionado!");
-        startNewMatch();
+        requestLobbyAction("start");
       }
       bStart.addEventListener("pointerup", triggerStart, false);
       bStart.addEventListener("click", triggerStart, false);
