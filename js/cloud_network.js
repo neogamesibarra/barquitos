@@ -34,6 +34,7 @@
   var isHost = false;
   var onMessageCb = null;
   var onStatusCb = null;
+  var receiveGameState = true;
   var savedCallbacks = null;
   var fallbackTimeout = null;
 
@@ -122,7 +123,7 @@
           var stateSub = 'barquitos/v1/' + activeRoom + '/state';
           client.subscribe(mySub, { qos: 0 });
           client.subscribe(broadSub, { qos: 0 });
-          client.subscribe(stateSub, { qos: 0 });
+          if (receiveGameState) client.subscribe(stateSub, { qos: 0 });
         }
 
         // Dar un pequeño respiro de 60ms para que el broker registre las suscripciones antes de enviar join/inputs
@@ -214,6 +215,7 @@
       currentBrokerIdx = getPreferredBrokerIdx();
       activeRoom = roomCode.toUpperCase();
       myId = playerUuid;
+      receiveGameState = callbacks.receiveGameState !== false;
       onMessageCb = callbacks.onMessage;
       onStatusCb = callbacks.onStatus;
 

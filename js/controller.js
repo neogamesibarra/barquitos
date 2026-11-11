@@ -164,6 +164,7 @@
 
     if (window.CloudNet) {
       window.CloudNet.initClient(currentRoom, playerUUID, {
+        receiveGameState: false,
         onReady: function () {
           if (elConnDot) elConnDot.className = 'conn-dot online';
           if (elConnText) elConnText.textContent = 'Sala: ' + currentRoom;
@@ -181,6 +182,7 @@
           if (elConnDot) elConnDot.className = 'conn-dot ' + (status === 'online' ? 'online' : (status === 'offline' ? 'offline' : ''));
           if (elConnText) elConnText.textContent = text;
           if (status !== 'online') {
+            releaseInputs();
             stopJoinRetry();
           }
         },
@@ -191,12 +193,21 @@
     }
   }
 
+  function setGameState(state) {
+    if (typeof state === 'number') {
+      currentGameState = (state === 1) ? 'playing' : (state === 3 ? 'podium' : 'lobby');
+    } else if (typeof state === 'string') {
+      currentGameState = state;
+    }
+  }
+
   function handleServerMessage(msg) {
     if (!msg || !msg.type) return;
 
     if (msg.type === 'init') {
       stopJoinRetry();
       mySlot = msg.slot;
+      setGameState(msg.state);
       isReady = !!msg.ready;
       if (msg.mode !== undefined) currentMode = msg.mode;
       if (msg.team) myTeam = msg.team;
@@ -238,11 +249,7 @@
         updateTeamButtonsUI();
       }
     } else if (msg.type === 'state_change') {
-      if (typeof msg.state === 'number') {
-        currentGameState = (msg.state === 1) ? 'playing' : (msg.state === 3 ? 'podium' : 'lobby');
-      } else {
-        currentGameState = msg.state;
-      }
+      setGameState(msg.state);
       updateHostControls();
       updateLobbyConfigBarVisibility();
     } else if (msg.type === 'mode_change') {
@@ -597,7 +604,12 @@
       elStyleText.textContent = (currentControlStyle === 'compact') ? 'COMPACTO' : 'CLÁSICO';
     }
 
-    // Resetear giros activos al cambiar de modo
+    resetSteering();
+    sendInputUpdate();
+  }
+
+  function resetSteering() {
+    touchSteerId = null;
     inputState.turn = 0;
     steerLeftActive = false;
     steerRightActive = false;
@@ -610,7 +622,15 @@
     if (elBtnSteerRight) {
       elBtnSteerRight.className = 'compact-dir-btn dir-right';
     }
-    sendInputUpdate();
+  }
+
+  function releaseInputs() {
+    resetSteering();
+    inputState.thrust = false;
+    inputState.shoot = false;
+    if (elBtnThrust) elBtnThrust.className = 'touch-btn thrust-btn';
+    if (elBtnShoot) elBtnShoot.className = 'touch-btn shoot-btn';
+    sendInputUpdate(true);
   }
 
   function toggleControlStyle() {
@@ -1017,6 +1037,10 @@
     } catch (eStyleLoad) {}
     setControlStyle(currentControlStyle);
 
+    window.addEventListener('blur', releaseInputs, false);
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) releaseInputs();
+    }, false);
     window.addEventListener('resize', updateLayoutDimensions, false);
     window.addEventListener('orientationchange', function () {
       setTimeout(updateLayoutDimensions, 50);

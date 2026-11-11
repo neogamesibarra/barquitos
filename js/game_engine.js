@@ -2074,7 +2074,7 @@
     var bData = [];
     for (var b = 0; b < cannonballs.length; b++) {
       var cb = cannonballs[b];
-      if (cb.isAlive !== false) {
+      if (!cb.isDead) {
         bData.push([
           Math.round(cb.x),
           Math.round(cb.y),
@@ -2178,8 +2178,8 @@
       }
     }
     if (msg.up) hordeUpgrades = msg.up;
-    if (msg.rw) roundWinner = { name: msg.rw, hull: "#ffca28" };
-    if (msg.mw) matchWinner = { name: msg.mw, hull: "#ffd700" };
+    roundWinner = msg.rw ? { name: msg.rw, hull: "#ffca28" } : null;
+    matchWinner = msg.mw ? { name: msg.mw, hull: "#ffd700" } : null;
 
     // Visibilidad del lobby en cliente
     var lobbyUI = document.getElementById("lobby-ui");
@@ -2199,9 +2199,11 @@
 
     // 1. Sincronizar barcos
     if (msg.sh) {
+      var syncedSlots = {};
       for (var i = 0; i < msg.sh.length; i++) {
         var item = msg.sh[i];
         var slot = item[0];
+        syncedSlots[slot] = true;
         var ship = null;
         for (var s = 0; s < activeShips.length; s++) {
           if (activeShips[s].slot === slot) {
@@ -2234,7 +2236,7 @@
         if (ship.data) {
           ship.data.team = item[8];
           if (item[9]) ship.data.name = item[9];
-          if (item[10]) ship.data.customName = item[10];
+          ship.data.customName = item[10] || "";
         }
         ship.isRamming = (item[11] === 1);
         if (item[12] === 1) ship.flashTimer = 0.2;
@@ -2243,17 +2245,28 @@
           if (playersData[slot]) playersData[slot].score = item[14];
         }
       }
-    }
-
-    // 2. Sincronizar balas de cañón
-    cannonballs = [];
-    if (msg.cb) {
-      for (var b = 0; b < msg.cb.length; b++) {
-        var bItem = msg.cb[b];
-        var newCb = new Cannonball(bItem[0], bItem[1], bItem[2], bItem[3], 0, bItem[4] === 1, 1, bItem[5]);
-        cannonballs.push(newCb);
+      for (var shipIndex = activeShips.length - 1; shipIndex >= 0; shipIndex--) {
+        if (!syncedSlots[activeShips[shipIndex].slot]) activeShips.splice(shipIndex, 1);
       }
     }
+
+    // 2. Reutilizar las balas en la vista remota, donde solo se dibujan.
+    var remoteBalls = msg.cb || [];
+    for (var b = 0; b < remoteBalls.length; b++) {
+      var bItem = remoteBalls[b];
+      var ball = cannonballs[b];
+      if (!ball) {
+        cannonballs.push(new Cannonball(bItem[0], bItem[1], bItem[2], bItem[3], 0, bItem[4] === 1, 1, bItem[5]));
+      } else {
+        ball.x = bItem[0];
+        ball.y = bItem[1];
+        ball.dx = bItem[2];
+        ball.dy = bItem[3];
+        ball.isPirate = (bItem[4] === 1);
+        ball.shooterTeam = bItem[5];
+      }
+    }
+    cannonballs.length = remoteBalls.length;
 
     // 3. Sincronizar piratas reutilizando instancias para evitar basura y micro-tirones
     if (msg.pi) {
@@ -2385,7 +2398,7 @@
     sendLocalInputsToHost();
   }
 
-  function updateLocalInputValues() {
+  function updateLocalInputValues(immediate) {
     var turn = 0;
     if (keyState.left && !keyState.right) turn = -1.0;
     else if (keyState.right && !keyState.left) turn = 1.0;
@@ -2395,7 +2408,7 @@
     localInputState.shoot = keyState.shoot;
 
     if (isRemoteClient) {
-      sendLocalInputsToHost();
+      sendLocalInputsToHost(immediate);
     } else {
       // Anfitrión en PC o táctil local: solo controla el barco local asignado (sin UUID remoto asignado)
       var localShip = null;
@@ -2414,7 +2427,15 @@
     }
   }
 
-  function sendLocalInputsToHost() {
+  function releaseLocalInputs() {
+    keyState.left = false;
+    keyState.right = false;
+    keyState.thrust = false;
+    keyState.shoot = false;
+    updateLocalInputValues(true);
+  }
+
+  function sendLocalInputsToHost(immediate) {
     if (!isRemoteClient || !window.CloudNet || !window.CloudNet.isConnected()) return;
 
     var now = Date.now();
@@ -2424,11 +2445,7 @@
 
     // Si cambió el input (girar, acelerar, disparar): enviar de inmediato con throttle máx 60ms
     // Si NO cambió: enviar solo un latido cada 350ms (~3 Hz) para mantener viva la sesión sin saturar la red
-    if (changed) {
-      if (now - lastInputSendTime < 60) return;
-    } else {
-      if (now - lastInputSendTime < 350) return;
-    }
+    if (!immediate && now - lastInputSendTime < (changed ? 60 : 350)) return;
 
     lastSentLocalInput.turn = localInputState.turn;
     lastSentLocalInput.thrust = localInputState.thrust;
@@ -2696,6 +2713,19 @@
     bindBtn(btnThrust, "thrust", true, false);
     bindBtn(btnRam, "thrust", true, false);
     bindBtn(btnShoot, "shoot", true, false);
+
+    function releaseControls() {
+      releaseLocalInputs();
+      var buttons = [btnLeft, btnRight, btnThrust, btnRam, btnShoot];
+      for (var i = 0; i < buttons.length; i++) {
+        if (buttons[i]) buttons[i].classList.remove("pressed");
+      }
+    }
+
+    window.addEventListener("blur", releaseControls, false);
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) releaseControls();
+    }, false);
     updateTouchControlsVisibility();
   }
 
@@ -2828,6 +2858,7 @@
           onStatus: function(status, msg) {
             updateStatusUI(status, msg);
             if (status !== "online" && status !== "connected") {
+              releaseLocalInputs();
               stopClientJoinRetry();
             }
           },
@@ -3187,6 +3218,7 @@
             activeShips[sh].turnInput = typeof msg.turn === "number" ? msg.turn : (typeof msg.t === "number" ? msg.t : 0);
             activeShips[sh].thrustInput = !!(msg.thrust || msg.th);
             activeShips[sh].shootInput = !!(msg.shoot || msg.sh);
+            activeShips[sh].inputExpiresAt = Date.now() + REMOTE_INPUT_TIMEOUT_MS;
             break;
           }
         }
@@ -3304,6 +3336,21 @@
     window.requestAnimationFrame(gameLoop);
   }
 
+  // Los clientes renuevan sus controles aproximadamente cada 350 ms.
+  var REMOTE_INPUT_TIMEOUT_MS = 1500;
+
+  function expireRemoteInputs(now) {
+    for (var i = 0; i < activeShips.length; i++) {
+      var ship = activeShips[i];
+      if (ship.inputExpiresAt && now >= ship.inputExpiresAt) {
+        ship.turnInput = 0;
+        ship.thrustInput = false;
+        ship.shootInput = false;
+        ship.inputExpiresAt = 0;
+      }
+    }
+  }
+
   function update(dt) {
     waveAnim += dt;
     if (shakeTimer > 0) {
@@ -3317,6 +3364,7 @@
     }
 
     // Modo Anfitrión: Física y Reglas del Juego
+    expireRemoteInputs(Date.now());
     if (currentState === STATE_LOBBY) {
       for (var s = 0; s < activeShips.length; s++) {
         activeShips[s].update(dt);
@@ -3331,7 +3379,7 @@
       podiumAnimTimer += dt;
     }
 
-    // Difusión continua del estado del mundo a jugadores online remotos (~20 Hz)
+    // Difusión del estado del mundo a jugadores online remotos.
     broadcastGameState();
   }
 
