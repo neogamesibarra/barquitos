@@ -1296,9 +1296,11 @@
 
     // 50% de probabilidad de soltar Botín de Mejora, 30% de munición
     if (Math.random() < 0.50) {
-      hordePowerups.push(new HordePowerup(this.x, this.y));
+      var loot = getLootPosition(this.x, this.y);
+      hordePowerups.push(new HordePowerup(loot.x, loot.y));
     } else if (Math.random() < 0.60) {
-      ammoCrates.push(new AmmoCrate(this.x, this.y));
+      var ammo = getLootPosition(this.x, this.y);
+      ammoCrates.push(new AmmoCrate(ammo.x, ammo.y));
     }
   };
 
@@ -1362,7 +1364,7 @@
     this.maxHealth = 20 + Math.floor(wave / 10) * 10;
     this.health = this.maxHealth;
     this.speed = 70;
-    this.specialTimer = 6.0;
+    this.specialTimer = 4.8;
     this.isAlive = true;
     this.flashTimer = 0;
   }
@@ -1415,7 +1417,7 @@
 
     // Ataques especiales del Jefe
     if (this.specialTimer <= 0) {
-      this.specialTimer = 6.0;
+      this.specialTimer = 4.8;
       Sound.playCannon();
       triggerScreenShake(0.3, 7);
 
@@ -1482,8 +1484,10 @@
     }
 
     // Suelta 2 mejoras garantizadas
-    hordePowerups.push(new HordePowerup(this.x - 30, this.y, 3)); // Pack-a-Punch
-    hordePowerups.push(new HordePowerup(this.x + 30, this.y, 0)); // Reparación Total
+    var weaponLoot = getLootPosition(this.x - 30, this.y);
+    var repairLoot = getLootPosition(this.x + 30, this.y);
+    hordePowerups.push(new HordePowerup(weaponLoot.x, weaponLoot.y, 3));
+    hordePowerups.push(new HordePowerup(repairLoot.x, repairLoot.y, 0));
     addFloatingText("👑 ¡GALEÓN JEFE DERROTADO!", 960, 380, "#ffd700", 52);
   };
 
@@ -1721,6 +1725,11 @@
     return { x: b.x + 120, y: b.y + 120 };
   }
 
+  function getLootPosition(x, y) {
+    if (!isInsideIsland(x, y, 36)) return { x: x, y: y };
+    return getSafeSpawnPoint(currentBounds, 36);
+  }
+
   function initArenaIslands() {
     islands = [
       { x: 960, y: 540, rad: 70 },
@@ -1885,10 +1894,6 @@
     for (var i = 0; i < playersData.length; i++) {
       if (playersData[i].connected) connected.push(playersData[i]);
     }
-    if (connected.length === 0) {
-      connected = [playersData[0], playersData[1]];
-    }
-
     var count = connected.length;
     for (var j = 0; j < count; j++) {
       var ang = (Math.PI * 2 / count) * j;
@@ -1984,7 +1989,9 @@
 
   function startNewMatch() {
     if (isRemoteClient) { requestLobbyAction("start"); return; }
-    if (isTouchDevice()) ensureLocalPlayer();
+    if ((selectedMode !== MODE_HORDE && isTouchDevice()) || (selectedMode === MODE_HORDE && !playersData.some(function (player) { return player.connected; }))) {
+      ensureLocalPlayer();
+    }
     console.log("[BARQUITOS] INICIANDO NUEVA PARTIDA! Modo:", selectedMode);
     currentRound = 0;
     teamScores.blue = 0;
@@ -2937,7 +2944,6 @@
     } else {
       // ---------------- MODO ANFITRIÓN (Host / Pantalla Grande) ----------------
       isRemoteClient = false;
-      if (isTouchDevice()) ensureLocalPlayer();
       updateLocalPlayerButton();
       if (!currentRoomCode) {
         currentRoomCode = generateRoomCode();
@@ -3191,7 +3197,8 @@
         }
         if (!shipExists) {
           var spawnAng = Math.random() * Math.PI * 2;
-          var newS = new Ship(slot, 960 + Math.cos(spawnAng) * 200, 540 + Math.sin(spawnAng) * 200, spawnAng);
+          var spawn = getSafeSpawnPoint(currentBounds, 34);
+          var newS = new Ship(slot, spawn.x, spawn.y, spawnAng);
           activeShips.push(newS);
         }
       }
@@ -3332,6 +3339,8 @@
       controllerUrl += "?room=" + currentRoomCode;
 
       window.drawQRCodeToCanvas(qrCanvas, controllerUrl, 230);
+      var matchQR = document.getElementById("match-qr-canvas");
+      if (matchQR) window.drawQRCodeToCanvas(matchQR, controllerUrl, 230);
 
       var urlLabel = document.getElementById("url-text");
       if (urlLabel) urlLabel.textContent = controllerUrl;
@@ -4051,10 +4060,8 @@
 
     // Spawning periódico de munición
     if (Math.random() < (0.55 * dt) && ammoCrates.length < 6) {
-      ammoCrates.push(new AmmoCrate(
-        currentBounds.x + 80 + Math.random() * (currentBounds.w - 160),
-        currentBounds.y + 80 + Math.random() * (currentBounds.h - 160)
-      ));
+      var ammoSpawn = getSafeSpawnPoint(currentBounds, 36);
+      ammoCrates.push(new AmmoCrate(ammoSpawn.x, ammoSpawn.y));
     }
 
     // Fin de oleada: todos los piratas y jefe muertos (Éxito de ronda)
@@ -4128,6 +4135,8 @@
     }
     updateTouchControlsVisibility();
     updatePodiumActions();
+    var matchInvite = document.getElementById("match-invite");
+    if (matchInvite) matchInvite.hidden = isRemoteClient || currentState !== STATE_ARENA || !currentRoomCode || !window.drawQRCodeToCanvas;
     ctx.save();
     ctx.fillStyle = "#142557";
     ctx.fillRect(0, 0, canvas.width, canvas.height);

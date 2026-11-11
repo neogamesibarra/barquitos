@@ -121,6 +121,9 @@ const engineHooks = `
     mode: function () { return selectedMode; },
     state: function () { return currentState; },
     localSlot: function () { return localPlayerSlot; },
+    ships: function () { return activeShips.length; },
+    lootAtIsland: function () { return getLootPosition(960, 540); },
+    nearIsland: isInsideIsland,
     connected: function () { return playersData.filter(function (p) { return p.connected; }).length; },
     controls: setupOnscreenControls,
     buttons: bindLobbyButtons,
@@ -291,6 +294,9 @@ for (const pointerEvents of [true, false]) {
     const shoot = host.element('touch-shoot');
     const game = host.window.testGame;
     game.host();
+    const localButton = host.element("btn-local-player");
+    game.buttons();
+    localButton.fire("click");
     assert.equal(game.localSlot(), 1);
     phone.window.testController.join();
     phone.flushTimers();
@@ -382,4 +388,41 @@ test('un toque en iniciar tiene un único manejador de inicio', () => {
   const button = html.match(/<button[^>]*id="btn-start-game"[^>]*>/)[0];
   assert.ok(!button.includes('onclick='));
   assert.ok(!html.includes('id="touch-ram"'));
+});
+
+test('Horda comienza con un solo barco y admite un mando durante la partida', () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const host = browser(broker, clock);
+  const phone = browser(broker, clock);
+  host.load('game_engine.js', engineHooks);
+  phone.load('controller.js', controllerHooks);
+  const game = host.window.testGame;
+  game.host();
+  host.window.BarquitosGame.setMode(2);
+  game.start();
+  assert.equal(game.ships(), 1);
+  phone.window.testController.join();
+  phone.flushTimers();
+  assert.equal(game.ships(), 2);
+  assert.equal(phone.window.testController.state(), 'playing');
+  const loot = game.lootAtIsland();
+  assert.equal(game.nearIsland(loot.x, loot.y, 36), false);
+});
+
+test('en Horda online la pantalla móvil no añade un barco sin jugador', () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const host = browser(broker, clock, true);
+  const phone = browser(broker, clock);
+  host.load('game_engine.js', engineHooks);
+  phone.load('controller.js', controllerHooks);
+  const game = host.window.testGame;
+  game.host();
+  phone.window.testController.join();
+  phone.flushTimers();
+  host.window.BarquitosGame.setMode(2);
+  game.start();
+  assert.equal(game.ships(), 1);
+  assert.equal(game.localSlot(), -1);
 });

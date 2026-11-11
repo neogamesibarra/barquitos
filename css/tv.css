@@ -1292,6 +1292,34 @@ html, body {
   pointer-events: none;
 }
 
+.match-invite {
+  position: fixed;
+  z-index: 550;
+  right: 12px;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: 12px;
+  padding: 7px;
+  border-radius: 10px;
+  background: #17295e;
+  color: #fff;
+  text-align: center;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.match-invite canvas {
+  display: block;
+  width: 100px;
+  width: clamp(72px, 9vw, 132px);
+  height: auto;
+  margin: 0 auto 4px;
+  background: white;
+}
+
+@media (max-width: 900px), (max-height: 600px) {
+  .match-invite { bottom: 120px; }
+}
+
 .podium-actions {
   position: fixed;
   bottom: 18px;
@@ -1342,7 +1370,35 @@ html, body {
     letter-spacing: 0;
   }
 
-  .podium-actions {
+  .match-invite {
+  position: fixed;
+  z-index: 550;
+  right: 12px;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: 12px;
+  padding: 7px;
+  border-radius: 10px;
+  background: #17295e;
+  color: #fff;
+  text-align: center;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.match-invite canvas {
+  display: block;
+  width: 100px;
+  width: clamp(72px, 9vw, 132px);
+  height: auto;
+  margin: 0 auto 4px;
+  background: white;
+}
+
+@media (max-width: 900px), (max-height: 600px) {
+  .match-invite { bottom: 120px; }
+}
+
+.podium-actions {
     bottom: 12px;
     padding: 0 10px;
     box-sizing: border-box;

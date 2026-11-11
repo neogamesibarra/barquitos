@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
-  <link rel="stylesheet" href="css/tv.css?v=30">
+  <link rel="stylesheet" href="css/tv.css?v=31">
 </head>
 <body>
   <script>
@@ -159,6 +159,11 @@
     </div>
   </div>
 
+  <aside id="match-invite" class="match-invite" hidden>
+    <canvas id="match-qr-canvas" width="230" height="230" aria-label="Código QR de la sala"></canvas>
+    <span>ÚNETE A LA PARTIDA</span>
+  </aside>
+
   <div id="podium-actions" class="podium-actions" style="display: none;">
     <button id="btn-play-again" class="online-btn" type="button">OTRA PARTIDA</button>
     <button id="btn-back-lobby" class="online-btn" type="button">VOLVER A LA SALA</button>
@@ -195,6 +200,6 @@
   <script src="js/qrcode.min.js"></script>
   <script src="js/sound_synth.js?v=27"></script>
   <script src="js/tizen_keys.js?v=27"></script>
-  <script src="js/game_engine.js?v=30"></script>
+  <script src="js/game_engine.js?v=31"></script>
 </body>
 </html>
