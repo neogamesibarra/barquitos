@@ -1082,7 +1082,8 @@
     this.baseY = y;
     this.y = y;
     this.time = Math.random() * 5;
-    this.type = (type !== undefined) ? type : Math.floor(Math.random() * 5);
+    var roll = type === undefined ? Math.random() : 0;
+    this.type = type !== undefined ? type : (roll < 0.05 ? 0 : 1 + Math.floor((roll - 0.05) / 0.95 * 4));
   }
 
   HordePowerup.prototype.update = function(dt) {
@@ -1404,11 +1405,11 @@
     this.vx = 0;
     this.vy = 0;
     this.wave = wave;
-    this.maxHealth = 20 + Math.floor(wave / 10) * 10;
+    this.maxHealth = 22 + Math.floor(wave / 10) * 18;
     this.health = this.maxHealth;
-    this.speed = 70;
+    this.speed = 82;
     this.rank = Math.max(1, Math.floor(wave / 10));
-    this.specialTimer = 4.8;
+    this.specialTimer = 4.2;
     this.attackCount = 0;
     this.warning = 0;
     this.isAlive = true;
@@ -1465,7 +1466,7 @@
     var frontal = this.health <= this.maxHealth / 2 && this.attackCount % 2 === 1;
     this.warning = this.specialTimer <= 0.75 ? (frontal ? 2 : 1) : 0;
     if (this.specialTimer <= 0) {
-      this.specialTimer = 4.8;
+      this.specialTimer = 4.2;
       this.attackCount++;
       this.warning = 0;
       Sound.playCannon();
@@ -4906,42 +4907,23 @@
       ctx.fillText(p.score + " pts", cX + colW / 2, cY + 120);
     }
 
-    // Botones del podio: Jugar Otra Vez / Volver al Lobby
-    renderPodiumButtons();
-  }
-
-  function renderPodiumButtons() {
-    var btnY = 940;
-    var btnW = 340;
-    var btnH = 65;
-
-    // Botón 0: Jugar Otra Vez
-    var b1X = 540 - btnW / 2;
-    ctx.fillStyle = (podiumSelectedBtn === 0) ? "#2ecc71" : "#1e824c";
-    ctx.fillRect(b1X, btnY, btnW, btnH);
-    ctx.strokeStyle = (podiumSelectedBtn === 0) ? "#ffffff" : "#27ae60";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(b1X, btnY, btnW, btnH);
-
-    ctx.font = "bold 22px sans-serif";
-    ctx.fillStyle = "#ffffff";
-    ctx.textAlign = "center";
-    ctx.fillText("🔄 JUGAR OTRA VEZ", b1X + btnW / 2, btnY + 41);
-
-    // Botón 1: Volver al Lobby
-    var b2X = 1380 - btnW / 2;
-    ctx.fillStyle = (podiumSelectedBtn === 1) ? "#3498db" : "#2980b9";
-    ctx.fillRect(b2X, btnY, btnW, btnH);
-    ctx.strokeStyle = (podiumSelectedBtn === 1) ? "#ffffff" : "#2980b9";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(b2X, btnY, btnW, btnH);
-
-    ctx.fillText("🏠 VOLVER AL LOBBY", b2X + btnW / 2, btnY + 41);
   }
 
   // Control remoto Tizen / Teclado PC / Controles de Navegación y Combate
   window.addEventListener("keydown", function(e) {
     var k = e.keyCode;
+    if (currentState === STATE_PODIUM && (!isRemoteClient || remoteSlot === 0)) {
+      if (k === 37 || k === 39) {
+        podiumSelectedBtn = k === 37 ? 0 : 1;
+        var button = document.getElementById(podiumSelectedBtn === 0 ? "btn-play-again" : "btn-back-lobby");
+        if (button) button.focus();
+        e.preventDefault();
+      } else if ((k === 13 || k === 32) && (!e.target || e.target.tagName !== "BUTTON")) {
+        e.preventDefault();
+        requestLobbyAction(podiumSelectedBtn === 0 ? "start" : "lobby");
+      }
+      return;
+    }
     if (isRemoteClient && currentState !== STATE_ARENA) {
       if (k === 13) requestLobbyAction("start");
       else if (k === 37 || k === 39) requestLobbyAction("set_mode", (selectedMode + (k === 37 ? 2 : 1)) % 3);
@@ -4965,22 +4947,7 @@
       } else if (k === 13 || k === 32) { // Enter / Space / OK
         startNewMatch();
       }
-    } else if (currentState === STATE_PODIUM && !isRemoteClient) {
-      if (k === 37) {
-        podiumSelectedBtn = 0;
-      } else if (k === 39) {
-        podiumSelectedBtn = 1;
-      } else if (k === 13 || k === 32) {
-        if (podiumSelectedBtn === 0) {
-          startNewMatch();
-        } else {
-          for (var p2 = 0; p2 < playersData.length; p2++) playersData[p2].score = 0;
-          currentRound = 0;
-          currentState = STATE_LOBBY;
-          updateLobbyShips();
-          sendTvAction("state_change", null, STATE_LOBBY);
-        }
-      }
+
     }
 
     // Controles de juego en teclado para PC (Anfitrión o Cliente Online)
