@@ -10,7 +10,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #0d2838;
+  background-color: #182762;
   font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
   color: #ffffff;
   user-select: none;
@@ -27,7 +27,7 @@ html, body {
   height: 100%;
   display: block;
   z-index: 1;
-  background-color: #0b2230;
+  background-color: #237dd0;
   touch-action: none !important;
   user-select: none !important;
   -webkit-user-select: none !important;
@@ -50,7 +50,7 @@ html, body {
   justify-content: flex-start;
   -webkit-justify-content: flex-start;
   padding: 25px 40px;
-  background: rgba(13, 30, 45, 0.75);
+  background: rgba(37, 36, 112, 0.68);
   box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.7);
   pointer-events: auto;
 }
@@ -120,7 +120,7 @@ html, body {
 .qr-card {
   flex: 1;
   -webkit-flex: 1;
-  background: rgba(20, 45, 65, 0.9);
+  background: rgba(38, 65, 150, 0.94);
   border: 3px solid #2ecc71;
   border-radius: 16px;
   padding: 20px;
@@ -213,7 +213,7 @@ html, body {
 .controls-card {
   flex: 1.2;
   -webkit-flex: 1.2;
-  background: rgba(20, 45, 65, 0.9);
+  background: rgba(38, 65, 150, 0.94);
   border: 3px solid #3498db;
   border-radius: 16px;
   padding: 22px;
@@ -280,7 +280,7 @@ html, body {
 }
 
 .mode-btn.active {
-  background: #1b4965;
+  background: #4d3eab;
   border-color: #00e5ff;
   box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
 }
@@ -939,14 +939,14 @@ html, body {
 .onscreen-btn.steer-btn {
   width: 105px;
   height: 90px;
-  background: rgba(14, 40, 65, 0.88);
+  background: #175bc4;
   border-color: #00e5ff;
 }
 
 .onscreen-btn.thrust-btn {
   width: 105px;
   height: 90px;
-  background: rgba(20, 85, 45, 0.88);
+  background: #147d53;
   border-color: #2ecc71;
   color: #d4fcd8;
 }
@@ -962,7 +962,7 @@ html, body {
 .onscreen-btn.shoot-btn {
   width: 110px;
   height: 90px;
-  background: rgba(120, 25, 25, 0.90);
+  background: #ac2857;
   border-color: #e74c3c;
   color: #ffdede;
 }

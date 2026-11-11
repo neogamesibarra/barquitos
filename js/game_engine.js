@@ -289,7 +289,7 @@
     { slot: 0, name: "Capitán 1", hull: "#E67E22", sail: "#FFF8E7", stripe: "#2ECC71", symbol: "circle", uuid: "", connected: false, ready: false, score: 0, team: "blue", customName: "" },
     { slot: 1, name: "Capitán 2", hull: "#1E60D5", sail: "#82B1FF", stripe: "#0D47A1", symbol: "square", uuid: "", connected: false, ready: false, score: 0, team: "red", customName: "" },
     { slot: 2, name: "Capitán 3", hull: "#D81B60", sail: "#FF80AB", stripe: "#FFD600", symbol: "triangle", uuid: "", connected: false, ready: false, score: 0, team: "blue", customName: "" },
-    { slot: 3, name: "Capitán 4", hull: "#43A047", sail: "#B9F6CA", stripe: "#1B5E20", symbol: "diamond", uuid: "", connected: false, ready: false, score: 0, team: "red", customName: "" },
+    { slot: 3, name: "Capitán 4", hull: "#75e363", sail: "#B9F6CA", stripe: "#218957", symbol: "diamond", uuid: "", connected: false, ready: false, score: 0, team: "red", customName: "" },
     { slot: 4, name: "Capitán 5", hull: "#FDD835", sail: "#FFFDE7", stripe: "#F57F17", symbol: "star", uuid: "", connected: false, ready: false, score: 0, team: "blue", customName: "" },
     { slot: 5, name: "Capitán 6", hull: "#FF80AB", sail: "#FCE4EC", stripe: "#C51162", symbol: "heart", uuid: "", connected: false, ready: false, score: 0, team: "red", customName: "" },
     { slot: 6, name: "Capitán 7", hull: "#261C1A", sail: "#FFCA28", stripe: "#111111", symbol: "crown", uuid: "", connected: false, ready: false, score: 0, team: "blue", customName: "" },
@@ -1614,7 +1614,7 @@
 
   function spawnConfetti(count) {
     count = count || 60;
-    var colors = ["#E67E22", "#1E60D5", "#D81B60", "#43A047", "#FDD835", "#FF80AB", "#00E5FF", "#FF2A2A"];
+    var colors = ["#E67E22", "#1E60D5", "#D81B60", "#75e363", "#FDD835", "#FF80AB", "#00E5FF", "#FF2A2A"];
     for (var i = 0; i < count; i++) {
       var x = 200 + Math.random() * 1520;
       addParticle({
@@ -2891,7 +2891,6 @@
 
       var remoteBar = document.getElementById("remote-player-bar");
       if (remoteBar) {
-        remoteBar.style.display = "flex";
         var rRoom = document.getElementById("remote-player-room");
         if (rRoom) rRoom.textContent = "Sala: " + currentRoomCode;
       }
@@ -4122,10 +4121,15 @@
 
   // RENDERIZADO (Optimizado a 60 FPS)
   function render(dt) {
+    var remoteBar = document.getElementById("remote-player-bar");
+    if (remoteBar) {
+      var display = isRemoteClient && currentState === STATE_LOBBY ? "flex" : "none";
+      if (remoteBar.style.display !== display) remoteBar.style.display = display;
+    }
     updateTouchControlsVisibility();
     updatePodiumActions();
     ctx.save();
-    ctx.fillStyle = "#05111c";
+    ctx.fillStyle = "#142557";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Centrado de resolución virtual 1920x1080
@@ -4153,8 +4157,8 @@
   function renderLobby() {
     // Fondo del lobby
     var grad = ctx.createLinearGradient(0, 0, 0, V_HEIGHT);
-    grad.addColorStop(0, "#0b1e33");
-    grad.addColorStop(1, "#071322");
+    grad.addColorStop(0, "#2476d9");
+    grad.addColorStop(1, "#372798");
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
@@ -4207,8 +4211,8 @@
 
     // 1. Océano base
     var grad = mapOffscreenCtx.createLinearGradient(0, 0, 0, V_HEIGHT);
-    grad.addColorStop(0, "#0e345a");
-    grad.addColorStop(1, "#092038");
+    grad.addColorStop(0, "#29c4ef");
+    grad.addColorStop(1, "#176bd8");
     mapOffscreenCtx.fillStyle = grad;
     mapOffscreenCtx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
@@ -4222,8 +4226,8 @@
     var rightPanelX = 1650;
 
     var leftGrad = mapOffscreenCtx.createLinearGradient(0, 0, panelW, 0);
-    leftGrad.addColorStop(0, "#05111c");
-    leftGrad.addColorStop(1, "#0a1d30");
+    leftGrad.addColorStop(0, "#142557");
+    leftGrad.addColorStop(1, "#243f83");
     mapOffscreenCtx.fillStyle = leftGrad;
     mapOffscreenCtx.fillRect(0, 0, panelW, V_HEIGHT);
 
@@ -4242,8 +4246,8 @@
     mapOffscreenCtx.stroke();
 
     var rightGrad = mapOffscreenCtx.createLinearGradient(rightPanelX, 0, V_WIDTH, 0);
-    rightGrad.addColorStop(0, "#0a1d30");
-    rightGrad.addColorStop(1, "#05111c");
+    rightGrad.addColorStop(0, "#243f83");
+    rightGrad.addColorStop(1, "#142557");
     mapOffscreenCtx.fillStyle = rightGrad;
     mapOffscreenCtx.fillRect(rightPanelX, 0, panelW, V_HEIGHT);
 
@@ -4269,11 +4273,11 @@
 
   function renderHexIslandToCtx(c, cx, cy, radius) {
     drawHexagon(c, cx, cy + 6, radius + 4, "rgba(4, 18, 30, 0.45)", null);
-    drawHexagon(c, cx, cy, radius, "#E6C280", "#C59B53", 4);
-    drawHexagon(c, cx, cy, radius - 8, "#D4AD6B", null);
-    drawHexagon(c, cx, cy, radius - 16, "#2E7D32", "#1B5E20", 3);
-    drawHexagon(c, cx, cy, radius - 28, "#1B5E20", null);
-    drawHexagon(c, cx, cy, radius - 38, "#90A4AE", "#607D8B", 2);
+    drawHexagon(c, cx, cy, radius, "#ffe283", "#e29b42", 4);
+    drawHexagon(c, cx, cy, radius - 8, "#ffc65a", null);
+    drawHexagon(c, cx, cy, radius - 16, "#52cb54", "#218957", 3);
+    drawHexagon(c, cx, cy, radius - 28, "#218957", null);
+    drawHexagon(c, cx, cy, radius - 38, "#b8e4ee", "#578bb0", 2);
   }
 
   function renderArena(dt) {
@@ -4285,8 +4289,8 @@
       ctx.drawImage(mapOffscreenCanvas, 0, 0);
     } else {
       var grad = ctx.createLinearGradient(0, 0, 0, V_HEIGHT);
-      grad.addColorStop(0, "#0e345a");
-      grad.addColorStop(1, "#092038");
+      grad.addColorStop(0, "#29c4ef");
+      grad.addColorStop(1, "#176bd8");
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
       for (var i = 0; i < islands.length; i++) {
@@ -4295,7 +4299,7 @@
     }
 
     // 2. Olas animadas sobre el mar (limitadas al océano central navegable, 50% menos cálculos trigonométricos)
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
+    ctx.strokeStyle = "rgba(233, 252, 255, 0.26)";
     ctx.lineWidth = 1.8;
     for (var wy = 70; wy < V_HEIGHT; wy += 90) {
       ctx.beginPath();
@@ -4346,11 +4350,11 @@
     // Sombra
     drawHexagon(ctx, cx, cy + 6, radius + 4, "rgba(4, 18, 30, 0.45)", null);
     // Arena exterior
-    drawHexagon(ctx, cx, cy, radius, "#E6C280", "#C59B53", 4);
+    drawHexagon(ctx, cx, cy, radius, "#ffe283", "#e29b42", 4);
     // Césped interior
-    drawHexagon(ctx, cx, cy, radius * 0.72, "#43A047", "#2E7D32", 3);
+    drawHexagon(ctx, cx, cy, radius * 0.72, "#75e363", "#52cb54", 3);
     // Rocas centrales
-    drawHexagon(ctx, cx, cy, radius * 0.34, "#78909C", "#455A64", 2);
+    drawHexagon(ctx, cx, cy, radius * 0.34, "#b8e4ee", "#578bb0", 2);
   }
 
   // Rediseño HUD Lateral: Franjas laterales recortadas NO jugables
