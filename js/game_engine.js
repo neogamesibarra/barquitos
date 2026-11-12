@@ -1921,13 +1921,6 @@
     for (var i = 0; i < playersData.length; i++) {
       if (playersData[i].connected) connected.push(playersData[i]);
     }
-    if (connected.length === 0) {
-      connected = [playersData[0], playersData[1]];
-    } else if (connected.length === 1) {
-      // Si solo hay 1 jugador conectado, añadir un rival para que la ronda no termine al instante
-      var rivalSlot = (connected[0].slot === 0) ? 1 : 0;
-      connected.push(playersData[rivalSlot]);
-    }
 
     var count = connected.length;
     var radius = 350;
@@ -1976,12 +1969,15 @@
       }
     }
 
-    // Asegurar que ambos bandos tengan al menos un barco para combatir
-    if (blueShips.length === 0) {
-      blueShips.push(playersData[0]);
-    }
-    if (redShips.length === 0) {
-      redShips.push(playersData[1]);
+    // Si todos eligieron el mismo equipo, mover un jugador real al otro bando.
+    if (!blueShips.length && redShips.length > 1) {
+      var newBlue = redShips.pop();
+      newBlue.team = "blue";
+      blueShips.push(newBlue);
+    } else if (!redShips.length && blueShips.length > 1) {
+      var newRed = blueShips.pop();
+      newRed.team = "red";
+      redShips.push(newRed);
     }
 
     // Desplegar barcos azules en la izquierda
@@ -2127,10 +2123,13 @@
   }
 
   function needsMorePlayers() {
-    var count = isRemoteClient ? activeShips.length : playersData.filter(function (player) {
-      return player.connected;
-    }).length;
-    return selectedMode !== MODE_HORDE && count < 2;
+    if (selectedMode === MODE_HORDE) return false;
+    if (isRemoteClient) return activeShips.length < 2;
+    var count = 0;
+    for (var i = 0; i < playersData.length; i++) {
+      if (playersData[i].connected && ++count === 2) return false;
+    }
+    return true;
   }
 
   var playMenuChoice = "";
@@ -3259,34 +3258,38 @@
     var onlineInviteUrl = baseHref + "?sala=" + currentRoomCode;
 
     var btnCopy = document.getElementById("btn-copy-invite");
-    var btnWa = document.getElementById("btn-whatsapp-share");
     var copyFeed = document.getElementById("copy-feedback");
-
-    if (btnWa) {
-      var waMsg = "¡Únete a mi batalla naval en BARQUITOS! ⛵💣\nEntra a este enlace para jugar juntos: " + onlineInviteUrl + "\n(Código de sala: " + currentRoomCode + ")";
-      btnWa.href = "https://api.whatsapp.com/send?text=" + encodeURIComponent(waMsg);
-    }
 
     if (btnCopy) {
       btnCopy.onclick = function (e) {
         if (e && e.preventDefault) e.preventDefault();
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(onlineInviteUrl);
+          navigator.clipboard.writeText(onlineInviteUrl).then(function () {
+            showCopyResult(true);
+          }, function () {
+            showCopyResult(false);
+          });
+          return;
         } else {
           var temp = document.createElement("textarea");
           temp.value = onlineInviteUrl;
           document.body.appendChild(temp);
           temp.select();
-          try { document.execCommand("copy"); } catch(eCopy){}
+          var copied = false;
+          try { copied = document.execCommand("copy"); } catch (eCopy) {}
           document.body.removeChild(temp);
+          showCopyResult(copied);
         }
+      };
+      function showCopyResult(copied) {
         if (copyFeed) {
+          copyFeed.textContent = copied ? "¡Enlace copiado!" : "Copia este enlace: " + onlineInviteUrl;
           copyFeed.style.display = "block";
           setTimeout(function () {
             copyFeed.style.display = "none";
-          }, 3500);
+          }, copied ? 3500 : 15000);
         }
-      };
+      }
     }
 
     var btnOpenJoin = document.getElementById("btn-open-join-modal");
@@ -4392,10 +4395,12 @@
     var waiting = needsMorePlayers();
     var occupied = soloRoomOccupied();
     var startButton = document.getElementById("btn-start-game");
-    if (startButton) startButton.disabled = occupied || waiting || (isRemoteClient && remoteSlot !== 0);
+    var disabled = occupied || waiting || (isRemoteClient && remoteSlot !== 0);
+    if (startButton && startButton.disabled !== disabled) startButton.disabled = disabled;
     var notice = document.getElementById("start-player-notice");
     if (notice) {
-      notice.hidden = !waiting && !occupied;
+      var hidden = !waiting && !occupied;
+      if (notice.hidden !== hidden) notice.hidden = hidden;
       var message = occupied ? "Ya hay otros jugadores en esta sala. Elige una opción multijugador." :
         "Se necesitan al menos 2 jugadores. Si vas a jugar desde aquí, pulsa «Jugar en esta pantalla».";
       if (notice.textContent !== message) notice.textContent = message;
@@ -5046,7 +5051,7 @@
     if (currentState === STATE_LOBBY) {
       var modal = document.getElementById("join-modal");
       var scope = modal && modal.style.display !== "none" ? modal : document.getElementById("lobby-ui");
-      if (scope && k >= 37 && k <= 40 && (!e.target || e.target.tagName !== "INPUT")) {
+      if (scope && k >= 37 && k <= 40 && (!e.target || e.target.tagName !== "INPUT" || k >= 38)) {
         var candidates = scope.querySelectorAll("button, input");
         var visible = [];
         for (var i = 0; i < candidates.length; i++) {
@@ -5059,7 +5064,7 @@
           e.preventDefault();
         }
       } else if (scope && k === 13 && (!e.target || (e.target.tagName !== "BUTTON" && e.target.tagName !== "INPUT"))) {
-        var first = scope.querySelector(isRemoteClient ? "#btn-mode-horde" : "#play-menu button");
+        var first = scope.querySelector(scope === modal ? "input" : isRemoteClient ? "#btn-mode-horde" : "#play-menu button");
         if (first && !first.disabled) first.focus();
         e.preventDefault();
       }
