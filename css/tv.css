@@ -1434,3 +1434,41 @@ html, body {
   .start-btn { padding: 8px; }
   .direct-controller-hint { margin-top: 8px; }
 }
+
+.join-friend-entry {
+  display: -webkit-flex;
+  display: flex;
+  align-items: center;
+  -webkit-align-items: center;
+  justify-content: center;
+  -webkit-justify-content: center;
+  flex-shrink: 0;
+  -webkit-flex-shrink: 0;
+  width: 100%;
+  max-width: 1120px;
+  margin-bottom: 16px;
+  padding: 10px 16px;
+  border: 1px solid #6fb8f3;
+  border-radius: 12px;
+  background: #182d65;
+}
+.join-friend-entry span { margin-right: 20px; font-size: 17px; }
+.join-friend-entry .join-existing-btn { width: auto; margin: 0; }
+.invite-help { color: #e1eeff; font-size: 14px; line-height: 1.45; margin: 8px 0; }
+.qr-subinstructions { max-width: 340px; line-height: 1.5; }
+.online-share-bar { width: 100%; }
+.online-share-bar .copy-btn { width: 100%; min-height: 44px; }
+.controls-card { justify-content: flex-start; -webkit-justify-content: flex-start; }
+#btn-local-player { margin-bottom: 10px; }
+.section-title { color: #e1f6ff; font-size: 20px; }
+@media (max-width: 600px) {
+  .join-friend-entry { display: block; text-align: center; }
+  .join-friend-entry span { display: block; margin: 0 0 8px; }
+  .join-friend-entry .join-existing-btn { width: 100%; }
+}
+@media (min-width: 901px) and (max-height: 850px) {
+  .join-friend-entry { padding: 6px 12px; margin-bottom: 8px; }
+  .invite-help { margin: 4px 0; font-size: 12px; }
+  .section-title { font-size: 17px; margin-bottom: 8px; }
+  #qr-canvas { width: 128px; height: 128px; }
+}

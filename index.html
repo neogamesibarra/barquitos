@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
-  <link rel="stylesheet" href="css/tv.css?v=33">
+  <link rel="stylesheet" href="css/tv.css?v=34">
 </head>
 <body>
   <script>
@@ -36,13 +36,17 @@
   <div id="lobby-ui" class="lobby-container">
     <div class="lobby-header">
       <h1 class="game-title">BARQUITOS</h1>
-      <p class="game-subtitle">MULTIJUGADOR EN LA NUBE - HASTA 8 JUGADORES</p>
+      <p class="game-subtitle">Batallas navales para jugar juntos · Hasta 8 jugadores</p>
       <div id="cloud-status" class="status-tag connecting">Conectando a la nube...</div>
     </div>
 
+    <div class="join-friend-entry"><span>¿Tienes una invitación?</span>        <button id="btn-open-join-modal" class="join-existing-btn" type="button">
+          UNIRME A LA SALA DE UN AMIGO
+        </button></div>
     <div class="lobby-content">
       <!-- Tarjeta del Código QR y Código de Sala -->
       <div class="qr-card">
+        <h2 class="section-title">INVITA A TU TRIPULACIÓN</h2>
         <div class="room-banner">
           <span class="room-label">CÓDIGO DE SALA:</span>
           <span id="room-code-text" class="room-code">----</span>
@@ -51,50 +55,47 @@
         <div class="qr-box">
           <canvas id="qr-canvas" width="230" height="230"></canvas>
         </div>
-        <p class="qr-instructions">Escanea el QR con la cámara de tu teléfono</p>
-        <p class="qr-subinstructions">El primer mando será el naranja y elegirá el modo y el inicio.</p>
+        <p class="qr-instructions">¿Juegan frente a esta pantalla?</p>
+        <p class="qr-subinstructions">Cada jugador escanea el QR y usa su celular como mando. El primero controla el barco naranja y puede iniciar.</p>
         <div class="url-badge">
           O abre en el navegador: <strong id="url-text">Generando enlace...</strong>
         </div>
 
         <!-- Botones de Invitación Online para Amigos a Distancia / Otros Países -->
+        <p class="invite-help">¿Juegan a distancia? Comparte el enlace para que cada amigo vea la batalla en su pantalla.</p>
         <div class="online-share-bar">
           <button id="btn-copy-invite" class="online-btn copy-btn" type="button" title="Copiar enlace para jugar con amigos online">
-            📋 Copiar Enlace Online
+            COPIAR INVITACIÓN ONLINE
           </button>
-          <a id="btn-whatsapp-share" class="online-btn whatsapp-btn" href="#" target="_blank" rel="noopener" title="Invitar amigos por WhatsApp">
-            🟢 WhatsApp
-          </a>
         </div>
         <div id="copy-feedback" class="copy-feedback" style="display: none;">¡Enlace copiado! Envíalo a tus amigos ⛵</div>
-        <button id="btn-open-join-modal" class="join-existing-btn" type="button">
-          🌐 ¿Unirse a la sala de un amigo?
-        </button>
+
       </div>
 
       <!-- Selector de Modos de Juego (3 Modos) -->
       <div class="controls-card">
-        <h3 class="section-title">SELECCIÓN DE MODO</h3>
+        <h3 class="section-title">ELIGE CÓMO JUGAR</h3>
         <div class="mode-buttons-row">
           <button id="btn-mode-battle" class="mode-btn active" type="button">
             <span class="mode-icon">⚔️</span>
             <span class="mode-name">TODOS CONTRA TODOS</span>
-            <span class="mode-desc">10 Rondas - Combate naval libre sin piedad. ¡El último barco a flote gana!</span>
+            <span class="mode-desc">Compitan entre amigos. Gana el último barco a flote.</span>
           </button>
 
           <button id="btn-mode-teams" class="mode-btn" type="button">
             <span class="mode-icon">🚩</span>
             <span class="mode-name">BATALLA POR EQUIPOS</span>
-            <span class="mode-desc">10 Rondas - Azul vs Rojo. Fuego amigo desactivado y puntajes por bando.</span>
+            <span class="mode-desc">Azul contra rojo. Cooperen para hundir al equipo rival.</span>
           </button>
 
           <button id="btn-mode-horde" class="mode-btn" type="button">
             <span class="mode-icon">💀</span>
-            <span class="mode-name">HORDA PIRATA (ZOMBIES)</span>
-            <span class="mode-desc">Supervivencia cooperativa por oleadas infinitas, mejoras Pack-a-Punch y Jefes.</span>
+            <span class="mode-name">HORDA PIRATA</span>
+            <span class="mode-desc">Juega solo o en equipo contra piratas. Un jefe cada 10 oleadas.</span>
           </button>
         </div>
 
+        <p class="invite-help">Para conducir un barco desde aquí, pulsa «Jugar en esta pantalla».</p>
         <button id="btn-local-player" class="online-btn" type="button">JUGAR EN ESTA PANTALLA</button>
         <button id="btn-start-game" class="start-btn" type="button">
           ⚓ INICIAR PARTIDA ⚓
@@ -106,18 +107,13 @@
         </div>
       </div>
     </div>
-
-    <!-- Enlace discreto para probar mando en la misma máquina si es necesario -->
-    <div class="direct-controller-hint">
-      ¿Estás en un teléfono? <a href="controller.html" class="controller-link">Abrir Mando Móvil aquí 📱</a>
-    </div>
   </div>
 
   <!-- Modal para Unirse a Sala Online de un Amigo -->
   <div id="join-modal" class="join-modal-overlay" style="display: none;">
     <div class="join-modal-box">
       <h2>🌐 UNIRSE A SALA ONLINE</h2>
-      <p>Ingresa el código de 4 letras de la sala de tu amigo para jugar juntos desde cualquier país:</p>
+      <p>Escribe el código de 4 caracteres de tu amigo. Después elige cómo quieres jugar.</p>
       <input id="input-join-room" class="join-modal-input" type="text" maxlength="4" placeholder="EJ: 8421" autocomplete="off" autocapitalize="characters" spellcheck="false">
       <input id="input-join-name" class="join-modal-input nickname" type="text" maxlength="12" placeholder="Tu Apodo de Capitán (Opcional)" autocomplete="off" spellcheck="false">
 
