@@ -789,29 +789,6 @@ html, body {
   }
 }
 
-/* Soporte nativo para orientacion vertical sin distorsion ni recortes */
-@media (orientation: portrait) {
-  .controls-area {
-    flex-direction: column !important;
-    gap: 6px !important;
-  }
-  .steering-zone {
-    flex: 1 1 0% !important;
-    min-height: 0 !important;
-    width: 100% !important;
-    padding: 6px !important;
-  }
-  .actions-zone {
-    flex: 1 1 0% !important;
-    min-height: 0 !important;
-    width: 100% !important;
-  }
-  .wheel-outer {
-    width: min(130px, 25vh, 42vw) !important;
-    height: min(130px, 25vh, 42vw) !important;
-  }
-}
-
 /* Panel anfitrion y botones de accion siempre contenidos y con texto visible */
 .host-action-btn {
   white-space: normal !important;

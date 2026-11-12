@@ -370,6 +370,8 @@
     };
   }
 
+  var controllerRotated = false;
+
   function updateLayoutDimensions() {
     var container = document.getElementById("gamepad-container");
     if (!container) return;
@@ -394,19 +396,27 @@
     document.body.style.margin = "0";
     document.body.style.padding = "0";
 
-    // Mando responsive nativo: dimensiones en píxeles exactos del viewport visible
+    var rotate = h > w;
+    if (controllerRotated !== rotate) {
+      controllerRotated = rotate;
+      releaseInputs();
+    }
+    var layoutWidth = rotate ? h : w;
+    var layoutHeight = rotate ? w : h;
+
+    // El mando conserva un plano horizontal dentro del viewport visible.
     container.style.position = "fixed";
     container.style.top = "0px";
     container.style.left = "0px";
-    container.style.right = "0px";
-    container.style.bottom = "0px";
-    container.style.width = w + "px";
-    container.style.height = h + "px";
-    container.style.maxWidth = w + "px";
-    container.style.maxHeight = h + "px";
+    container.style.right = "auto";
+    container.style.bottom = "auto";
+    container.style.width = layoutWidth + "px";
+    container.style.height = layoutHeight + "px";
+    container.style.maxWidth = layoutWidth + "px";
+    container.style.maxHeight = layoutHeight + "px";
     container.style.overflow = "hidden";
-    container.style.transform = "none";
-    container.style.transformOrigin = "initial";
+    container.style.transformOrigin = "0 0";
+    container.style.transform = rotate ? "translateX(" + w + "px) rotate(90deg)" : "none";
 
     var controlsArea = document.querySelector(".controls-area");
     if (controlsArea) {
@@ -438,7 +448,18 @@
       if (req) {
         try {
           var p = req.call(docEl);
-          if (p && p.catch) p.catch(function () {});
+          if (p && p.then) {
+            p.then(function () {
+              var orientation = window.screen && window.screen.orientation;
+              if (isDocumentFullscreen() && orientation && orientation.lock) {
+                try {
+                  var lock = orientation.lock("landscape");
+                  if (lock && lock.catch) lock.catch(function () {});
+                } catch (eLock) {}
+              }
+              updateLayoutDimensions();
+            }, function () { updateLayoutDimensions(); });
+          }
         } catch (e) {}
       }
     } else {
@@ -501,9 +522,10 @@
 
     function handleSteerTouch(touch) {
       var rect = elWheelOuter.getBoundingClientRect();
-      var centerX = rect.left + rect.width / 2;
-      var maxDistX = Math.max(30, (rect.width / 2) - 8);
-      var deltaX = touch.clientX - centerX;
+      var length = controllerRotated ? rect.height : rect.width;
+      var offset = controllerRotated ? touch.clientY - rect.top : touch.clientX - rect.left;
+      var maxDistX = Math.max(30, length / 2 - 8);
+      var deltaX = offset - length / 2;
       var normalized = Math.max(-1, Math.min(1, deltaX / maxDistX));
 
       // Deadzone de 0.05 y redondeo a 2 decimales
