@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
   <title>BARQUITOS - Mando Móvil</title>
-  <link rel="stylesheet" href="css/controller.css?v=40">
+  <link rel="stylesheet" href="css/controller.css?v=41">
 </head>
 <body>
   <!-- Modal para ingresar el código de sala si no se escaneó el QR -->
@@ -35,16 +35,12 @@
       </div>
 
       <div class="top-bar-actions">
-        <button id="btn-view-game" class="view-game-btn" type="button" title="Ver Pantalla de Juego Online">
-          <span class="style-icon">📺</span>
-          <span class="style-text">PANTALLA</span>
-        </button>
         <button id="btn-style-toggle" class="style-toggle-btn" type="button" title="Cambiar estilo de mando">
           <span class="style-icon">🎮</span>
           <span id="style-text" class="style-text">CLÁSICO</span>
         </button>
         <button id="btn-fullscreen" class="fullscreen-btn" type="button" title="Pantalla Completa">
-          ⛶
+          PANTALLA COMPLETA
         </button>
         <button id="btn-ready" class="ready-btn" type="button">
           LISTO ✓
@@ -81,22 +77,6 @@
           </div>
         </div>
 
-        <!-- Modo Compacto / Ergonómico para Pantallas Grandes y Manos Pequeñas -->
-        <div id="compact-steer" class="compact-steer-container" style="display: none;">
-          <div class="zone-label">DIRECCIÓN ERGONÓMICA</div>
-          <div class="compact-buttons-row">
-            <div id="btn-steer-left" class="compact-dir-btn dir-left">
-              <span class="dir-icon">◀</span>
-              <span class="dir-title">BABOR</span>
-              <span class="dir-sub">IZQUIERDA</span>
-            </div>
-            <div id="btn-steer-right" class="compact-dir-btn dir-right">
-              <span class="dir-icon">▶</span>
-              <span class="dir-title">ESTRIBOR</span>
-              <span class="dir-sub">DERECHA</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- MITAD DERECHA: Botones de Acción / Panel de Anfitrión Mando 1 -->
@@ -131,6 +111,6 @@
   <!-- Scripts del mando móvil (Moderno ES6+) -->
   <script src="js/paho-mqtt.min.js"></script>
   <script src="js/cloud_network.js?v=28"></script>
-  <script src="js/controller.js?v=40"></script>
+  <script src="js/controller.js?v=41"></script>
 </body>
 </html>

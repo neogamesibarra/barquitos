@@ -78,14 +78,8 @@
   var elBtnShoot = null;
   var elBtnStyleToggle = null;
   var elStyleText = null;
-  var elClassicSteer = null;
-  var elCompactSteer = null;
-  var elBtnSteerLeft = null;
-  var elBtnSteerRight = null;
 
   var currentControlStyle = 'classic';
-  var steerLeftActive = false;
-  var steerRightActive = false;
 
   var elHostPanel = null;
   var elBtnHostStart = null;
@@ -397,6 +391,7 @@
     document.body.style.padding = "0";
 
     var rotate = h > w;
+    container.setAttribute("data-rotated", rotate ? "true" : "false");
     if (controllerRotated !== rotate) {
       controllerRotated = rotate;
       releaseInputs();
@@ -616,12 +611,6 @@
       }
     }
 
-    if (elClassicSteer) {
-      elClassicSteer.style.display = (currentControlStyle === 'compact') ? 'none' : 'flex';
-    }
-    if (elCompactSteer) {
-      elCompactSteer.style.display = (currentControlStyle === 'compact') ? 'flex' : 'none';
-    }
     if (elStyleText) {
       elStyleText.textContent = (currentControlStyle === 'compact') ? 'COMPACTO' : 'CLÁSICO';
     }
@@ -633,16 +622,8 @@
   function resetSteering() {
     touchSteerId = null;
     inputState.turn = 0;
-    steerLeftActive = false;
-    steerRightActive = false;
     if (elWheelKnob) {
       elWheelKnob.style.transform = 'translate(0px, 0px)';
-    }
-    if (elBtnSteerLeft) {
-      elBtnSteerLeft.className = 'compact-dir-btn dir-left';
-    }
-    if (elBtnSteerRight) {
-      elBtnSteerRight.className = 'compact-dir-btn dir-right';
     }
   }
 
@@ -661,72 +642,6 @@
     triggerVibration(35);
   }
 
-  function setupCompactSteering() {
-    function updateCompactTurn() {
-      var turnVal = 0;
-      if (steerLeftActive && !steerRightActive) {
-        turnVal = -1.0;
-      } else if (steerRightActive && !steerLeftActive) {
-        turnVal = 1.0;
-      } else {
-        turnVal = 0;
-      }
-      inputState.turn = turnVal;
-
-      if (elBtnSteerLeft) {
-        elBtnSteerLeft.className = 'compact-dir-btn dir-left' + (steerLeftActive ? ' pressed' : '');
-      }
-      if (elBtnSteerRight) {
-        elBtnSteerRight.className = 'compact-dir-btn dir-right' + (steerRightActive ? ' pressed' : '');
-      }
-      sendInputUpdate();
-    }
-
-    function bindDirBtn(btn, isLeft) {
-      if (!btn) return;
-
-      function startDir(e) {
-        if (e && e.preventDefault) e.preventDefault();
-        if (isLeft) {
-          steerLeftActive = true;
-        } else {
-          steerRightActive = true;
-        }
-        triggerVibration(25);
-        updateCompactTurn();
-      }
-
-      function endDir(e) {
-        if (e && e.preventDefault) e.preventDefault();
-        if (isLeft) {
-          steerLeftActive = false;
-        } else {
-          steerRightActive = false;
-        }
-        updateCompactTurn();
-      }
-
-      btn.addEventListener('touchstart', startDir, false);
-      btn.addEventListener('touchend', endDir, false);
-      btn.addEventListener('touchcancel', endDir, false);
-
-      btn.addEventListener('mousedown', function (e) {
-        if (e && e.preventDefault) e.preventDefault();
-        startDir(e);
-      }, false);
-      btn.addEventListener('mouseup', function (e) {
-        if (e && e.preventDefault) e.preventDefault();
-        endDir(e);
-      }, false);
-      btn.addEventListener('mouseleave', function (e) {
-        if (e && e.preventDefault) e.preventDefault();
-        endDir(e);
-      }, false);
-    }
-
-    bindDirBtn(elBtnSteerLeft, true);
-    bindDirBtn(elBtnSteerRight, false);
-  }
 
   function setupActionButtons() {
     // Acelerar (Velas)
@@ -919,16 +834,6 @@
     elBtnReady = document.getElementById('btn-ready');
     elBtnFullscreen = document.getElementById('btn-fullscreen');
 
-    var elBtnViewGame = document.getElementById('btn-view-game');
-    if (elBtnViewGame) {
-      function openGameScreen(e) {
-        if (e && e.preventDefault) e.preventDefault();
-        var room = currentRoom || '';
-        window.location.href = 'index.html' + (room ? ('?sala=' + encodeURIComponent(room)) : '');
-      }
-      elBtnViewGame.addEventListener('click', openGameScreen, false);
-      elBtnViewGame.addEventListener('touchend', openGameScreen, false);
-    }
     elSteeringZone = document.getElementById('steering-zone');
     elWheelOuter = document.getElementById('wheel-outer');
     elWheelKnob = document.getElementById('wheel-knob');
@@ -937,10 +842,6 @@
 
     elBtnStyleToggle = document.getElementById('btn-style-toggle');
     elStyleText = document.getElementById('style-text');
-    elClassicSteer = document.getElementById('classic-steer');
-    elCompactSteer = document.getElementById('compact-steer');
-    elBtnSteerLeft = document.getElementById('btn-steer-left');
-    elBtnSteerRight = document.getElementById('btn-steer-right');
 
     elHostPanel = document.getElementById('host-panel');
     elBtnHostStart = document.getElementById('btn-host-start');
@@ -1038,7 +939,6 @@
     updateLayoutDimensions();
     setupSteeringControls();
     setupActionButtons();
-    setupCompactSteering();
 
     if (elBtnStyleToggle) {
       var lastStyleTap = 0;
