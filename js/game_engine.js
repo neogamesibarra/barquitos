@@ -657,6 +657,7 @@
       this.y = raft.y;
     }
     Sound.playSplash();
+    spawnSplash(this.x, this.y);
     triggerScreenShake(0.35, 10);
     sendTvAction("vibrate", this.slot, 300);
 
@@ -713,13 +714,37 @@
 
     var outlineCol = "#1c1c24";
 
+    if (this.slot === (isRemoteClient ? remoteSlot : localPlayerSlot)) {
+      c.beginPath();
+      c.arc(0, 0, 49, 0, Math.PI * 2);
+      c.strokeStyle = "#ffffff";
+      c.lineWidth = 5;
+      c.stroke();
+      c.strokeStyle = this.data.hull;
+      c.lineWidth = 3;
+      c.stroke();
+    }
+    if (currentState === STATE_ARENA) {
+      var wakeLength = this.isRamming ? 122 : 66;
+      c.beginPath();
+      c.moveTo(-17, -10);
+      c.quadraticCurveTo(-wakeLength * 0.55, -17, -wakeLength, -24);
+      c.moveTo(-17, 10);
+      c.quadraticCurveTo(-wakeLength * 0.55, 17, -wakeLength, 24);
+      c.strokeStyle = this.isRamming ? "rgba(204,255,255,0.8)" : "rgba(225,255,255,0.45)";
+      c.lineWidth = this.isRamming ? 4 : 2;
+      c.stroke();
+    }
+
+    var sternWidth = [14, 11, 18, 13, 17, 12, 19, 15][this.slot];
+    var bowShoulder = [16, 21, 9, 13, 19, 8, 12, 23][this.slot];
     // 1. Casco: Popa rectangular en x = -24, proa triangular en x = 28
     c.beginPath();
     c.moveTo(28, 0);
-    c.lineTo(16, -14);
-    c.lineTo(-24, -14);
-    c.lineTo(-24, 14);
-    c.lineTo(16, 14);
+    c.lineTo(bowShoulder, -14);
+    c.lineTo(-24, -sternWidth);
+    c.lineTo(-24, sternWidth);
+    c.lineTo(bowShoulder, 14);
     c.closePath();
     c.fillStyle = hullCol;
     c.fill();
@@ -729,6 +754,10 @@
 
     if (selectedMode === MODE_HORDE && hordeUpgrades.fleetRank > 0) {
       var rank = hordeUpgrades.fleetRank;
+      c.fillStyle = "#233453";
+      c.fillRect(-12, -22, 14 + Math.min(rank, 5), 10);
+      c.fillRect(-12, 12, 14 + Math.min(rank, 5), 10);
+      sailCol = rank >= 2 ? "#e2f5ff" : sailCol;
       c.fillStyle = ["#ffd76a", "#c4ebff", "#df9dff", "#65f4d6"][Math.min(rank - 1, 3)];
       for (var armor = 0; armor < Math.min(rank + 1, 6); armor++) {
         c.fillRect(-23 + armor * 7, -17, 5, 6);
@@ -1555,13 +1584,14 @@
 
     var tier = Math.min(this.rank - 1, 3);
     var accent = ["#ffd76a", "#ff6a47", "#dd83ff", "#5ef5e2"][tier];
-    var hullCol = this.flashTimer > 0 ? "#ffffff" : ["#321c46", "#551d35", "#342066", "#153d57"][tier];
-    var sailCol = this.flashTimer > 0 ? "#ffffff" : ["#70408c", "#a42f44", "#6943b3", "#236e83"][tier];
+    var hullCol = this.flashTimer > 0 ? "#ffffff" : ["#572039", "#171d2b", "#342066", "#153d57"][tier];
+    var sailCol = this.flashTimer > 0 ? "#ffffff" : ["#e0444f", "#555e72", "#a15bed", "#236e83"][tier];
 
     // Casco gigante
     c.beginPath();
-    c.moveTo(56, 0); c.lineTo(34, -26); c.lineTo(-50, -26);
-    c.lineTo(-50, 26); c.lineTo(34, 26);
+    var beam = tier === 1 ? 34 : 26;
+    c.moveTo(56, 0); c.lineTo(34, -beam); c.lineTo(-50, -beam);
+    c.lineTo(-50, beam); c.lineTo(34, beam);
     c.closePath();
     c.fillStyle = hullCol;
     c.fill();
@@ -1580,20 +1610,29 @@
       c.closePath();
       c.fill();
     }
-    if (this.warning === 1) {
-      c.fillStyle = "#fff597";
-      c.fillRect(-44, -32, 78, 5);
-      c.fillRect(-44, 27, 78, 5);
-    } else if (this.warning === 2) {
-      c.fillStyle = "#fff597";
-      c.fillRect(42, -10, 13, 20);
+    var barrels = Math.min(4, this.rank + 1);
+    c.fillStyle = this.warning === 1 ? "#fff597" : "#28354a";
+    for (var barrel = 0; barrel < barrels; barrel++) {
+      var gunOffset = (barrel - (barrels - 1) / 2) * 23;
+      c.fillRect(gunOffset - 4, -beam - 9, 8, 15);
+      c.fillRect(gunOffset - 4, beam - 6, 8, 15);
+    }
+    c.fillStyle = this.warning === 2 ? "#fff597" : accent;
+    c.fillRect(42, -5, 14, 10);
+    if (tier >= 2) {
+      c.beginPath();
+      c.moveTo(39, -14); c.lineTo(69, -17); c.lineTo(59, 0);
+      c.lineTo(69, 17); c.lineTo(39, 14); c.closePath();
+      c.strokeStyle = accent;
+      c.stroke();
     }
 
     var mastOffsets = this.rank >= 3 ? [-35, -12, 11, 34] : [-24, 4, 30];
-    for (var m = 0; m < 3; m++) {
+    for (var m = 0; m < mastOffsets.length; m++) {
       var mx = mastOffsets[m];
       c.beginPath();
       c.moveTo(mx - 8, -22); c.lineTo(mx + 12, 0); c.lineTo(mx - 8, 22);
+      if (tier === 0) { c.lineTo(mx - 2, 9); c.lineTo(mx - 9, 4); }
       c.closePath();
       c.fillStyle = sailCol;
       c.fill();
@@ -1643,7 +1682,21 @@
     }
   }
 
+  function spawnHullSplinters(x, y, dirX, dirY) {
+    for (var i = 0; i < 6; i++) {
+      addParticle({
+        x: x, y: y,
+        vx: dirX * 70 + (Math.random() - 0.5) * 150,
+        vy: dirY * 70 + (Math.random() - 0.5) * 150,
+        radius: 2 + Math.random() * 3,
+        color: i % 2 ? "#f7c077" : "#975032",
+        life: 0.35, maxLife: 0.35
+      });
+    }
+  }
+
   function spawnMuzzleFlash(x, y, rot) {
+    addParticle({ x: x, y: y, vx: 0, vy: 0, radius: 10, color: "#fff6bb", life: 0.08, maxLife: 0.08 });
     for (var i = 0; i < 7; i++) {
       var ang = rot + (Math.random() - 0.5) * 0.7;
       var spd = 80 + Math.random() * 160;
@@ -3781,6 +3834,7 @@
         var bDx = targetShip.x - ball.x;
         var bDy = targetShip.y - ball.y;
         if (bDx * bDx + bDy * bDy < 484) {
+          spawnHullSplinters(ball.x, ball.y, ball.dx, ball.dy);
           targetShip.applyHit(ball.dx, ball.dy, 550, ball.damage);
           ball.isDead = true;
           cannonballs[b] = cannonballs[cannonballs.length - 1];
@@ -4138,6 +4192,7 @@
           var aDx = ally.x - ball.x;
           var aDy = ally.y - ball.y;
           if (aDx * aDx + aDy * aDy < 484) {
+            spawnHullSplinters(ball.x, ball.y, ball.dx, ball.dy);
             ally.applyHit(ball.dx, ball.dy, 520, ball.damage);
             ball.isDead = true;
             cannonballs[b] = cannonballs[cannonballs.length - 1];
@@ -4155,6 +4210,7 @@
           var pDx = pir.x - ball.x;
           var pDy = pir.y - ball.y;
           if (pDx * pDx + pDy * pDy < 520) {
+            spawnHullSplinters(ball.x, ball.y, ball.dx, ball.dy);
             pir.applyHit(ball.dx, ball.dy, 460, ball.damage, ball.shooterSlot);
             ball.isDead = true;
             hitEnemy = true;
@@ -4168,6 +4224,7 @@
           var bgDx = bossGalleon.x - ball.x;
           var bgDy = bossGalleon.y - ball.y;
           if (bgDx * bgDx + bgDy * bgDy < 2300) {
+            spawnHullSplinters(ball.x, ball.y, ball.dx, ball.dy);
             bossGalleon.applyHit(ball.dx, ball.dy, 120, ball.damage, ball.shooterSlot);
             ball.isDead = true;
             cannonballs[b] = cannonballs[cannonballs.length - 1];
@@ -4409,6 +4466,11 @@
   }
 
   function renderHexIslandToCtx(c, cx, cy, radius) {
+    var shallows = c.createRadialGradient(cx, cy, radius * 0.7, cx, cy, radius * 1.95);
+    shallows.addColorStop(0, "rgba(87,255,209,0.92)");
+    shallows.addColorStop(1, "rgba(87,255,209,0)");
+    c.fillStyle = shallows;
+    c.fillRect(cx - radius * 2, cy - radius * 2, radius * 4, radius * 4);
     drawHexagon(c, cx, cy + 6, radius + 4, "rgba(4, 18, 30, 0.45)", null);
     drawHexagon(c, cx, cy, radius, "#ffe283", "#e29b42", 4);
     drawHexagon(c, cx, cy, radius - 8, "#ffc65a", null);
@@ -4447,6 +4509,17 @@
       }
       ctx.stroke();
     }
+
+    ctx.strokeStyle = "rgba(224,255,255,0.35)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var glint = 0; glint < 22; glint++) {
+      var gx = 325 + (glint * 173) % 1240;
+      var gy = 76 + (glint * 113) % 920 + Math.sin(waveAnim * 2 + glint) * 10;
+      ctx.moveTo(gx, gy);
+      ctx.lineTo(gx + 22 + Math.sin(waveAnim + glint) * 11, gy);
+    }
+    ctx.stroke();
 
     // Cajas de munición y Mejoras de Horda
     for (var c = 0; c < ammoCrates.length; c++) ammoCrates[c].draw(ctx);
@@ -4504,7 +4577,7 @@
     var cardX_L = 15;
     var cardX_R = 1665;
     var cardW = 240;
-    var cardH = 86;
+    var cardH = 61;
 
     // Fondos laterales y bordes pre-renderizados en mapOffscreenCanvas (cero repintado redundante)
 
@@ -4816,41 +4889,12 @@
     ctx.fillStyle = isAlive ? "#ffffff" : "#888888";
     ctx.fillText(nameStr, x + 12, y + 24);
 
-    // Puntaje o Estado
-    ctx.font = "bold 13px sans-serif";
+    ctx.font = "bold 14px sans-serif";
+    ctx.fillStyle = "#ff9eaa";
+    ctx.fillText("Vida " + Math.max(0, curHealth) + "/" + curMaxHealth, x + 12, y + 46);
     ctx.textAlign = "right";
-    if (selectedMode === MODE_HORDE) {
-      ctx.fillStyle = isAlive ? "#00e676" : "#ff1744";
-      ctx.fillText(isAlive ? "VIVO" : "CAÍDO", x + w - 12, y + 24);
-    } else {
-      ctx.fillStyle = "#ffea00";
-      ctx.fillText(player.score + " pts", x + w - 12, y + 24);
-    }
-
-    // Corazones de vida
-    var hY = y + 44;
-    for (var i = 0; i < curMaxHealth; i++) {
-      var hState = Math.max(0, Math.min(1, curHealth - i));
-      drawMiniHeart(ctx, x + 18 + i * 14, hY, hState);
-    }
-
-    // Munición
-    ctx.textAlign = "left";
-    ctx.font = "12px sans-serif";
-    ctx.fillStyle = "#bbbbbb";
-    ctx.fillText("BALAS:", x + 12, y + 68);
-    for (var a = 0; a < curMaxAmmo; a++) {
-      ctx.beginPath();
-      ctx.arc(x + 65 + a * 12, y + 64, 3.2, 0, Math.PI * 2);
-      if (a < curAmmo) {
-        ctx.fillStyle = "#ffea00";
-        ctx.fill();
-      } else {
-        ctx.strokeStyle = "rgba(255,255,255,0.4)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-    }
+    ctx.fillStyle = "#ffe587";
+    ctx.fillText("Balas " + curAmmo + "/" + curMaxAmmo, x + w - 12, y + 46);
   }
 
   function renderPodium() {
