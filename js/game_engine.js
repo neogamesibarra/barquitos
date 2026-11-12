@@ -2133,8 +2133,18 @@
     return selectedMode !== MODE_HORDE && count < 2;
   }
 
+  var playMenuChoice = "";
+
+  function soloRoomOccupied() {
+    return playMenuChoice === "solo" && playersData.some(function (player) {
+      return player.connected && player.slot !== localPlayerSlot;
+    });
+  }
+
   function startNewMatch() {
     if (isRemoteClient) { requestLobbyAction("start"); return; }
+    if (soloRoomOccupied()) return;
+    if (playMenuChoice === "solo") selectedMode = MODE_HORDE;
     if (needsMorePlayers()) return;
     if (selectedMode === MODE_HORDE && !playersData.some(function (player) { return player.connected; })) {
       ensureLocalPlayer();
@@ -2769,7 +2779,7 @@
     var touchControls = document.getElementById("onscreen-touch-controls");
     if (!touchControls) return;
     var playerSlot = isRemoteClient ? remoteSlot : localPlayerSlot;
-    var visible = currentState === STATE_ARENA && isTouchDevice() && playerSlot !== -1;
+    var visible = currentState === STATE_ARENA && playerSlot !== -1;
     if (!visible && touchControls.style.display === "flex") releaseTouchControls();
     touchControls.style.display = visible ? "flex" : "none";
     var badge = document.getElementById("touch-player-label");
@@ -3073,7 +3083,10 @@
       // Ocultar controles exclusivos del anfitrión y tarjeta QR en cliente
       updateLobbyPermissions();
       updateLocalPlayerButton();
-      var qrCard = document.querySelector(".qr-card");
+      openPlayMenu("online");
+      var remoteMenu = document.getElementById("play-menu");
+      if (remoteMenu) remoteMenu.hidden = true;
+      var qrCard = document.querySelector(".menu-qr");
       if (qrCard) {
         qrCard.style.display = "none";
       }
@@ -3334,6 +3347,7 @@
     if (!msg || !msg.type) return;
 
     if (msg.type === "join" || msg.type === "rejoin") {
+      if (playMenuChoice === "solo" && currentState === STATE_ARENA) return;
       var uuid = msg.uuid;
       if (!uuid) return;
 
@@ -4347,7 +4361,7 @@
     updateTouchControlsVisibility();
     updatePodiumActions();
     var matchInvite = document.getElementById("match-invite");
-    if (matchInvite) matchInvite.hidden = isRemoteClient || currentState !== STATE_ARENA || !currentRoomCode || !window.drawQRCodeToCanvas;
+    if (matchInvite) matchInvite.hidden = playMenuChoice === "solo" || isRemoteClient || currentState !== STATE_ARENA || !currentRoomCode || !window.drawQRCodeToCanvas;
     ctx.save();
     ctx.fillStyle = "#142557";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -4376,10 +4390,16 @@
 
   function renderLobby() {
     var waiting = needsMorePlayers();
+    var occupied = soloRoomOccupied();
     var startButton = document.getElementById("btn-start-game");
-    if (startButton) startButton.disabled = waiting || (isRemoteClient && remoteSlot !== 0);
+    if (startButton) startButton.disabled = occupied || waiting || (isRemoteClient && remoteSlot !== 0);
     var notice = document.getElementById("start-player-notice");
-    if (notice) notice.hidden = !waiting;
+    if (notice) {
+      notice.hidden = !waiting && !occupied;
+      var message = occupied ? "Ya hay otros jugadores en esta sala. Elige una opción multijugador." :
+        "Se necesitan al menos 2 jugadores. Si vas a jugar desde aquí, pulsa «Jugar en esta pantalla».";
+      if (notice.textContent !== message) notice.textContent = message;
+    }
     // Fondo del lobby
     var grad = ctx.createLinearGradient(0, 0, 0, V_HEIGHT);
     grad.addColorStop(0, "#2476d9");
@@ -5012,7 +5032,7 @@
       }
       return;
     }
-    if (isRemoteClient && currentState !== STATE_ARENA) {
+    if (isRemoteClient && currentState !== STATE_ARENA && currentState !== STATE_LOBBY) {
       if (k === 13) requestLobbyAction("start");
       else if (k === 37 || k === 39) requestLobbyAction("set_mode", (selectedMode + (k === 37 ? 2 : 1)) % 3);
       return;
@@ -5023,19 +5043,27 @@
       return;
     }
 
-    if (currentState === STATE_LOBBY && !isRemoteClient) {
-      if (k === 37) { // Left
-        selectedMode = (selectedMode + 2) % 3;
-        updateLobbyModeUI();
-        broadcastCurrentMode();
-      } else if (k === 39) { // Right
-        selectedMode = (selectedMode + 1) % 3;
-        updateLobbyModeUI();
-        broadcastCurrentMode();
-      } else if (k === 13 || k === 32) { // Enter / Space / OK
-        startNewMatch();
+    if (currentState === STATE_LOBBY) {
+      var modal = document.getElementById("join-modal");
+      var scope = modal && modal.style.display !== "none" ? modal : document.getElementById("lobby-ui");
+      if (scope && k >= 37 && k <= 40 && (!e.target || e.target.tagName !== "INPUT")) {
+        var candidates = scope.querySelectorAll("button, input");
+        var visible = [];
+        for (var i = 0; i < candidates.length; i++) {
+          if (!candidates[i].disabled && candidates[i].getClientRects().length) visible.push(candidates[i]);
+        }
+        if (visible.length) {
+          var focused = visible.indexOf(document.activeElement);
+          var step = k === 37 || k === 38 ? -1 : 1;
+          visible[focused < 0 ? 0 : (focused + step + visible.length) % visible.length].focus();
+          e.preventDefault();
+        }
+      } else if (scope && k === 13 && (!e.target || (e.target.tagName !== "BUTTON" && e.target.tagName !== "INPUT"))) {
+        var first = scope.querySelector(isRemoteClient ? "#btn-mode-horde" : "#play-menu button");
+        if (first && !first.disabled) first.focus();
+        e.preventDefault();
       }
-
+      return;
     }
 
     // Controles de juego en teclado para PC (Anfitrión o Cliente Online)
@@ -5052,11 +5080,11 @@
       keyState.thrust = true;
       if (isPlaying) updateLocalInputValues();
     }
-    if (k === 32 || k === 74) { // Espacio / J: Disparar Cañón
+    if (k === 32 || k === 74 || k === 403) { // Espacio / J: Disparar Cañón
       keyState.shoot = true;
       if (isPlaying) updateLocalInputValues();
     }
-    if (k === 16 || k === 75) { // Shift / K: Turbo / Embestida con Espolón
+    if (k === 16 || k === 75 || k === 404) { // Shift / K: Turbo / Embestida con Espolón
       keyState.thrust = true;
       if (isPlaying) updateLocalInputValues();
     }
@@ -5078,11 +5106,11 @@
       keyState.thrust = false;
       if (isPlaying) updateLocalInputValues();
     }
-    if (k === 32 || k === 74) {
+    if (k === 32 || k === 74 || k === 403) {
       keyState.shoot = false;
       if (isPlaying) updateLocalInputValues();
     }
-    if (k === 16 || k === 75) {
+    if (k === 16 || k === 75 || k === 404) {
       keyState.thrust = false;
       if (isPlaying) updateLocalInputValues();
     }
@@ -5161,7 +5189,36 @@
     if (panel) panel.style.display = currentState === STATE_PODIUM && (!isRemoteClient || remoteSlot === 0) ? "flex" : "none";
   }
 
+  function openPlayMenu(choice) {
+    var menu = document.getElementById("play-menu");
+    var options = document.getElementById("play-options");
+    if (!menu || !options) return;
+    playMenuChoice = choice;
+    options.hidden = false;
+    var buttons = menu.querySelectorAll("button");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute("aria-expanded", buttons[i].getAttribute("data-play") === choice ? "true" : "false");
+    }
+    var solo = choice === "solo";
+    document.getElementById("play-heading").textContent = solo ? "Un Jugador" :
+      choice === "local" ? "Multijugador Local" : "Multijugador Online";
+    document.getElementById("play-online-tools").hidden = choice !== "online" || isRemoteClient;
+    document.getElementById("play-local-help").hidden = choice !== "local";
+    document.getElementById("play-solo-help").hidden = !solo;
+    document.getElementById("btn-mode-battle").hidden = solo;
+    document.getElementById("btn-mode-teams").hidden = solo;
+    document.getElementById("btn-local-player").hidden = solo || isRemoteClient;
+    if (solo) requestLobbyAction("set_mode", MODE_HORDE);
+  }
+
   function bindLobbyButtons() {
+    var menu = document.getElementById("play-menu");
+    if (menu) {
+      menu.addEventListener("click", function (event) {
+        var choice = event.target.getAttribute("data-play");
+        if (choice) openPlayMenu(choice);
+      }, false);
+    }
     var localButton = document.getElementById("btn-local-player");
     if (localButton) localButton.addEventListener("click", function () { ensureLocalPlayer(); }, false);
     var playAgain = document.getElementById("btn-play-again");

@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
-  <link rel="stylesheet" href="css/tv.css?v=37">
+  <link rel="stylesheet" href="css/tv.css?v=38">
 </head>
 <body>
   <script>
@@ -40,13 +40,7 @@
       <div id="cloud-status" class="status-tag connecting">Conectando a la nube...</div>
     </div>
 
-    <div class="join-friend-entry"><span>¿Tienes una invitación?</span>        <button id="btn-open-join-modal" class="join-existing-btn" type="button">
-          UNIRME A LA SALA DE UN AMIGO
-        </button></div>
-    <div class="lobby-content">
-      <!-- Tarjeta del Código QR y Código de Sala -->
-      <div class="qr-card">
-        <h2 class="section-title">INVITA A TU TRIPULACIÓN</h2>
+    <section class="menu-qr" aria-label="Conectar un mando">
         <div class="room-banner">
           <span class="room-label">CÓDIGO DE SALA:</span>
           <span id="room-code-text" class="room-code">----</span>
@@ -55,26 +49,22 @@
         <div class="qr-box">
           <canvas id="qr-canvas" width="230" height="230"></canvas>
         </div>
-        <p class="qr-instructions">¿Juegan frente a esta pantalla?</p>
-        <p class="qr-subinstructions">Cada jugador escanea el QR y usa su celular como mando. El primero controla el barco naranja y puede iniciar.</p>
-        <div class="url-badge">
-          O abre en el navegador: <strong id="url-text">Generando enlace...</strong>
-        </div>
-
-        <!-- Botones de Invitación Online para Amigos a Distancia / Otros Países -->
-        <p class="invite-help">¿Juegan a distancia? Comparte el enlace para que cada amigo vea la batalla en su pantalla.</p>
-        <div class="online-share-bar">
-          <button id="btn-copy-invite" class="online-btn copy-btn" type="button" title="Copiar enlace para jugar con amigos online">
-            COPIAR INVITACIÓN ONLINE
-          </button>
-        </div>
-        <div id="copy-feedback" class="copy-feedback" style="display: none;">¡Enlace copiado! Envíalo a tus amigos ⛵</div>
-
+      <p>Escanea el QR para usar tu celular como mando.</p>
+    </section>
+    <nav id="play-menu" class="play-menu" aria-label="Opciones de juego">
+      <button type="button" class="mode-btn" data-play="solo" aria-controls="play-options" aria-expanded="false">Un Jugador</button>
+      <button type="button" class="mode-btn" data-play="local" aria-controls="play-options" aria-expanded="false">Multijugador Local</button>
+      <button type="button" class="mode-btn" data-play="online" aria-controls="play-options" aria-expanded="false">Multijugador Online</button>
+    </nav>
+    <section id="play-options" class="controls-card play-options" hidden>
+      <h2 id="play-heading" class="section-title">Elige un modo</h2>
+      <div id="play-online-tools" hidden>
+        <button id="btn-open-join-modal" class="join-existing-btn" type="button">Unirme a la sala de un amigo</button>
+        <button id="btn-copy-invite" class="online-btn copy-btn" type="button">Copiar invitación online</button>
+        <p id="copy-feedback" style="display: none;" role="status">¡Enlace copiado!</p>
       </div>
-
-      <!-- Selector de Modos de Juego (3 Modos) -->
-      <div class="controls-card">
-        <h3 class="section-title">ELIGE CÓMO JUGAR</h3>
+      <p id="play-local-help" class="invite-help" hidden>Conecta los mandos con el QR de arriba. Si también vas a conducir desde aquí, pulsa «Jugar en esta pantalla».</p>
+      <p id="play-solo-help" class="invite-help" hidden>Sobrevive a las oleadas de Horda Pirata con un solo barco.</p>
         <div class="mode-buttons-row">
           <button id="btn-mode-horde" class="mode-btn active" type="button">
             <span class="mode-icon">💀</span>
@@ -95,20 +85,10 @@
           </button>
 
         </div>
-
-        <p class="invite-help">Para conducir un barco desde aquí, pulsa «Jugar en esta pantalla».</p>
-        <button id="btn-local-player" class="online-btn" type="button">JUGAR EN ESTA PANTALLA</button>
-        <button id="btn-start-game" class="start-btn" type="button">
-          ⚓ INICIAR PARTIDA ⚓
-        </button>
-
-        <p id="start-player-notice" class="invite-help" hidden>Se necesitan al menos 2 jugadores. Si vas a jugar desde aquí, pulsa «Jugar en esta pantalla».</p>
-        <div class="remote-legend">
-          <div class="legend-item"><span class="key-badge">OK / ENTER</span> Iniciar partida</div>
-          <div class="legend-item"><span class="key-badge">◀ / ▶</span> Cambiar modo</div>
-        </div>
-      </div>
-    </div>
+      <button id="btn-local-player" class="online-btn" type="button">Jugar en esta pantalla</button>
+      <button id="btn-start-game" class="start-btn" type="button">Iniciar partida</button>
+      <p id="start-player-notice" class="invite-help" hidden></p>
+    </section>
   </div>
 
   <!-- Modal para Unirse a Sala Online de un Amigo -->
@@ -193,6 +173,6 @@
   <script src="js/qrcode.min.js"></script>
   <script src="js/sound_synth.js?v=27"></script>
   <script src="js/tizen_keys.js?v=27"></script>
-  <script src="js/game_engine.js?v=37"></script>
+  <script src="js/game_engine.js?v=38"></script>
 </body>
 </html>
