@@ -281,7 +281,7 @@
   var MODE_HORDE = 2;  // Horda Pirata (Zombies Cooperativo)
 
   var currentState = STATE_LOBBY;
-  var selectedMode = MODE_BATTLE;
+  var selectedMode = MODE_HORDE;
 
   var currentRoomCode = "";
   var uuidToSlot = {};
@@ -2073,9 +2073,17 @@
     pirateShips.push(new PirateShip(px, py, currentWave));
   }
 
+  function needsMorePlayers() {
+    var count = isRemoteClient ? activeShips.length : playersData.filter(function (player) {
+      return player.connected;
+    }).length;
+    return selectedMode !== MODE_HORDE && count < 2;
+  }
+
   function startNewMatch() {
     if (isRemoteClient) { requestLobbyAction("start"); return; }
-    if ((selectedMode !== MODE_HORDE && isTouchDevice()) || (selectedMode === MODE_HORDE && !playersData.some(function (player) { return player.connected; }))) {
+    if (needsMorePlayers()) return;
+    if (selectedMode === MODE_HORDE && !playersData.some(function (player) { return player.connected; })) {
       ensureLocalPlayer();
     }
     console.log("[BARQUITOS] INICIANDO NUEVA PARTIDA! Modo:", selectedMode);
@@ -4279,6 +4287,11 @@
   }
 
   function renderLobby() {
+    var waiting = needsMorePlayers();
+    var startButton = document.getElementById("btn-start-game");
+    if (startButton) startButton.disabled = waiting || (isRemoteClient && remoteSlot !== 0);
+    var notice = document.getElementById("start-player-notice");
+    if (notice) notice.hidden = !waiting;
     // Fondo del lobby
     var grad = ctx.createLinearGradient(0, 0, 0, V_HEIGHT);
     grad.addColorStop(0, "#2476d9");

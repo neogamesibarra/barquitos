@@ -76,7 +76,13 @@
       <div class="controls-card">
         <h3 class="section-title">ELIGE CÓMO JUGAR</h3>
         <div class="mode-buttons-row">
-          <button id="btn-mode-battle" class="mode-btn active" type="button">
+          <button id="btn-mode-horde" class="mode-btn active" type="button">
+            <span class="mode-icon">💀</span>
+            <span class="mode-name">HORDA PIRATA</span>
+            <span class="mode-desc">Juega solo o en equipo contra piratas. Un jefe cada 10 oleadas.</span>
+          </button>
+
+          <button id="btn-mode-battle" class="mode-btn" type="button">
             <span class="mode-icon">⚔️</span>
             <span class="mode-name">TODOS CONTRA TODOS</span>
             <span class="mode-desc">Compitan entre amigos. Gana el último barco a flote.</span>
@@ -88,11 +94,6 @@
             <span class="mode-desc">Azul contra rojo. Cooperen para hundir al equipo rival.</span>
           </button>
 
-          <button id="btn-mode-horde" class="mode-btn" type="button">
-            <span class="mode-icon">💀</span>
-            <span class="mode-name">HORDA PIRATA</span>
-            <span class="mode-desc">Juega solo o en equipo contra piratas. Un jefe cada 10 oleadas.</span>
-          </button>
         </div>
 
         <p class="invite-help">Para conducir un barco desde aquí, pulsa «Jugar en esta pantalla».</p>
@@ -101,6 +102,7 @@
           ⚓ INICIAR PARTIDA ⚓
         </button>
 
+        <p id="start-player-notice" class="invite-help" hidden>Se necesitan al menos 2 jugadores. Si vas a jugar desde aquí, pulsa «Jugar en esta pantalla».</p>
         <div class="remote-legend">
           <div class="legend-item"><span class="key-badge">OK / ENTER</span> Iniciar partida</div>
           <div class="legend-item"><span class="key-badge">◀ / ▶</span> Cambiar modo</div>
@@ -196,6 +198,6 @@
   <script src="js/qrcode.min.js"></script>
   <script src="js/sound_synth.js?v=27"></script>
   <script src="js/tizen_keys.js?v=27"></script>
-  <script src="js/game_engine.js?v=33"></script>
+  <script src="js/game_engine.js?v=35"></script>
 </body>
 </html>
