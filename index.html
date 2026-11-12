@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
-  <link rel="stylesheet" href="css/tv.css?v=34">
+  <link rel="stylesheet" href="css/tv.css?v=37">
 </head>
 <body>
   <script>
@@ -171,14 +171,9 @@
   <div id="onscreen-touch-controls" class="onscreen-touch-controls" style="display: none;">
     <span id="touch-player-label" class="touch-player-label"></span>
     <div class="touch-zone-left">
-      <button id="touch-steer-left" class="onscreen-btn steer-btn" type="button" aria-label="Girar Babor">
-        <span class="btn-glyph">◀</span>
-        <span class="btn-text">BABOR</span>
-      </button>
-      <button id="touch-steer-right" class="onscreen-btn steer-btn" type="button" aria-label="Girar Estribor">
-        <span class="btn-glyph">▶</span>
-        <span class="btn-text">ESTRIBOR</span>
-      </button>
+      <div id="touch-joystick" class="touch-joystick" aria-label="Joystick horizontal de giro">
+        <span aria-hidden="true">◀</span><span class="joystick-knob"></span><span aria-hidden="true">▶</span>
+      </div>
     </div>
     <div class="touch-zone-right">
       <button id="touch-thrust" class="onscreen-btn thrust-btn" type="button" aria-label="Avanzar Velas">
@@ -198,6 +193,6 @@
   <script src="js/qrcode.min.js"></script>
   <script src="js/sound_synth.js?v=27"></script>
   <script src="js/tizen_keys.js?v=27"></script>
-  <script src="js/game_engine.js?v=36"></script>
+  <script src="js/game_engine.js?v=37"></script>
 </body>
 </html>

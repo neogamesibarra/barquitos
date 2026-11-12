@@ -1016,7 +1016,6 @@ html, body {
     height: auto;
     min-height: 160px;
     padding: 14px 16px env(safe-area-inset-bottom, 24px) 16px;
-    background: linear-gradient(to top, rgba(7, 16, 27, 0.88) 0%, rgba(7, 16, 27, 0.45) 75%, transparent 100%);
   }
   .touch-zone-left {
     gap: 10px;
@@ -1471,4 +1470,33 @@ html, body {
   .invite-help { margin: 4px 0; font-size: 12px; }
   .section-title { font-size: 17px; margin-bottom: 8px; }
   #qr-canvas { width: 128px; height: 128px; }
+}
+
+.touch-joystick {
+  width: clamp(106px, 19vw, 190px);
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-self: flex-end;
+  position: relative;
+  padding: 0 10px;
+  border: 2px solid #54d9ff;
+  border-radius: 32px;
+  background: rgba(14, 47, 107, 0.8);
+  color: white;
+  touch-action: none;
+  user-select: none;
+}
+.joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #2786db;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }

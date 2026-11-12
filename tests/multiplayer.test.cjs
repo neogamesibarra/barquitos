@@ -295,8 +295,9 @@ for (const pointerEvents of [true, false]) {
     host.load('game_engine.js', engineHooks);
     phone.load('controller.js', controllerHooks);
     const controls = host.element('onscreen-touch-controls');
-    const left = host.element('touch-steer-left');
-    host.element('touch-steer-right');
+    const left = host.element('touch-joystick');
+    left.querySelector = () => null;
+    left.getBoundingClientRect = () => ({ left: 0, width: 140 });
     const thrust = host.element('touch-thrust');
     const shoot = host.element('touch-shoot');
     const game = host.window.testGame;
@@ -315,7 +316,7 @@ for (const pointerEvents of [true, false]) {
     const local = game.ship(1);
     const orange = game.ship(0);
     const down = (button, id) => button.fire(pointerEvents ? 'pointerdown' : 'touchstart',
-      pointerEvents ? { pointerId: id, pointerType: 'touch' } : { changedTouches: [{ identifier: id }] });
+      pointerEvents ? { pointerId: id, pointerType: 'touch', clientX: 20 } : { changedTouches: [{ identifier: id, clientX: 20 }] });
     const up = (button, id) => button.fire(pointerEvents ? 'pointerup' : 'touchend',
       pointerEvents ? { pointerId: id } : { changedTouches: [{ identifier: id }] });
     down(left, 11);
@@ -330,6 +331,10 @@ for (const pointerEvents of [true, false]) {
     up(thrust, 22);
     assert.equal(local.thrustInput, false);
     assert.equal(local.shootInput, true);
+    left.fire(pointerEvents ? 'pointermove' : 'touchmove', pointerEvents
+      ? { pointerId: 11, clientX: 120 }
+      : { changedTouches: [{ identifier: 11, clientX: 120 }] });
+    assert.equal(local.turnInput, 1);
     up(left, 11);
     assert.equal(local.turnInput, 0);
     host.windowEvents.get('blur')();

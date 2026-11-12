@@ -2877,22 +2877,40 @@
   }
 
   function setupOnscreenControls() {
-    var btnLeft = document.getElementById("touch-steer-left");
-    var btnRight = document.getElementById("touch-steer-right");
+    var joystick = document.getElementById("touch-joystick");
     var btnThrust = document.getElementById("touch-thrust");
     var btnShoot = document.getElementById("touch-shoot");
 
     function bindBtn(el, prop) {
       if (!el) return;
       var activeId = null;
+      var knob = prop ? null : el.querySelector(".joystick-knob");
 
-      function press(id, e) {
+      function move(id, x) {
+        if (prop || activeId !== id) return;
+        var bounds = el.getBoundingClientRect();
+        var limit = Math.max(12, (bounds.width - 48) / 2);
+        var offset = Math.max(-limit, Math.min(limit, x - bounds.left - bounds.width / 2));
+        if (knob) knob.style.transform = "translate(calc(-50% + " + offset + "px), -50%)";
+        var left = offset < -8;
+        var right = offset > 8;
+        if (touchState.left === left && touchState.right === right) return;
+        touchState.left = left;
+        touchState.right = right;
+        updateLocalInputValues(true);
+      }
+
+      function press(id, e, x) {
         if (activeId !== null || currentState !== STATE_ARENA) return;
         if (e.cancelable) e.preventDefault();
         activeId = id;
         el.classList.add("pressed");
-        touchState[prop] = true;
-        updateLocalInputValues(true);
+        if (prop) {
+          touchState[prop] = true;
+          updateLocalInputValues(true);
+        } else {
+          move(id, x);
+        }
       }
 
       function release(id, e) {
@@ -2900,25 +2918,38 @@
         if (e && e.cancelable) e.preventDefault();
         activeId = null;
         el.classList.remove("pressed");
-        touchState[prop] = false;
+        if (prop) {
+          touchState[prop] = false;
+        } else {
+          touchState.left = false;
+          touchState.right = false;
+          if (knob) knob.style.transform = "";
+        }
         updateLocalInputValues(true);
       }
 
       if (window.PointerEvent) {
         el.addEventListener("pointerdown", function (e) {
           if (e.pointerType === "mouse" && e.button !== 0) return;
-          press(e.pointerId, e);
+          press(e.pointerId, e, e.clientX);
           if (activeId === e.pointerId && el.setPointerCapture) {
             try { el.setPointerCapture(e.pointerId); } catch (errCapture) {}
           }
         }, false);
+        if (!prop) el.addEventListener("pointermove", function (e) { move(e.pointerId, e.clientX); }, false);
         function releasePointer(e) { release(e.pointerId, e); }
         el.addEventListener("pointerup", releasePointer, false);
         el.addEventListener("pointercancel", releasePointer, false);
         el.addEventListener("lostpointercapture", releasePointer, false);
       } else {
         el.addEventListener("touchstart", function (e) {
-          if (e.changedTouches.length) press(e.changedTouches[0].identifier, e);
+          if (e.changedTouches.length) press(e.changedTouches[0].identifier, e, e.changedTouches[0].clientX);
+        }, { passive: false });
+        if (!prop) el.addEventListener("touchmove", function (e) {
+          for (var i = 0; i < e.changedTouches.length; i++) {
+            var finger = e.changedTouches[i];
+            move(finger.identifier, finger.clientX);
+          }
         }, { passive: false });
         function releaseTouch(e) {
           for (var i = 0; i < e.changedTouches.length; i++) {
@@ -2927,7 +2958,8 @@
         }
         el.addEventListener("touchend", releaseTouch, { passive: false });
         el.addEventListener("touchcancel", releaseTouch, { passive: false });
-        el.addEventListener("mousedown", function (e) { if (e.button === 0) press("mouse", e); }, false);
+        el.addEventListener("mousedown", function (e) { if (e.button === 0) press("mouse", e, e.clientX); }, false);
+        if (!prop) el.addEventListener("mousemove", function (e) { move("mouse", e.clientX); }, false);
         el.addEventListener("mouseup", function (e) { release("mouse", e); }, false);
         el.addEventListener("mouseleave", function (e) { release("mouse", e); }, false);
       }
@@ -2936,14 +2968,13 @@
       el.releaseInput = function () { release(activeId); };
     }
 
-    bindBtn(btnLeft, "left");
-    bindBtn(btnRight, "right");
+    bindBtn(joystick);
     bindBtn(btnThrust, "thrust");
     bindBtn(btnShoot, "shoot");
 
     function releaseControls() {
       releaseLocalInputs();
-      var buttons = [btnLeft, btnRight, btnThrust, btnShoot];
+      var buttons = [joystick, btnThrust, btnShoot];
       for (var i = 0; i < buttons.length; i++) {
         if (buttons[i] && buttons[i].releaseInput) buttons[i].releaseInput();
       }
