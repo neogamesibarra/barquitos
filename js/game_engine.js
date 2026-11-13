@@ -958,12 +958,15 @@
       c.strokeText(displayName, this.x, this.y - 42);
       c.fillText(displayName, this.x, this.y - 42);
 
-      var ammoWidth = 44;
-      var ammoLeft = this.x - ammoWidth / 2;
-      c.fillStyle = "#1c2434";
-      c.fillRect(ammoLeft - 1, this.y - 19, ammoWidth + 2, 6);
+      // Cada icono dorado representa un disparo disponible.
+      var ammoSpacing = Math.min(9, 68 / Math.max(1, this.ammo));
+      var ammoLeft = this.x - (this.ammo - 1) * ammoSpacing / 2;
       c.fillStyle = "#ffe587";
-      c.fillRect(ammoLeft, this.y - 18, ammoWidth * Math.max(0, Math.min(1, this.ammo / this.maxAmmo)), 4);
+      for (var round = 0; round < this.ammo; round++) {
+        c.beginPath();
+        c.arc(ammoLeft + round * ammoSpacing, this.y - 17, Math.min(3, ammoSpacing * 0.4), 0, Math.PI * 2);
+        c.fill();
+      }
 
       // Corazones de vida
       var heartSpacing = 14;
@@ -1161,7 +1164,7 @@
   };
 
   // Mejoras Globales de Horda (Power-ups estilo CoD Zombies)
-  // 0: REPARACIÓN TOTAL, 1: BODEGA AMPLIADA, 2: MUNICIÓN MÁXIMA, 3: PACK-A-PUNCH, 4: CASCO REFORZADO
+  // 0: REPARACIÓN TOTAL, 1: BODEGA AMPLIADA, 2: MUNICIÓN MÁXIMA, 3: PACK-A-PUNCH, 4: REPARACIÓN LIGERA
   function HordePowerup(x, y, type) {
     this.x = x;
     this.baseY = y;
@@ -1214,10 +1217,8 @@
     triggerScreenShake(0.3, 8);
     sendTvAction("vibrate", null, [100, 60, 140]);
 
-    hordeUpgrades.maxHealth++;
     for (var life = 0; life < activeShips.length; life++) {
       var ally = activeShips[life];
-      ally.maxHealth = hordeUpgrades.maxHealth;
       if (ally.isAlive) ally.health = Math.min(ally.maxHealth, ally.health + 1);
     }
 
@@ -1256,8 +1257,8 @@
       var wName = (hordeUpgrades.weaponLevel === 2) ? "DOBLE CAÑÓN" : (hordeUpgrades.weaponLevel === 3 ? "TRIPLE DISPARO" : "CAÑONES HIPER");
       addFloatingText("💥 ¡PACK-A-PUNCH! " + wName + " (NV " + hordeUpgrades.weaponLevel + ")", collector.x, collector.y - 45, "#ff4081", 40);
     } else if (type === 4) {
-      // Casco Reforzado (+1 vida max permanent)
-      addFloatingText("🛡️ ¡CASCO REFORZADO! (+1 BLINDAJE)", collector.x, collector.y - 45, "#ffd700", 40);
+      // La reparación ligera aplica la curación común.
+      addFloatingText("🛠️ ¡REPARACIÓN LIGERA!", collector.x, collector.y - 45, "#ffd700", 40);
     }
   }
 
@@ -1497,7 +1498,6 @@
     this.speed = 82;
     this.rank = Math.max(1, Math.floor(wave / 10));
     this.specialTimer = 4.2;
-    this.attackCount = 0;
     this.warning = 0;
     this.isAlive = true;
     this.flashTimer = 0;
@@ -1506,7 +1506,7 @@
   BossGalleon.prototype.update = function(dt) {
     if (!this.isAlive) return;
     if (this.flashTimer > 0) this.flashTimer -= dt;
-    this.specialTimer -= dt;
+    this.specialTimer -= dt * (this.health <= this.maxHealth / 2 ? 2 : 1);
 
     // Navegar despacio hacia el centro o jugador más cercano
     var targetX = 960;
@@ -1550,32 +1550,27 @@
     }
 
     // Anunciar la próxima salva antes de disparar.
-    var frontal = this.health <= this.maxHealth / 2 && this.attackCount % 2 === 1;
-    this.warning = this.specialTimer <= 0.75 ? (frontal ? 2 : 1) : 0;
+    this.warning = this.specialTimer <= 0.75 ? 1 : 0;
     if (this.specialTimer <= 0) {
       this.specialTimer = 4.2;
-      this.attackCount++;
-      this.warning = 0;
+        this.warning = 0;
       Sound.playCannon();
       triggerScreenShake(0.3, 7);
 
-      if (frontal) {
-        for (var f = -1; f <= 1; f++) {
-          var fAng = this.rotation + f * Math.min(0.5, 0.2 + this.rank * 0.06);
-          var muzzleX = this.x + fwdX * 61 + latX * f * 14;
-          var muzzleY = this.y + fwdY * 61 + latY * f * 14;
-          cannonballs.push(new Cannonball(muzzleX, muzzleY, Math.cos(fAng), Math.sin(fAng), -1, true, 2));
-          spawnMuzzleFlash(muzzleX, muzzleY, fAng);
-        }
-      } else {
-        var guns = Math.min(4, this.rank + 1);
-        for (var gun = 0; gun < guns; gun++) {
-          var offset = (gun - (guns - 1) / 2) * 23;
-          var gunX = this.x + fwdX * offset;
-          var gunY = this.y + fwdY * offset;
-          cannonballs.push(new Cannonball(gunX + latX * 29, gunY + latY * 29, latX, latY, -1, true, 2));
-          cannonballs.push(new Cannonball(gunX - latX * 29, gunY - latY * 29, -latX, -latY, -1, true, 2));
-        }
+      for (var f = -1; f <= 1; f++) {
+        var fAng = this.rotation + f * Math.min(0.5, 0.2 + this.rank * 0.06);
+        var muzzleX = this.x + fwdX * 61 + latX * f * 14;
+        var muzzleY = this.y + fwdY * 61 + latY * f * 14;
+        cannonballs.push(new Cannonball(muzzleX, muzzleY, Math.cos(fAng), Math.sin(fAng), -1, true, 2));
+        spawnMuzzleFlash(muzzleX, muzzleY, fAng);
+      }
+      var guns = Math.min(4, this.rank + 1);
+      for (var gun = 0; gun < guns; gun++) {
+        var offset = (gun - (guns - 1) / 2) * 23;
+        var gunX = this.x + fwdX * offset;
+        var gunY = this.y + fwdY * offset;
+        cannonballs.push(new Cannonball(gunX + latX * 29, gunY + latY * 29, latX, latY, -1, true, 2));
+        cannonballs.push(new Cannonball(gunX - latX * 29, gunY - latY * 29, -latX, -latY, -1, true, 2));
       }
     }
 
@@ -1675,7 +1670,7 @@
       c.fillRect(gunOffset - 4, -beam - 9, 8, 15);
       c.fillRect(gunOffset - 4, beam - 6, 8, 15);
     }
-    c.fillStyle = this.warning === 2 ? "#fff597" : accent;
+    c.fillStyle = this.warning === 1 ? "#fff597" : accent;
     for (var frontGun = -1; frontGun <= 1; frontGun++) {
       c.fillRect(42, frontGun * 14 - 4, 19, 8);
     }
