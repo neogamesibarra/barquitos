@@ -480,9 +480,30 @@
     this.rescueTime = 0;
   }
 
+  // Dos trenes de olas cruzados. El tren principal se propaga hacia el sur.
+  var SWELL_LENGTH = 150;
+  var SWELL_RATE = 1.7;
+
+  function crossWave(x, time) {
+    return x * 0.009 + time * 0.8;
+  }
+
+  function swellPhase(x, y, time) {
+    return y * (2 * Math.PI / SWELL_LENGTH) - time * SWELL_RATE +
+      0.9 * Math.sin(crossWave(x, time));
+  }
+
   function waveYaw(ship) {
-    return 0.095 * Math.sin(waveAnim * 3.5 + ship.x * 0.009 + ship.y * 0.006) +
-      0.035 * Math.sin(waveAnim * 6.2 - ship.y * 0.01);
+    var phase = swellPhase(ship.x, ship.y, waveAnim);
+    var relative = ship.rotation - Math.PI / 2;
+    return Math.sin(relative) * (0.17 * Math.sin(phase) +
+      0.045 * Math.sin(crossWave(ship.x, waveAnim) + phase * 2));
+  }
+
+  function pushByWaves(ship, dt) {
+    var phase = swellPhase(ship.x, ship.y, waveAnim);
+    ship.vx += 23 * Math.cos(crossWave(ship.x, waveAnim) + phase) * dt;
+    ship.vy += 57 * Math.cos(phase) * dt;
   }
 
   function applyWaterDrift(ship, speed, dt) {
@@ -536,6 +557,7 @@
     }
 
     applyWaterDrift(this, targetSpeed, dt);
+    if (currentState === STATE_ARENA) pushByWaves(this, dt);
 
     this.x += this.vx * dt;
     this.y += this.vy * dt;
@@ -2315,6 +2337,7 @@
 
     var syncPayload = {
       type: "sync",
+      swellTime: Math.round(waveAnim * 100) / 100,
       st: currentState,
       m: selectedMode,
       r: currentRound,
@@ -2337,6 +2360,7 @@
   }
 
   function applyClientSync(msg) {
+    if (msg && typeof msg.swellTime === "number" && isFinite(msg.swellTime)) waveAnim = msg.swellTime;
     if (!isRemoteClient || !msg) return;
     if (islands.length === 0) {
       initArenaIslands();
@@ -2517,6 +2541,7 @@
         if (heading != null) ship.rotation = heading;
         else ship.rotation += localInputState.turn * 3.8 * dt;
         applyWaterDrift(ship, localInputState.thrust ? (ship.isRamming ? 340 : 185) : 80, dt);
+        if (currentState === STATE_ARENA) pushByWaves(ship, dt);
         ship.x += ship.vx * dt;
         ship.y += ship.vy * dt;
 
@@ -4561,6 +4586,40 @@
     drawHexagon(c, cx, cy, radius - 38, "#b8e4ee", "#578bb0", 2);
   }
 
+  function drawOceanSwell(c) {
+    c.save();
+    c.beginPath();
+    c.rect(arenaBounds.x, arenaBounds.y, arenaBounds.w, arenaBounds.h);
+    c.clip();
+    var travel = (waveAnim * SWELL_RATE / (2 * Math.PI) * SWELL_LENGTH) % SWELL_LENGTH;
+    var offsets = [];
+    for (var x = arenaBounds.x; x <= arenaBounds.x + arenaBounds.w + 40; x += 40) {
+      offsets.push(-0.9 * Math.sin(crossWave(x, waveAnim)) * SWELL_LENGTH / (2 * Math.PI));
+    }
+    for (var row = -SWELL_LENGTH; row < V_HEIGHT + SWELL_LENGTH; row += SWELL_LENGTH) {
+      var crest = row + travel;
+      c.beginPath();
+      for (var i = 0; i < offsets.length; i++) {
+        var px = arenaBounds.x + i * 40;
+        if (i === 0) c.moveTo(px, crest + offsets[i]);
+        else c.lineTo(px, crest + offsets[i]);
+      }
+      c.lineWidth = 34;
+      c.strokeStyle = "rgba(6, 52, 122, 0.20)";
+      c.stroke();
+      c.lineWidth = 15;
+      c.strokeStyle = "rgba(53, 234, 248, 0.35)";
+      c.stroke();
+      c.lineWidth = 3;
+      c.strokeStyle = "rgba(225, 255, 255, 0.72)";
+      if (c.setLineDash) c.setLineDash([28, 17, 8, 20]);
+      c.lineDashOffset = -waveAnim * 35;
+      c.stroke();
+      if (c.setLineDash) c.setLineDash([]);
+    }
+    c.restore();
+  }
+
   function renderArena(dt) {
     setLobbyUIVisible(false);
 
@@ -4579,29 +4638,12 @@
       }
     }
 
-    // 2. Olas animadas sobre el mar (limitadas al océano central navegable, 50% menos cálculos trigonométricos)
-    ctx.strokeStyle = "rgba(233, 252, 255, 0.26)";
-    ctx.lineWidth = 1.8;
-    for (var wy = 70; wy < V_HEIGHT; wy += 90) {
-      ctx.beginPath();
-      for (var wx = 280; wx <= 1640; wx += 45) {
-        var offY = Math.sin((wx * 0.01) + (waveAnim * 2.2) + wy) * 7;
-        if (wx === 280) ctx.moveTo(wx, wy + offY);
-        else ctx.lineTo(wx, wy + offY);
-      }
-      ctx.stroke();
+    // Crestas, sombra del valle y espuma con la misma fase que empuja a los barcos.
+    drawOceanSwell(ctx);
+    for (var island = 0; island < islands.length; island++) {
+      var land = islands[island];
+      renderHexIsland(land.x, land.y, land.rad);
     }
-
-    ctx.strokeStyle = "rgba(224,255,255,0.35)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (var glint = 0; glint < 22; glint++) {
-      var gx = 325 + (glint * 173) % 1240;
-      var gy = 76 + (glint * 113) % 920 + Math.sin(waveAnim * 2 + glint) * 10;
-      ctx.moveTo(gx, gy);
-      ctx.lineTo(gx + 22 + Math.sin(waveAnim + glint) * 11, gy);
-    }
-    ctx.stroke();
 
     // Cajas de munición y Mejoras de Horda
     for (var c = 0; c < ammoCrates.length; c++) ammoCrates[c].draw(ctx);
