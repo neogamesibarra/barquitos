@@ -1523,3 +1523,42 @@ html, body {
   .play-menu { flex-direction: column; -webkit-flex-direction: column; }
   .play-menu button { margin: 3px 0; }
 }
+
+/* Controles dentro del alcance del pulgar, incluso en pantalla completa. */
+.onscreen-touch-controls {
+  height: auto;
+  min-height: 0;
+  bottom: 28px;
+  bottom: calc(clamp(24px, 8vh, 68px) + env(safe-area-inset-bottom, 0px));
+  padding: 0 20px;
+  padding-left: calc(clamp(16px, 4vw, 60px) + env(safe-area-inset-left, 0px));
+  padding-right: calc(clamp(16px, 4vw, 60px) + env(safe-area-inset-right, 0px));
+  align-items: center;
+}
+.onscreen-touch-controls .touch-player-label { top: -22px; }
+.touch-zone-right {
+  position: relative;
+  width: calc(var(--thumb-size) * 1.76);
+  height: calc(var(--thumb-size) * 1.62);
+  --thumb-size: clamp(54px, 9vw, 80px);
+}
+.touch-zone-right .onscreen-btn {
+  position: absolute;
+  width: var(--thumb-size);
+  height: var(--thumb-size);
+  min-width: 0;
+  max-width: none;
+  border-radius: 50%;
+  padding: 4px;
+}
+.touch-zone-right .thrust-btn { left: 0; bottom: 0; }
+.touch-zone-right .shoot-btn { right: 0; top: 0; }
+.touch-zone-right .btn-text { font-size: 10px; letter-spacing: 0; }
+@media (max-width: 360px) {
+  .touch-zone-right { --thumb-size: 52px; }
+  .touch-zone-right .btn-glyph { font-size: 18px; }
+  .touch-zone-right .btn-text { font-size: 9px; }
+}
+@media (orientation: landscape) and (max-height: 420px) {
+  .touch-zone-right { --thumb-size: clamp(52px, 18vh, 72px); }
+}
