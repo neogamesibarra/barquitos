@@ -983,10 +983,11 @@
 
       // Corazones de vida
       var heartSpacing = 14;
-      var totalHw = (this.maxHealth - 1) * heartSpacing;
+      var heartCount = Math.ceil(this.maxHealth);
+      var totalHw = (heartCount - 1) * heartSpacing;
       var startHx = this.x - totalHw / 2;
       var hy = this.y - 28;
-      for (var h = 0; h < this.maxHealth; h++) {
+      for (var h = 0; h < heartCount; h++) {
         var heartState = Math.max(0, Math.min(1, this.health - h));
         drawMiniHeart(c, startHx + h * heartSpacing, hy, heartState);
       }
@@ -1230,8 +1231,10 @@
     triggerScreenShake(0.3, 8);
     sendTvAction("vibrate", null, [100, 60, 140]);
 
+    hordeUpgrades.maxHealth += 0.5;
     for (var life = 0; life < activeShips.length; life++) {
       var ally = activeShips[life];
+      ally.maxHealth = hordeUpgrades.maxHealth;
       if (ally.isAlive) ally.health = Math.min(ally.maxHealth, ally.health + 1);
     }
 
