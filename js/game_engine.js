@@ -958,14 +958,27 @@
       c.strokeText(displayName, this.x, this.y - 42);
       c.fillText(displayName, this.x, this.y - 42);
 
-      // Cada icono dorado representa un disparo disponible.
+      // Un cartucho por cada disparo disponible.
       var ammoSpacing = Math.min(9, 68 / Math.max(1, this.ammo));
       var ammoLeft = this.x - (this.ammo - 1) * ammoSpacing / 2;
-      c.fillStyle = "#ffe587";
+      var cartridgeHalf = Math.min(3, ammoSpacing * 0.34);
+      c.strokeStyle = "#000";
+      c.lineWidth = 0.8;
       for (var round = 0; round < this.ammo; round++) {
+        var bulletX = ammoLeft + round * ammoSpacing;
+        var bulletY = this.y - 16;
         c.beginPath();
-        c.arc(ammoLeft + round * ammoSpacing, this.y - 17, Math.min(3, ammoSpacing * 0.4), 0, Math.PI * 2);
+        c.moveTo(bulletX - cartridgeHalf, bulletY + 1);
+        c.lineTo(bulletX - cartridgeHalf, bulletY - 4);
+        c.quadraticCurveTo(bulletX, bulletY - 9, bulletX + cartridgeHalf, bulletY - 4);
+        c.lineTo(bulletX + cartridgeHalf, bulletY + 1);
+        c.closePath();
+        c.fillStyle = "#bc7045";
         c.fill();
+        c.stroke();
+        c.fillStyle = "#ffe587";
+        c.fillRect(bulletX - cartridgeHalf, bulletY - 3, cartridgeHalf * 2, 5);
+        c.strokeRect(bulletX - cartridgeHalf, bulletY - 3, cartridgeHalf * 2, 5);
       }
 
       // Corazones de vida
