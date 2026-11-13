@@ -958,6 +958,13 @@
       c.strokeText(displayName, this.x, this.y - 42);
       c.fillText(displayName, this.x, this.y - 42);
 
+      var ammoWidth = 44;
+      var ammoLeft = this.x - ammoWidth / 2;
+      c.fillStyle = "#1c2434";
+      c.fillRect(ammoLeft - 1, this.y - 19, ammoWidth + 2, 6);
+      c.fillStyle = "#ffe587";
+      c.fillRect(ammoLeft, this.y - 18, ammoWidth * Math.max(0, Math.min(1, this.ammo / this.maxAmmo)), 4);
+
       // Corazones de vida
       var heartSpacing = 14;
       var totalHw = (this.maxHealth - 1) * heartSpacing;
@@ -1080,6 +1087,7 @@
     this.shooterSlot = shooterSlot;
     this.isPirate = !!isPirate;
     this.damage = damage || 1;
+    this.isBossShot = this.isPirate && this.damage === 2;
     this.shooterTeam = shooterTeam || null;
     this.dist = 0;
     this.maxDist = isPirate ? 540 : 580;
@@ -1101,7 +1109,7 @@
 
   Cannonball.prototype.draw = function(c) {
     c.beginPath();
-    c.arc(this.x, this.y, this.isPirate ? 7 : 6, 0, Math.PI * 2);
+    c.arc(this.x, this.y, this.isBossShot ? 14 : (this.isPirate ? 7 : 6), 0, Math.PI * 2);
     if (this.isPirate) {
       c.fillStyle = "#8e24aa";
       c.fill();
@@ -1206,6 +1214,13 @@
     triggerScreenShake(0.3, 8);
     sendTvAction("vibrate", null, [100, 60, 140]);
 
+    hordeUpgrades.maxHealth++;
+    for (var life = 0; life < activeShips.length; life++) {
+      var ally = activeShips[life];
+      ally.maxHealth = hordeUpgrades.maxHealth;
+      if (ally.isAlive) ally.health = Math.min(ally.maxHealth, ally.health + 1);
+    }
+
     if (type === 0) {
       // Reparación Total + Revivir a todos los caídos
       hordeUpgrades.repairs++;
@@ -1242,11 +1257,6 @@
       addFloatingText("💥 ¡PACK-A-PUNCH! " + wName + " (NV " + hordeUpgrades.weaponLevel + ")", collector.x, collector.y - 45, "#ff4081", 40);
     } else if (type === 4) {
       // Casco Reforzado (+1 vida max permanent)
-      hordeUpgrades.maxHealth++;
-      for (var c = 0; c < activeShips.length; c++) {
-        activeShips[c].maxHealth = hordeUpgrades.maxHealth;
-        activeShips[c].health = Math.min(activeShips[c].maxHealth, activeShips[c].health + 1);
-      }
       addFloatingText("🛡️ ¡CASCO REFORZADO! (+1 BLINDAJE)", collector.x, collector.y - 45, "#ffd700", 40);
     }
   }
@@ -1550,21 +1560,21 @@
       triggerScreenShake(0.3, 7);
 
       if (frontal) {
-        var spread = Math.min(4, this.rank + 1);
-        for (var f = -spread; f <= spread; f++) {
-          var fAng = this.rotation + f * 0.25;
-          cannonballs.push(new Cannonball(this.x + fwdX * 50, this.y + fwdY * 50, Math.cos(fAng), Math.sin(fAng), -1, true, 1));
+        for (var f = -1; f <= 1; f++) {
+          var fAng = this.rotation + f * Math.min(0.5, 0.2 + this.rank * 0.06);
+          var muzzleX = this.x + fwdX * 61 + latX * f * 14;
+          var muzzleY = this.y + fwdY * 61 + latY * f * 14;
+          cannonballs.push(new Cannonball(muzzleX, muzzleY, Math.cos(fAng), Math.sin(fAng), -1, true, 2));
+          spawnMuzzleFlash(muzzleX, muzzleY, fAng);
         }
-
-        spawnMuzzleFlash(this.x + fwdX * 50, this.y + fwdY * 50, this.rotation);
       } else {
         var guns = Math.min(4, this.rank + 1);
         for (var gun = 0; gun < guns; gun++) {
           var offset = (gun - (guns - 1) / 2) * 23;
           var gunX = this.x + fwdX * offset;
           var gunY = this.y + fwdY * offset;
-          cannonballs.push(new Cannonball(gunX + latX * 29, gunY + latY * 29, latX, latY, -1, true, 1));
-          cannonballs.push(new Cannonball(gunX - latX * 29, gunY - latY * 29, -latX, -latY, -1, true, 1));
+          cannonballs.push(new Cannonball(gunX + latX * 29, gunY + latY * 29, latX, latY, -1, true, 2));
+          cannonballs.push(new Cannonball(gunX - latX * 29, gunY - latY * 29, -latX, -latY, -1, true, 2));
         }
       }
     }
@@ -1666,7 +1676,9 @@
       c.fillRect(gunOffset - 4, beam - 6, 8, 15);
     }
     c.fillStyle = this.warning === 2 ? "#fff597" : accent;
-    c.fillRect(42, -5, 14, 10);
+    for (var frontGun = -1; frontGun <= 1; frontGun++) {
+      c.fillRect(42, frontGun * 14 - 4, 19, 8);
+    }
     if (tier >= 2) {
       c.beginPath();
       c.moveTo(39, -14); c.lineTo(69, -17); c.lineTo(59, 0);
@@ -2299,7 +2311,8 @@
           Math.round(cb.dx * 100) / 100,
           Math.round(cb.dy * 100) / 100,
           cb.isPirate ? 1 : 0,
-          cb.shooterTeam || "blue"
+          cb.shooterTeam || "blue",
+          cb.isBossShot ? 1 : 0
         ]);
       }
     }
@@ -2473,7 +2486,7 @@
       var bItem = remoteBalls[b];
       var ball = cannonballs[b];
       if (!ball) {
-        cannonballs.push(new Cannonball(bItem[0], bItem[1], bItem[2], bItem[3], 0, bItem[4] === 1, 1, bItem[5]));
+        cannonballs.push(new Cannonball(bItem[0], bItem[1], bItem[2], bItem[3], 0, bItem[4] === 1, bItem[6] === 1 ? 2 : 1, bItem[5]));
       } else {
         ball.x = bItem[0];
         ball.y = bItem[1];
@@ -2481,6 +2494,7 @@
         ball.dy = bItem[3];
         ball.isPirate = (bItem[4] === 1);
         ball.shooterTeam = bItem[5];
+        ball.isBossShot = bItem[6] === 1;
       }
     }
     cannonballs.length = remoteBalls.length;
@@ -4321,7 +4335,7 @@
           if (!ally.isAlive) continue;
           var aDx = ally.x - ball.x;
           var aDy = ally.y - ball.y;
-          if (aDx * aDx + aDy * aDy < 484) {
+          if (aDx * aDx + aDy * aDy < (ball.isBossShot ? 841 : 484)) {
             spawnHullSplinters(ball.x, ball.y, ball.dx, ball.dy);
             ally.applyHit(ball.dx, ball.dy, 520, ball.damage);
             ball.isDead = true;
