@@ -1178,7 +1178,7 @@
   };
 
   // Mejoras Globales de Horda (Power-ups estilo CoD Zombies)
-  // 0: REPARACIÓN TOTAL, 1: BODEGA AMPLIADA, 2: MUNICIÓN MÁXIMA, 3: PACK-A-PUNCH, 4: REPARACIÓN LIGERA
+  // 0: CORAZÓN VERDE, 1: BODEGA AMPLIADA, 2: MUNICIÓN MÁXIMA, 3: PACK-A-PUNCH, 4: REPARACIÓN LIGERA
   function HordePowerup(x, y, type) {
     this.x = x;
     this.baseY = y;
@@ -1235,25 +1235,25 @@
     for (var life = 0; life < activeShips.length; life++) {
       var ally = activeShips[life];
       ally.maxHealth = hordeUpgrades.maxHealth;
-      if (ally.isAlive) ally.health = Math.min(ally.maxHealth, ally.health + 1);
+      if (type !== 0 && ally.isAlive) ally.health = Math.min(ally.maxHealth, ally.health + 1);
     }
 
     if (type === 0) {
-      // Reparación Total + Revivir a todos los caídos
+      // Cura hasta 10 puntos y revive a los caídos con hasta 10.
       hordeUpgrades.repairs++;
       for (var r = 0; r < activeShips.length; r++) {
         var sh = activeShips[r];
         if (!sh.isAlive) {
           sh.isAlive = true;
-          sh.health = sh.maxHealth;
+          sh.health = Math.min(sh.maxHealth, 10);
           sh.x = 960 + (Math.random() - 0.5) * 180;
           sh.y = 540 + (Math.random() - 0.5) * 180;
           sh.vx = 0; sh.vy = 0;
         } else {
-          sh.health = sh.maxHealth;
+          sh.health = Math.min(sh.maxHealth, sh.health + 10);
         }
       }
-      addFloatingText("💚 ¡REPARACIÓN TOTAL Y REVIVIR!", collector.x, collector.y - 45, "#00e676", 42);
+      addFloatingText("💚 ¡+10 VIDA Y REVIVIR!", collector.x, collector.y - 45, "#00e676", 42);
     } else if (type === 1) {
       // Bodega Ampliada (+1 max ammo)
       hordeUpgrades.maxAmmo++;
@@ -2867,11 +2867,6 @@
     var visible = currentState === STATE_ARENA && playerSlot !== -1;
     if (!visible && touchControls.style.display === "flex") releaseTouchControls();
     touchControls.style.display = visible ? "flex" : "none";
-    var badge = document.getElementById("touch-player-label");
-    if (badge && playerSlot !== -1 && playersData[playerSlot]) {
-      badge.textContent = playersData[playerSlot].customName || playersData[playerSlot].name;
-      badge.style.color = playersData[playerSlot].hull;
-    }
   }
 
   // Prevención de doble toque para hacer zoom en móviles y tablets
