@@ -474,6 +474,8 @@
   var lastHeartbeatTime = 0;
   var MIN_INPUT_INTERVAL_MS = 55; // Throttle estricto ~18 Hz
 
+  var firePress = 0;
+
   function sendInputUpdate(isImmediate) {
     if (mySlot === -1 || !window.CloudNet || !window.CloudNet.isConnected()) return;
 
@@ -508,7 +510,8 @@
       sh: inputState.shoot ? 1 : 0,
       turn: inputState.turn,
       thrust: inputState.thrust,
-      shoot: inputState.shoot
+      shoot: inputState.shoot,
+      firePress: now - firePress < 1100 ? firePress : 0
     });
   }
 
@@ -688,6 +691,7 @@
       function setShoot(active) {
         if (inputState.shoot === active) return;
         inputState.shoot = active;
+        if (active) firePress = Date.now();
         if (active) {
           elBtnShoot.className = 'touch-btn shoot-btn pressed';
           triggerVibration(50);

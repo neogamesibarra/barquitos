@@ -690,7 +690,6 @@
     if (!this.isAlive || this.ammo >= this.maxAmmo) return false;
     this.ammo = Math.min(this.maxAmmo, this.ammo + 3);
     // Recoger munición no debe cancelar un botón que sigue presionado.
-    this.shootCooldown = 0.35;
     Sound.playPickup();
     sendTvAction("vibrate", this.slot, 40);
     return true;
@@ -2651,6 +2650,8 @@
 
   var touchState = { heading: null, thrust: false, shoot: false };
 
+  var localFirePress = 0;
+
   function updateLocalInputValues(immediate) {
     var turn = 0;
     var left = keyState.left;
@@ -2661,7 +2662,9 @@
     localInputState.turn = turn;
     localInputState.heading = left || right ? null : touchState.heading;
     localInputState.thrust = keyState.thrust || touchState.thrust;
-    localInputState.shoot = keyState.shoot || touchState.shoot;
+    var shooting = keyState.shoot || touchState.shoot;
+    if (shooting && !localInputState.shoot) localFirePress = Date.now();
+    localInputState.shoot = shooting;
 
     if (isRemoteClient) {
       sendLocalInputsToHost(immediate);
@@ -2680,7 +2683,7 @@
         localShip.turnInput = localInputState.turn;
         localShip.headingInput = localInputState.heading;
         localShip.thrustInput = localInputState.thrust;
-        if (localInputState.shoot && !localShip.shootInput) localShip.shotBuffer = 0.46;
+        if (localInputState.shoot && !localShip.shootInput) localShip.shotBuffer = 0.8;
         localShip.shootInput = localInputState.shoot;
       }
     }
@@ -2722,7 +2725,8 @@
       turn: localInputState.turn,
       heading: localInputState.heading,
       thrust: localInputState.thrust,
-      shoot: localInputState.shoot
+      shoot: localInputState.shoot,
+      firePress: Date.now() - localFirePress < 1100 ? localFirePress : 0
     });
   }
 
@@ -3544,7 +3548,13 @@
             activeShips[sh].headingInput = typeof msg.heading === "number" && isFinite(msg.heading) ? msg.heading : null;
             activeShips[sh].turnInput = typeof msg.turn === "number" ? msg.turn : (typeof msg.t === "number" ? msg.t : 0);
             activeShips[sh].thrustInput = !!(msg.thrust || msg.th);
-            if ((msg.shoot || msg.sh) && !activeShips[sh].shootInput) activeShips[sh].shotBuffer = 0.46;
+            var firePress = msg.firePress;
+            if (typeof firePress === "number" && isFinite(firePress) && firePress > (playersData[inSlot].lastFirePress || 0)) {
+              playersData[inSlot].lastFirePress = firePress;
+              if (currentState === STATE_ARENA && activeShips[sh].isAlive) activeShips[sh].shotBuffer = 0.8;
+            } else if (typeof firePress !== "number" && (msg.shoot || msg.sh) && !activeShips[sh].shootInput) {
+              activeShips[sh].shotBuffer = 0.8;
+            }
             activeShips[sh].shootInput = !!(msg.shoot || msg.sh);
             activeShips[sh].inputExpiresAt = Date.now() + REMOTE_INPUT_TIMEOUT_MS;
             break;
