@@ -480,13 +480,18 @@
     this.rescueTime = 0;
   }
 
+  function waveYaw(ship) {
+    return 0.095 * Math.sin(waveAnim * 3.5 + ship.x * 0.009 + ship.y * 0.006) +
+      0.035 * Math.sin(waveAnim * 6.2 - ship.y * 0.01);
+  }
+
   function applyWaterDrift(ship, speed, dt) {
     var forwardX = Math.cos(ship.rotation);
     var forwardY = Math.sin(ship.rotation);
     var forward = ship.vx * forwardX + ship.vy * forwardY;
     var lateral = -ship.vx * forwardY + ship.vy * forwardX;
     forward += (speed - forward) * (1 - Math.exp(-4 * dt));
-    lateral *= Math.exp(-1.45 * dt);
+    lateral *= Math.exp(-1.12 * dt);
     ship.vx = forwardX * forward - forwardY * lateral;
     ship.vy = forwardY * forward + forwardX * lateral;
   }
@@ -548,37 +553,42 @@
       updateShipHUD(this.slot);
         this.shootCooldown = 0.42;
 
-        this.vx -= fwdX * 180;
-        this.vy -= fwdY * 180;
+        var aim = this.rotation + waveYaw(this);
+        var gunX = Math.cos(aim);
+        var gunY = Math.sin(aim);
+        var latX = -gunY;
+        var latY = gunX;
+        this.vx -= gunX * 180;
+        this.vy -= gunY * 180;
 
         Sound.playCannon();
         var sTeam = (selectedMode === MODE_TEAMS) ? (this.data.team || "blue") : null;
         var wLevel = (selectedMode === MODE_HORDE) ? hordeUpgrades.weaponLevel : 1;
 
         if (wLevel <= 1) {
-          var bX = this.x + fwdX * 32;
-          var bY = this.y + fwdY * 32;
-          cannonballs.push(new Cannonball(bX, bY, fwdX, fwdY, this.slot, false, 1, sTeam));
-          spawnMuzzleFlash(bX, bY, this.rotation);
+          var bX = this.x + gunX * 32;
+          var bY = this.y + gunY * 32;
+          cannonballs.push(new Cannonball(bX, bY, gunX, gunY, this.slot, false, 1, sTeam));
+          spawnMuzzleFlash(bX, bY, aim);
         } else if (wLevel === 2) {
           // Cañón doble
-          var bX1 = this.x + fwdX * 30 + latX * 7;
-          var bY1 = this.y + fwdY * 30 + latY * 7;
-          var bX2 = this.x + fwdX * 30 - latX * 7;
-          var bY2 = this.y + fwdY * 30 - latY * 7;
-          cannonballs.push(new Cannonball(bX1, bY1, fwdX, fwdY, this.slot, false, 1, sTeam));
-          cannonballs.push(new Cannonball(bX2, bY2, fwdX, fwdY, this.slot, false, 1, sTeam));
-          spawnMuzzleFlash(bX1, bY1, this.rotation);
-          spawnMuzzleFlash(bX2, bY2, this.rotation);
+          var bX1 = this.x + gunX * 30 + latX * 7;
+          var bY1 = this.y + gunY * 30 + latY * 7;
+          var bX2 = this.x + gunX * 30 - latX * 7;
+          var bY2 = this.y + gunY * 30 - latY * 7;
+          cannonballs.push(new Cannonball(bX1, bY1, gunX, gunY, this.slot, false, 1, sTeam));
+          cannonballs.push(new Cannonball(bX2, bY2, gunX, gunY, this.slot, false, 1, sTeam));
+          spawnMuzzleFlash(bX1, bY1, aim);
+          spawnMuzzleFlash(bX2, bY2, aim);
         } else {
           // Cañón triple
-          var ang1 = this.rotation - 0.16;
-          var ang2 = this.rotation;
-          var ang3 = this.rotation + 0.16;
-          cannonballs.push(new Cannonball(this.x + fwdX * 32, this.y + fwdY * 32, Math.cos(ang1), Math.sin(ang1), this.slot, false, 1.2, sTeam));
-          cannonballs.push(new Cannonball(this.x + fwdX * 32, this.y + fwdY * 32, Math.cos(ang2), Math.sin(ang2), this.slot, false, 1.2, sTeam));
-          cannonballs.push(new Cannonball(this.x + fwdX * 32, this.y + fwdY * 32, Math.cos(ang3), Math.sin(ang3), this.slot, false, 1.2, sTeam));
-          spawnMuzzleFlash(this.x + fwdX * 32, this.y + fwdY * 32, this.rotation);
+          var ang1 = aim - 0.16;
+          var ang2 = aim;
+          var ang3 = aim + 0.16;
+          cannonballs.push(new Cannonball(this.x + gunX * 32, this.y + gunY * 32, Math.cos(ang1), Math.sin(ang1), this.slot, false, 1.2, sTeam));
+          cannonballs.push(new Cannonball(this.x + gunX * 32, this.y + gunY * 32, Math.cos(ang2), Math.sin(ang2), this.slot, false, 1.2, sTeam));
+          cannonballs.push(new Cannonball(this.x + gunX * 32, this.y + gunY * 32, Math.cos(ang3), Math.sin(ang3), this.slot, false, 1.2, sTeam));
+          spawnMuzzleFlash(this.x + gunX * 32, this.y + gunY * 32, aim);
         }
 
         sendTvAction("vibrate", this.slot, 60);
@@ -703,7 +713,7 @@
     }
     c.save();
     c.translate(this.x, this.y);
-    c.rotate(this.rotation);
+    c.rotate(this.rotation + (currentState === STATE_ARENA ? waveYaw(this) : 0));
 
     var hullCol = this.flashTimer > 0 ? "#ffffff" : this.data.hull;
     var sailCol = this.flashTimer > 0 ? "#ffffff" : this.data.sail;
