@@ -3617,18 +3617,16 @@
     var qrCanvas = document.getElementById("qr-canvas");
     if (qrCanvas && window.drawQRCodeToCanvas) {
       if (!currentRoomCode || currentRoomCode === "----") return;
-      var href = window.location.href.split("?")[0].split("#")[0];
-      var controllerUrl = href;
-      if (controllerUrl.indexOf("/index.html") !== -1) {
-        controllerUrl = controllerUrl.replace("/index.html", "/controller.html");
-      } else if (controllerUrl.indexOf("/tv.html") !== -1) {
-        controllerUrl = controllerUrl.replace("/tv.html", "/controller.html");
-      } else if (controllerUrl.match(/\/tv\/?$/)) {
-        controllerUrl = controllerUrl.replace(/\/tv\/?$/, "/controller.html");
-      } else if (controllerUrl.indexOf("controller.html") === -1) {
-        controllerUrl = controllerUrl.replace(/\/+$/, "") + "/controller.html";
+      var location = window.location;
+      var controllerUrl;
+      if (location.protocol !== "https:" && location.protocol !== "http:" ||
+          /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname)) {
+        controllerUrl = "https://neogamesibarra.github.io/barquitos/controller.html";
+      } else {
+        var path = location.pathname.replace(/\/(?:index\.html|tv\.html|tv|controller\.html)\/?$/i, "/");
+        controllerUrl = location.protocol + "//" + location.host + path.replace(/\/+$/, "") + "/controller.html";
       }
-      controllerUrl += "?room=" + currentRoomCode;
+      controllerUrl += "?room=" + encodeURIComponent(currentRoomCode);
 
       window.drawQRCodeToCanvas(qrCanvas, controllerUrl, 230);
       var matchQR = document.getElementById("match-qr-canvas");
@@ -3639,7 +3637,7 @@
 
       var ctlLink = document.querySelector(".controller-link");
       if (ctlLink) {
-        ctlLink.href = "controller.html?room=" + currentRoomCode;
+        ctlLink.href = controllerUrl;
       }
     }
   }
