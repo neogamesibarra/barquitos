@@ -453,12 +453,6 @@
   }
 
   // Clase Barco
-  function steeringTurn(rotation, heading, turn) {
-    if (heading == null) return turn;
-    var delta = heading - rotation;
-    return Math.max(-1, Math.min(1, Math.atan2(Math.sin(delta), Math.cos(delta)) * 2));
-  }
-
   function Ship(slot, x, y, rot) {
     this.slot = slot;
     this.data = playersData[slot] || {};
@@ -486,6 +480,17 @@
     this.rescueTime = 0;
   }
 
+  function applyWaterDrift(ship, speed, dt) {
+    var forwardX = Math.cos(ship.rotation);
+    var forwardY = Math.sin(ship.rotation);
+    var forward = ship.vx * forwardX + ship.vy * forwardY;
+    var lateral = -ship.vx * forwardY + ship.vy * forwardX;
+    forward += (speed - forward) * (1 - Math.exp(-4 * dt));
+    lateral *= Math.exp(-1.45 * dt);
+    ship.vx = forwardX * forward - forwardY * lateral;
+    ship.vy = forwardY * forward + forwardX * lateral;
+  }
+
   Ship.prototype.update = function(dt) {
     if (!this.isAlive) return;
 
@@ -505,8 +510,10 @@
     if (this.stunTimer > 0) {
       this.rotation += this.spinVel * dt;
       this.spinVel *= Math.max(0, 1 - 3.0 * dt);
+    } else if (this.headingInput != null) {
+      this.rotation = this.headingInput;
     } else {
-      var turn = steeringTurn(this.rotation, this.headingInput, this.turnInput);
+      var turn = this.turnInput;
       if (Math.abs(turn) > 0.05) {
         this.rotation += turn * 3.8 * dt;
       }
@@ -514,9 +521,6 @@
 
     var fwdX = Math.cos(this.rotation);
     var fwdY = Math.sin(this.rotation);
-    var latX = -fwdY;
-    var latY = fwdX;
-
     var targetSpeed = 80;
     if (this.stunTimer <= 0) {
       if (this.thrustInput) {
@@ -526,14 +530,7 @@
       targetSpeed = 0;
     }
 
-    var curFwd = this.vx * fwdX + this.vy * fwdY;
-    var curLat = this.vx * latX + this.vy * latY;
-
-    curFwd += (targetSpeed - curFwd) * Math.min(1, 8.5 * dt);
-    curLat += (0 - curLat) * Math.min(1, 4.6 * dt);
-
-    this.vx = fwdX * curFwd + latX * curLat;
-    this.vy = fwdY * curFwd + latY * curLat;
+    applyWaterDrift(this, targetSpeed, dt);
 
     this.x += this.vx * dt;
     this.y += this.vy * dt;
@@ -2506,17 +2503,19 @@
 
       // Barco propio en cliente remoto: control táctil responsivo sin lag
       if (ship.slot === remoteSlot && ship.isAlive) {
-        ship.rotation += steeringTurn(ship.rotation, localInputState.heading, localInputState.turn) * 3.8 * dt;
-        var currentSpeed = (localInputState.thrust) ? 190 : 80;
-        ship.x += Math.cos(ship.rotation) * currentSpeed * dt;
-        ship.y += Math.sin(ship.rotation) * currentSpeed * dt;
+        var heading = localInputState.heading;
+        if (heading != null) ship.rotation = heading;
+        else ship.rotation += localInputState.turn * 3.8 * dt;
+        applyWaterDrift(ship, localInputState.thrust ? (ship.isRamming ? 340 : 185) : 80, dt);
+        ship.x += ship.vx * dt;
+        ship.y += ship.vy * dt;
 
         // Suave convergencia hacia la posición del anfitrión
         if (ship.targetX !== undefined) {
           ship.x += (ship.targetX - ship.x) * 0.12;
           ship.y += (ship.targetY - ship.y) * 0.12;
           var aDiffLocal = Math.atan2(Math.sin(ship.targetAngle - ship.rotation), Math.cos(ship.targetAngle - ship.rotation));
-          ship.rotation += aDiffLocal * 0.10;
+          if (heading == null) ship.rotation += aDiffLocal * 0.10;
         }
       } else {
         // Barcos remotos: avance continuo y convergencia
