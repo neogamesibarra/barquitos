@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
-  <link rel="stylesheet" href="css/tv.css?v=42">
+  <link rel="stylesheet" href="css/tv.css?v=43">
 </head>
 <body>
   <script>
@@ -40,6 +40,7 @@
       <div id="cloud-status" class="status-tag connecting">Conectando a la nube...</div>
     </div>
 
+    <div class="lobby-layout">
     <section class="menu-qr" aria-label="Conectar un mando">
         <div class="room-banner">
           <span class="room-label">CÓDIGO DE SALA:</span>
@@ -63,8 +64,8 @@
         <button id="btn-copy-invite" class="online-btn copy-btn" type="button">Copiar invitación online</button>
         <p id="copy-feedback" style="display: none;" role="status">¡Enlace copiado!</p>
       </div>
-      <p id="play-local-help" class="invite-help" hidden>Conecta los mandos con el QR de arriba. Si también vas a conducir desde aquí, pulsa «Jugar en esta pantalla».</p>
-      <p id="play-solo-help" class="invite-help" hidden>Sobrevive a las oleadas de Horda Pirata con un solo barco.</p>
+      <p id="play-local-help" class="invite-help" hidden>Conecta los mandos con el QR.</p>
+      <p id="play-solo-help" class="invite-help" hidden>Horda Pirata en solitario.</p>
         <div class="mode-buttons-row">
           <button id="btn-mode-horde" class="mode-btn active" type="button">
             <span class="mode-icon">💀</span>
@@ -89,6 +90,7 @@
       <button id="btn-start-game" class="start-btn" type="button">Iniciar partida</button>
       <p id="start-player-notice" class="invite-help" hidden></p>
     </section>
+    </div>
   </div>
 
   <!-- Modal para Unirse a Sala Online de un Amigo -->

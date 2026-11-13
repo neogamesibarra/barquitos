@@ -1562,3 +1562,60 @@ html, body {
 @media (orientation: landscape) and (max-height: 420px) {
   .touch-zone-right { --thumb-size: clamp(52px, 18vh, 72px); }
 }
+
+/* QR, tipos de partida y opciones comparten el ancho disponible. */
+.lobby-container { padding: 12px 4%; }
+.lobby-container .lobby-header { margin-bottom: 12px; }
+.lobby-container .game-title { font-size: 42px; line-height: 1.1; }
+.lobby-layout {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 1300px;
+}
+.lobby-layout .menu-qr { flex: 0 1 24%; -webkit-flex: 0 1 24%; min-width: 0; margin: 0 10px 0 0; }
+.lobby-layout .play-menu {
+  flex: 0 1 27%;
+  -webkit-flex: 0 1 27%;
+  min-width: 0;
+  flex-direction: column;
+  -webkit-flex-direction: column;
+  margin: 0 10px 0 0;
+}
+.lobby-layout .play-menu button { flex: 0 0 auto; -webkit-flex: 0 0 auto; margin: 0 0 7px; }
+.lobby-layout .play-options { flex: 1 1 0; -webkit-flex: 1 1 0; min-width: 0; padding: 12px; }
+.lobby-layout .room-banner { display: block; padding: 4px; }
+.lobby-layout .room-label { display: block; font-size: 11px; }
+.lobby-layout #qr-canvas { width: 128px; max-width: 100%; height: auto; }
+.lobby-layout .qr-box { max-width: 100%; }
+.lobby-layout .mode-buttons-row { margin-bottom: 6px; gap: 4px; }
+.lobby-layout .mode-btn { margin-bottom: 4px; }
+.lobby-layout .start-btn { margin-bottom: 0; }
+.lobby-layout #btn-local-player { margin: 4px 0; }
+.lobby-layout #play-online-tools { margin-bottom: 4px; }
+.lobby-layout #play-online-tools button { min-height: 0; padding: 7px; font-size: 13px; }
+.lobby-layout #play-online-tools .copy-btn { width: 100%; }
+.lobby-layout #copy-feedback { overflow-wrap: anywhere; }
+@media (max-height: 620px) {
+  .lobby-container .lobby-header { margin-bottom: 6px; }
+  .lobby-container .game-title { font-size: 28px; }
+  .lobby-container .game-subtitle { display: none; }
+  .lobby-layout #qr-canvas { width: 100px; }
+  .lobby-layout .play-options { padding: 7px; }
+  .lobby-layout .section-title { margin-bottom: 4px; font-size: 15px; }
+  .lobby-layout .mode-btn { padding: 5px 7px; min-height: 0; }
+  .lobby-layout .mode-name { font-size: 12px; }
+  .lobby-layout .mode-desc { display: none; }
+  .lobby-layout .start-btn { padding: 6px; font-size: 14px; }
+  .lobby-layout #btn-local-player { min-height: 0; padding: 6px; }
+  .lobby-layout .invite-help { margin: 3px 0; font-size: 11px; }
+}
+@media (orientation: portrait) {
+  .lobby-layout { flex-wrap: wrap; -webkit-flex-wrap: wrap; }
+  .lobby-layout .menu-qr, .lobby-layout .play-menu { flex: 1 1 0; -webkit-flex: 1 1 0; margin-bottom: 8px; }
+  .lobby-layout .play-menu { margin-right: 0; }
+  .lobby-layout .play-options { flex: 0 0 100%; -webkit-flex: 0 0 100%; }
+  .lobby-layout #qr-canvas { width: 106px; }
+}
