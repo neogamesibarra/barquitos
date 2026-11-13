@@ -470,6 +470,7 @@
     this.stunTimer = 0;
     this.spinVel = 0;
     this.shootCooldown = 0;
+    this.shotBuffer = 0;
     this.flashTimer = 0;
     this.isRamming = false;
     this.ramCooldown = 0;
@@ -480,30 +481,41 @@
     this.rescueTime = 0;
   }
 
-  // Dos trenes de olas cruzados. El tren principal se propaga hacia el sur.
-  var SWELL_LENGTH = 150;
-  var SWELL_RATE = 1.7;
+  // Ondas profundas superpuestas: fases compartidas por agua, deriva y puntería.
+  var SEA_WAVES = [
+    { x: 0.30, y: 0.954, k: 0.023, rate: 1.35, amplitude: 16 },
+    { x: -0.78, y: 0.626, k: 0.037, rate: 1.71, amplitude: 8 },
+    { x: 0.92, y: 0.392, k: 0.065, rate: 2.27, amplitude: 3 }
+  ];
 
-  function crossWave(x, time) {
-    return x * 0.009 + time * 0.8;
-  }
-
-  function swellPhase(x, y, time) {
-    return y * (2 * Math.PI / SWELL_LENGTH) - time * SWELL_RATE +
-      0.9 * Math.sin(crossWave(x, time));
+  function seaSample(x, y, time) {
+    var height = 0, sx = 0, sy = 0, ax = 0, ay = 0;
+    for (var i = 0; i < SEA_WAVES.length; i++) {
+      var w = SEA_WAVES[i];
+      var phase = (x * w.x + y * w.y) * w.k - time * w.rate + i * 1.7;
+      var sn = Math.sin(phase), cs = Math.cos(phase);
+      height += w.amplitude * sn;
+      sx += w.amplitude * w.k * cs * w.x;
+      sy += w.amplitude * w.k * cs * w.y;
+      var force = w.amplitude * w.rate * w.rate * cs;
+      ax += force * w.x;
+      ay += force * w.y;
+    }
+    return { height: height, sx: sx, sy: sy, ax: ax, ay: ay };
   }
 
   function waveYaw(ship) {
-    var phase = swellPhase(ship.x, ship.y, waveAnim);
-    var relative = ship.rotation - Math.PI / 2;
-    return Math.sin(relative) * (0.17 * Math.sin(phase) +
-      0.045 * Math.sin(crossWave(ship.x, waveAnim) + phase * 2));
+    if (currentState !== STATE_ARENA) return 0;
+    var sea = seaSample(ship.x, ship.y, waveAnim);
+    // Máximo 16 grados: el jugador conserva el timón y puede anticipar la cresta.
+    return Math.max(-0.28, Math.min(0.28,
+      (sea.sy * Math.cos(ship.rotation) - sea.sx * Math.sin(ship.rotation)) * 0.46));
   }
 
   function pushByWaves(ship, dt) {
-    var phase = swellPhase(ship.x, ship.y, waveAnim);
-    ship.vx += 23 * Math.cos(crossWave(ship.x, waveAnim) + phase) * dt;
-    ship.vy += 57 * Math.cos(phase) * dt;
+    var sea = seaSample(ship.x, ship.y, waveAnim);
+    ship.vx += sea.ax * 1.5 * dt;
+    ship.vy += sea.ay * 1.5 * dt;
   }
 
   function applyWaterDrift(ship, speed, dt) {
@@ -568,9 +580,11 @@
     if (this.y < arenaBounds.y + 20) { this.y = arenaBounds.y + 20; this.vy = Math.abs(this.vy) * 0.5 + 40; }
     else if (this.y > arenaBounds.y + arenaBounds.h - 20) { this.y = arenaBounds.y + arenaBounds.h - 20; this.vy = -Math.abs(this.vy) * 0.5 - 40; }
 
-    // Disparos
-    if (this.shootInput) {
+    // Mantener fuego y conservar pulsaciones breves durante la recarga.
+    this.shotBuffer = Math.max(0, (this.shotBuffer || 0) - dt);
+    if (this.shootInput || this.shotBuffer > 0) {
       if (this.shootCooldown <= 0 && this.ammo > 0 && this.stunTimer <= 0) {
+        this.shotBuffer = 0;
         this.ammo--;
       updateShipHUD(this.slot);
         this.shootCooldown = 0.42;
@@ -615,7 +629,6 @@
 
         sendTvAction("vibrate", this.slot, 60);
       }
-      this.shootInput = false;
     }
 
     // Estela de espuma de agua en popa
@@ -676,7 +689,7 @@
   Ship.prototype.collectAmmo = function() {
     if (!this.isAlive || this.ammo >= this.maxAmmo) return false;
     this.ammo = Math.min(this.maxAmmo, this.ammo + 3);
-    this.shootInput = false; // Jamás disparar al recoger
+    // Recoger munición no debe cancelar un botón que sigue presionado.
     this.shootCooldown = 0.35;
     Sound.playPickup();
     sendTvAction("vibrate", this.slot, 40);
@@ -2667,6 +2680,7 @@
         localShip.turnInput = localInputState.turn;
         localShip.headingInput = localInputState.heading;
         localShip.thrustInput = localInputState.thrust;
+        if (localInputState.shoot && !localShip.shootInput) localShip.shotBuffer = 0.46;
         localShip.shootInput = localInputState.shoot;
       }
     }
@@ -3530,6 +3544,7 @@
             activeShips[sh].headingInput = typeof msg.heading === "number" && isFinite(msg.heading) ? msg.heading : null;
             activeShips[sh].turnInput = typeof msg.turn === "number" ? msg.turn : (typeof msg.t === "number" ? msg.t : 0);
             activeShips[sh].thrustInput = !!(msg.thrust || msg.th);
+            if ((msg.shoot || msg.sh) && !activeShips[sh].shootInput) activeShips[sh].shotBuffer = 0.46;
             activeShips[sh].shootInput = !!(msg.shoot || msg.sh);
             activeShips[sh].inputExpiresAt = Date.now() + REMOTE_INPUT_TIMEOUT_MS;
             break;
@@ -3641,14 +3656,21 @@
 
     try {
       update(dt);
-      render(dt);
     } catch (err) {
       if (window.console && window.console.error) {
         window.console.error("[Barquitos Game Loop Error]", err);
       }
     }
 
-    window.requestAnimationFrame(gameLoop);
+    try {
+      render(dt);
+    } catch (drawError) {
+      // Reset also clears a leaked clipping region/save stack after a failed draw.
+      canvas.width = canvas.width;
+      if (window.console && window.console.error) window.console.error("[Barquitos Render Error]", drawError);
+    } finally {
+      window.requestAnimationFrame(gameLoop);
+    }
   }
 
   // Los clientes renuevan sus controles aproximadamente cada 350 ms.
@@ -3662,6 +3684,7 @@
         ship.headingInput = null;
         ship.thrustInput = false;
         ship.shootInput = false;
+        ship.shotBuffer = 0;
         ship.inputExpiresAt = 0;
       }
     }
@@ -4414,7 +4437,9 @@
     updatePodiumActions();
     var matchInvite = document.getElementById("match-invite");
     if (matchInvite) matchInvite.hidden = playMenuChoice === "solo" || isRemoteClient || currentState !== STATE_ARENA || !currentRoomCode || !window.drawQRCodeToCanvas;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.save();
+    try {
     ctx.fillStyle = "#142557";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -4437,7 +4462,7 @@
       renderPodium();
     }
 
-    ctx.restore();
+    } finally { ctx.restore(); }
   }
 
   function renderLobby() {
@@ -4588,36 +4613,50 @@
 
   function drawOceanSwell(c) {
     c.save();
-    c.beginPath();
-    c.rect(arenaBounds.x, arenaBounds.y, arenaBounds.w, arenaBounds.h);
-    c.clip();
-    var travel = (waveAnim * SWELL_RATE / (2 * Math.PI) * SWELL_LENGTH) % SWELL_LENGTH;
-    var offsets = [];
-    for (var x = arenaBounds.x; x <= arenaBounds.x + arenaBounds.w + 40; x += 40) {
-      offsets.push(-0.9 * Math.sin(crossWave(x, waveAnim)) * SWELL_LENGTH / (2 * Math.PI));
-    }
-    for (var row = -SWELL_LENGTH; row < V_HEIGHT + SWELL_LENGTH; row += SWELL_LENGTH) {
-      var crest = row + travel;
+    try {
       c.beginPath();
-      for (var i = 0; i < offsets.length; i++) {
-        var px = arenaBounds.x + i * 40;
-        if (i === 0) c.moveTo(px, crest + offsets[i]);
-        else c.lineTo(px, crest + offsets[i]);
+      c.rect(arenaBounds.x, arenaBounds.y, arenaBounds.w, arenaBounds.h);
+      c.clip();
+      c.lineCap = "round";
+      // Frentes curvos y espuma fragmentada; sin franjas gruesas ni líneas discontinuas.
+      for (var layer = 0; layer < 2; layer++) {
+        var w = SEA_WAVES[layer];
+        var length = Math.PI * 2 / w.k;
+        var travel = waveAnim * w.rate / w.k;
+        var base = (travel % length) + (Math.PI / 2 - layer * 1.7) / w.k;
+        for (var row = -12; row <= 12; row++) {
+          var crest = base + row * length;
+          c.beginPath();
+          for (var x = arenaBounds.x - 20; x <= arenaBounds.x + arenaBounds.w + 24; x += 24) {
+            var y = (crest - x * w.x) / w.y;
+            y += 8 * Math.sin(x * 0.014 + waveAnim * 0.7 + row);
+            if (x === arenaBounds.x - 20) c.moveTo(x, y);
+            else c.lineTo(x, y);
+          }
+          c.lineWidth = layer ? 9 : 18;
+          c.strokeStyle = layer ? "rgba(80,221,247,0.07)" : "rgba(5,87,166,0.10)";
+          c.stroke();
+          c.lineWidth = layer ? 2 : 5;
+          c.strokeStyle = "rgba(136,242,255,0.19)";
+          c.stroke();
+          // Espuma que nace y se desvanece en segmentos de las crestas.
+          for (var j = 0; j < 13; j++) {
+            var fx = arenaBounds.x + j * 112 + 22 * Math.sin(row * 2.4 + j);
+            var fy = (crest - fx * w.x) / w.y +
+              8 * Math.sin(fx * 0.014 + waveAnim * 0.7 + row);
+            if (fy < arenaBounds.y - 20 || fy > arenaBounds.y + arenaBounds.h + 20) continue;
+            var foam = Math.max(0, Math.sin(j * 2.3 + row * 1.9 + waveAnim * 0.8));
+            if (foam < 0.25) continue;
+            c.strokeStyle = "rgba(231,255,255," + (foam * 0.48) + ")";
+            c.lineWidth = 1.5;
+            c.beginPath();
+            c.moveTo(fx, fy);
+            c.quadraticCurveTo(fx + 10, fy - 2 - 10 * w.x / w.y, fx + 22, fy - 22 * w.x / w.y);
+            c.stroke();
+          }
+        }
       }
-      c.lineWidth = 34;
-      c.strokeStyle = "rgba(6, 52, 122, 0.20)";
-      c.stroke();
-      c.lineWidth = 15;
-      c.strokeStyle = "rgba(53, 234, 248, 0.35)";
-      c.stroke();
-      c.lineWidth = 3;
-      c.strokeStyle = "rgba(225, 255, 255, 0.72)";
-      if (c.setLineDash) c.setLineDash([28, 17, 8, 20]);
-      c.lineDashOffset = -waveAnim * 35;
-      c.stroke();
-      if (c.setLineDash) c.setLineDash([]);
-    }
-    c.restore();
+    } finally { c.restore(); }
   }
 
   function renderArena(dt) {

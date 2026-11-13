@@ -683,15 +683,10 @@
       });
     }
 
-    // Disparar Cañones (con debounce de 120ms para evitar doble disparo accidental)
+    // El estado evita eventos duplicados sin descartar pulsaciones rápidas.
     if (elBtnShoot) {
-      var lastShootTapTime = 0;
       function setShoot(active) {
-        if (active) {
-          var now = Date.now();
-          if (now - lastShootTapTime < 120) return; // Debounce 120ms
-          lastShootTapTime = now;
-        }
+        if (inputState.shoot === active) return;
         inputState.shoot = active;
         if (active) {
           elBtnShoot.className = 'touch-btn shoot-btn pressed';
