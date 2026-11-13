@@ -1650,3 +1650,12 @@ html, body {
 #lobby-fit .mode-desc { display: none; }
 #lobby-fit .mode-btn { padding: 5px 7px; min-height: 0; }
 #landscape-stage[data-rotated="true"] .onscreen-touch-controls { bottom: 24px; padding: 0 22px; }
+
+.touch-joystick {
+  width: 84px;
+  height: 84px;
+  width: clamp(68px, 23vh, 112px);
+  height: clamp(68px, 23vh, 112px);
+  border-radius: 50%;
+  background: radial-gradient(circle, #224f8d, rgba(14, 47, 107, 0.84));
+}

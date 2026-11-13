@@ -453,6 +453,12 @@
   }
 
   // Clase Barco
+  function steeringTurn(rotation, heading, turn) {
+    if (heading == null) return turn;
+    var delta = heading - rotation;
+    return Math.max(-1, Math.min(1, Math.atan2(Math.sin(delta), Math.cos(delta)) * 2));
+  }
+
   function Ship(slot, x, y, rot) {
     this.slot = slot;
     this.data = playersData[slot] || {};
@@ -500,8 +506,9 @@
       this.rotation += this.spinVel * dt;
       this.spinVel *= Math.max(0, 1 - 3.0 * dt);
     } else {
-      if (Math.abs(this.turnInput) > 0.05) {
-        this.rotation += this.turnInput * 3.8 * dt;
+      var turn = steeringTurn(this.rotation, this.headingInput, this.turnInput);
+      if (Math.abs(turn) > 0.05) {
+        this.rotation += turn * 3.8 * dt;
       }
     }
 
@@ -2499,9 +2506,7 @@
 
       // Barco propio en cliente remoto: control táctil responsivo sin lag
       if (ship.slot === remoteSlot && ship.isAlive) {
-        if (localInputState.turn !== 0) {
-          ship.rotation += localInputState.turn * 2.8 * dt;
-        }
+        ship.rotation += steeringTurn(ship.rotation, localInputState.heading, localInputState.turn) * 3.8 * dt;
         var currentSpeed = (localInputState.thrust) ? 190 : 80;
         ship.x += Math.cos(ship.rotation) * currentSpeed * dt;
         ship.y += Math.sin(ship.rotation) * currentSpeed * dt;
@@ -2597,23 +2602,24 @@
     }
   }
 
-  var touchState = { left: false, right: false, thrust: false, shoot: false };
+  var touchState = { heading: null, thrust: false, shoot: false };
 
   function updateLocalInputValues(immediate) {
     var turn = 0;
-    var left = keyState.left || touchState.left;
-    var right = keyState.right || touchState.right;
+    var left = keyState.left;
+    var right = keyState.right;
     if (left && !right) turn = -1.0;
     else if (right && !left) turn = 1.0;
 
     localInputState.turn = turn;
+    localInputState.heading = left || right ? null : touchState.heading;
     localInputState.thrust = keyState.thrust || touchState.thrust;
     localInputState.shoot = keyState.shoot || touchState.shoot;
 
     if (isRemoteClient) {
       sendLocalInputsToHost(immediate);
     } else {
-      if (localInputState.turn || localInputState.thrust || localInputState.shoot) ensureLocalPlayer();
+      if (localInputState.heading != null || localInputState.turn || localInputState.thrust || localInputState.shoot) ensureLocalPlayer();
       // El anfitrión solo puede conducir el barco asignado a esta pantalla.
       var localShip = null;
       for (var s = 0; s < activeShips.length; s++) {
@@ -2625,6 +2631,7 @@
       }
       if (localShip) {
         localShip.turnInput = localInputState.turn;
+        localShip.headingInput = localInputState.heading;
         localShip.thrustInput = localInputState.thrust;
         localShip.shootInput = localInputState.shoot;
       }
@@ -2636,8 +2643,7 @@
     keyState.right = false;
     keyState.thrust = false;
     keyState.shoot = false;
-    touchState.left = false;
-    touchState.right = false;
+    touchState.heading = null;
     touchState.thrust = false;
     touchState.shoot = false;
     updateLocalInputValues(true);
@@ -2648,6 +2654,7 @@
 
     var now = Date.now();
     var changed = (Math.abs(localInputState.turn - lastSentLocalInput.turn) > 0.05) ||
+                  (localInputState.heading !== lastSentLocalInput.heading) ||
                   (localInputState.thrust !== lastSentLocalInput.thrust) ||
                   (localInputState.shoot !== lastSentLocalInput.shoot);
 
@@ -2655,6 +2662,7 @@
     // Si NO cambió: enviar solo un latido cada 350ms (~3 Hz) para mantener viva la sesión sin saturar la red
     if (!immediate && now - lastInputSendTime < (changed ? 60 : 350)) return;
 
+    lastSentLocalInput.heading = localInputState.heading;
     lastSentLocalInput.turn = localInputState.turn;
     lastSentLocalInput.thrust = localInputState.thrust;
     lastSentLocalInput.shoot = localInputState.shoot;
@@ -2664,6 +2672,7 @@
       type: "input",
       uuid: myPlayerUUID,
       turn: localInputState.turn,
+      heading: localInputState.heading,
       thrust: localInputState.thrust,
       shoot: localInputState.shoot
     });
@@ -2895,25 +2904,26 @@
       var activeId = null;
       var knob = prop ? null : el.querySelector(".joystick-knob");
 
-      function steerCoordinate(event) { return stageRotated ? event.clientY : event.clientX; }
-
-      function move(id, x) {
+      function move(id, event) {
         if (prop || activeId !== id) return;
         var bounds = el.getBoundingClientRect();
-        var span = stageRotated ? bounds.height : bounds.width;
-        var origin = stageRotated ? bounds.top : bounds.left;
-        var limit = Math.max(12, (span - 48) / 2);
-        var offset = Math.max(-limit, Math.min(limit, x - origin - span / 2));
-        if (knob) knob.style.transform = "translate(calc(-50% + " + offset + "px), -50%)";
-        var left = offset < -8;
-        var right = offset > 8;
-        if (touchState.left === left && touchState.right === right) return;
-        touchState.left = left;
-        touchState.right = right;
-        updateLocalInputValues(true);
+        var screenX = event.clientX - bounds.left - bounds.width / 2;
+        var screenY = event.clientY - bounds.top - bounds.height / 2;
+        var x = stageRotated ? screenY : screenX;
+        var y = stageRotated ? -screenX : screenY;
+        var distance = Math.sqrt(x * x + y * y);
+        var limit = Math.max(12, (Math.min(bounds.width, bounds.height) - 44) / 2);
+        var travel = distance > limit ? limit / distance : 1;
+        if (knob) knob.style.transform = "translate(calc(-50% + " + x * travel +
+          "px), calc(-50% + " + y * travel + "px))";
+        var heading = distance > 8 ? Math.atan2(y, x) : null;
+        if (touchState.heading === heading) return;
+        var immediate = heading == null || touchState.heading == null;
+        touchState.heading = heading;
+        updateLocalInputValues(immediate);
       }
 
-      function press(id, e, x) {
+      function press(id, e, point) {
         if (activeId !== null || currentState !== STATE_ARENA) return;
         if (e.cancelable) e.preventDefault();
         activeId = id;
@@ -2922,7 +2932,7 @@
           touchState[prop] = true;
           updateLocalInputValues(true);
         } else {
-          move(id, x);
+          move(id, point);
         }
       }
 
@@ -2934,8 +2944,7 @@
         if (prop) {
           touchState[prop] = false;
         } else {
-          touchState.left = false;
-          touchState.right = false;
+          touchState.heading = null;
           if (knob) knob.style.transform = "";
         }
         updateLocalInputValues(true);
@@ -2944,24 +2953,24 @@
       if (window.PointerEvent) {
         el.addEventListener("pointerdown", function (e) {
           if (e.pointerType === "mouse" && e.button !== 0) return;
-          press(e.pointerId, e, steerCoordinate(e));
+          press(e.pointerId, e, e);
           if (activeId === e.pointerId && el.setPointerCapture) {
             try { el.setPointerCapture(e.pointerId); } catch (errCapture) {}
           }
         }, false);
-        if (!prop) el.addEventListener("pointermove", function (e) { move(e.pointerId, steerCoordinate(e)); }, false);
+        if (!prop) el.addEventListener("pointermove", function (e) { move(e.pointerId, e); }, false);
         function releasePointer(e) { release(e.pointerId, e); }
         el.addEventListener("pointerup", releasePointer, false);
         el.addEventListener("pointercancel", releasePointer, false);
         el.addEventListener("lostpointercapture", releasePointer, false);
       } else {
         el.addEventListener("touchstart", function (e) {
-          if (e.changedTouches.length) press(e.changedTouches[0].identifier, e, steerCoordinate(e.changedTouches[0]));
+          if (e.changedTouches.length) press(e.changedTouches[0].identifier, e, e.changedTouches[0]);
         }, { passive: false });
         if (!prop) el.addEventListener("touchmove", function (e) {
           for (var i = 0; i < e.changedTouches.length; i++) {
             var finger = e.changedTouches[i];
-            move(finger.identifier, steerCoordinate(finger));
+            move(finger.identifier, finger);
           }
         }, { passive: false });
         function releaseTouch(e) {
@@ -2971,8 +2980,8 @@
         }
         el.addEventListener("touchend", releaseTouch, { passive: false });
         el.addEventListener("touchcancel", releaseTouch, { passive: false });
-        el.addEventListener("mousedown", function (e) { if (e.button === 0) press("mouse", e, steerCoordinate(e)); }, false);
-        if (!prop) el.addEventListener("mousemove", function (e) { move("mouse", steerCoordinate(e)); }, false);
+        el.addEventListener("mousedown", function (e) { if (e.button === 0) press("mouse", e, e); }, false);
+        if (!prop) el.addEventListener("mousemove", function (e) { move("mouse", e); }, false);
         el.addEventListener("mouseup", function (e) { release("mouse", e); }, false);
         el.addEventListener("mouseleave", function (e) { release("mouse", e); }, false);
       }
@@ -3484,6 +3493,7 @@
       if (inSlot !== -1) {
         for (var sh = 0; sh < activeShips.length; sh++) {
           if (activeShips[sh].slot === inSlot) {
+            activeShips[sh].headingInput = typeof msg.heading === "number" && isFinite(msg.heading) ? msg.heading : null;
             activeShips[sh].turnInput = typeof msg.turn === "number" ? msg.turn : (typeof msg.t === "number" ? msg.t : 0);
             activeShips[sh].thrustInput = !!(msg.thrust || msg.th);
             activeShips[sh].shootInput = !!(msg.shoot || msg.sh);
@@ -3615,6 +3625,7 @@
       var ship = activeShips[i];
       if (ship.inputExpiresAt && now >= ship.inputExpiresAt) {
         ship.turnInput = 0;
+        ship.headingInput = null;
         ship.thrustInput = false;
         ship.shootInput = false;
         ship.inputExpiresAt = 0;
