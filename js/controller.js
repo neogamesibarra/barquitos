@@ -480,10 +480,10 @@
     if (mySlot === -1 || !window.CloudNet || !window.CloudNet.isConnected()) return;
 
     var now = Date.now();
-    var turnDiff = Math.abs(inputState.turn - lastSentInput.turn);
+    var headingChanged = inputState.heading !== lastSentInput.heading;
     var thrustDiff = inputState.thrust !== lastSentInput.thrust;
     var shootDiff = inputState.shoot !== lastSentInput.shoot;
-    var stateChanged = (turnDiff > 0.04) || thrustDiff || shootDiff;
+    var stateChanged = headingChanged || thrustDiff || shootDiff;
     var needsHeartbeat = (now - lastHeartbeatTime > 350);
 
     if (!isImmediate && !stateChanged && !needsHeartbeat) {
@@ -496,7 +496,7 @@
 
     lastSentInputTime = now;
     lastHeartbeatTime = now;
-    lastSentInput.turn = inputState.turn;
+    lastSentInput.heading = inputState.heading;
     lastSentInput.thrust = inputState.thrust;
     lastSentInput.shoot = inputState.shoot;
 
@@ -505,10 +505,9 @@
       type: 'input',
       uuid: playerUUID,
       slot: mySlot,
-      t: inputState.turn,
       th: inputState.thrust ? 1 : 0,
       sh: inputState.shoot ? 1 : 0,
-      turn: inputState.turn,
+      heading: inputState.heading,
       thrust: inputState.thrust,
       shoot: inputState.shoot,
       firePress: now - firePress < 1100 ? firePress : 0
@@ -520,26 +519,22 @@
 
     function handleSteerTouch(touch) {
       var rect = elWheelOuter.getBoundingClientRect();
-      var length = controllerRotated ? rect.height : rect.width;
-      var offset = controllerRotated ? touch.clientY - rect.top : touch.clientX - rect.left;
-      var maxDistX = Math.max(30, length / 2 - 8);
-      var deltaX = offset - length / 2;
-      var normalized = Math.max(-1, Math.min(1, deltaX / maxDistX));
-
-      // Deadzone de 0.05 y redondeo a 2 decimales
-      if (Math.abs(normalized) < 0.05) {
-        normalized = 0;
-      }
-      inputState.turn = Math.round(normalized * 100) / 100;
-
-      // Actualizar knob a 60 FPS sin saturar MQTT
-      var maxTravel = maxDistX * 0.7;
-      var knobOffset = normalized * maxTravel;
-      elWheelKnob.style.transform = "translate(" + knobOffset + "px, 0px)";
+      var screenX = touch.clientX - rect.left - rect.width / 2;
+      var screenY = touch.clientY - rect.top - rect.height / 2;
+      var x = controllerRotated ? screenY : screenX;
+      var y = controllerRotated ? -screenX : screenY;
+      var distance = Math.sqrt(x * x + y * y);
+      var limit = Math.max(6, (Math.min(rect.width, rect.height) - elWheelKnob.offsetWidth) / 2);
+      var travel = distance > limit ? limit / distance : 1;
+      var heading = distance > 7 ? Math.round(Math.atan2(y, x) * 100) / 100 : null;
+      var immediate = (heading === null) !== (inputState.heading == null);
+      inputState.heading = heading;
+      elWheelKnob.style.transform = "translate(" + x * travel + "px, " + y * travel + "px)";
+      sendInputUpdate(immediate);
     }
 
     function resetSteer() {
-      inputState.turn = 0;
+      inputState.heading = null;
       elWheelKnob.style.transform = "translate(0px, 0px)";
       touchSteerId = null;
       sendInputUpdate(true);
@@ -624,7 +619,7 @@
 
   function resetSteering() {
     touchSteerId = null;
-    inputState.turn = 0;
+    inputState.heading = null;
     if (elWheelKnob) {
       elWheelKnob.style.transform = 'translate(0px, 0px)';
     }
