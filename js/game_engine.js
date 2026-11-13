@@ -2895,11 +2895,15 @@
       var activeId = null;
       var knob = prop ? null : el.querySelector(".joystick-knob");
 
+      function steerCoordinate(event) { return stageRotated ? event.clientY : event.clientX; }
+
       function move(id, x) {
         if (prop || activeId !== id) return;
         var bounds = el.getBoundingClientRect();
-        var limit = Math.max(12, (bounds.width - 48) / 2);
-        var offset = Math.max(-limit, Math.min(limit, x - bounds.left - bounds.width / 2));
+        var span = stageRotated ? bounds.height : bounds.width;
+        var origin = stageRotated ? bounds.top : bounds.left;
+        var limit = Math.max(12, (span - 48) / 2);
+        var offset = Math.max(-limit, Math.min(limit, x - origin - span / 2));
         if (knob) knob.style.transform = "translate(calc(-50% + " + offset + "px), -50%)";
         var left = offset < -8;
         var right = offset > 8;
@@ -2940,24 +2944,24 @@
       if (window.PointerEvent) {
         el.addEventListener("pointerdown", function (e) {
           if (e.pointerType === "mouse" && e.button !== 0) return;
-          press(e.pointerId, e, e.clientX);
+          press(e.pointerId, e, steerCoordinate(e));
           if (activeId === e.pointerId && el.setPointerCapture) {
             try { el.setPointerCapture(e.pointerId); } catch (errCapture) {}
           }
         }, false);
-        if (!prop) el.addEventListener("pointermove", function (e) { move(e.pointerId, e.clientX); }, false);
+        if (!prop) el.addEventListener("pointermove", function (e) { move(e.pointerId, steerCoordinate(e)); }, false);
         function releasePointer(e) { release(e.pointerId, e); }
         el.addEventListener("pointerup", releasePointer, false);
         el.addEventListener("pointercancel", releasePointer, false);
         el.addEventListener("lostpointercapture", releasePointer, false);
       } else {
         el.addEventListener("touchstart", function (e) {
-          if (e.changedTouches.length) press(e.changedTouches[0].identifier, e, e.changedTouches[0].clientX);
+          if (e.changedTouches.length) press(e.changedTouches[0].identifier, e, steerCoordinate(e.changedTouches[0]));
         }, { passive: false });
         if (!prop) el.addEventListener("touchmove", function (e) {
           for (var i = 0; i < e.changedTouches.length; i++) {
             var finger = e.changedTouches[i];
-            move(finger.identifier, finger.clientX);
+            move(finger.identifier, steerCoordinate(finger));
           }
         }, { passive: false });
         function releaseTouch(e) {
@@ -2967,8 +2971,8 @@
         }
         el.addEventListener("touchend", releaseTouch, { passive: false });
         el.addEventListener("touchcancel", releaseTouch, { passive: false });
-        el.addEventListener("mousedown", function (e) { if (e.button === 0) press("mouse", e, e.clientX); }, false);
-        if (!prop) el.addEventListener("mousemove", function (e) { move("mouse", e.clientX); }, false);
+        el.addEventListener("mousedown", function (e) { if (e.button === 0) press("mouse", e, steerCoordinate(e)); }, false);
+        if (!prop) el.addEventListener("mousemove", function (e) { move("mouse", steerCoordinate(e)); }, false);
         el.addEventListener("mouseup", function (e) { release("mouse", e); }, false);
         el.addEventListener("mouseleave", function (e) { release("mouse", e); }, false);
       }
@@ -4399,11 +4403,13 @@
     if (startButton && startButton.disabled !== disabled) startButton.disabled = disabled;
     var notice = document.getElementById("start-player-notice");
     if (notice) {
+      var layoutChanged = false;
       var hidden = !waiting && !occupied;
-      if (notice.hidden !== hidden) notice.hidden = hidden;
+      if (notice.hidden !== hidden) { notice.hidden = hidden; layoutChanged = true; }
       var message = occupied ? "Ya hay otros jugadores en esta sala. Elige una opción multijugador." :
         "Se necesitan al menos 2 jugadores. Si vas a jugar desde aquí, pulsa «Jugar en esta pantalla».";
-      if (notice.textContent !== message) notice.textContent = message;
+      if (notice.textContent !== message) { notice.textContent = message; layoutChanged = true; }
+      if (layoutChanged && canvas) fitLobby(canvas.width, canvas.height);
     }
     // Fondo del lobby
     var grad = ctx.createLinearGradient(0, 0, 0, V_HEIGHT);
@@ -5130,10 +5136,37 @@
     if (b3) b3.className = (selectedMode === MODE_HORDE) ? "mode-btn active" : "mode-btn";
   }
 
+  var stageRotated = false;
+
+  function fitLobby(width, height) {
+    var content = document.getElementById("lobby-fit");
+    if (!content || width < 1 || height < 1) return;
+    content.style.width = Math.max(760, width) + "px";
+    if (!content.offsetHeight) return;
+    var factor = Math.min(1, width / content.offsetWidth, height / content.offsetHeight);
+    content.style.transform = "translateX(-50%) scale(" + factor + ")";
+  }
+
   function resizeCanvas() {
     if (!canvas) return;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    var viewport = window.visualViewport;
+    var width = Math.floor(viewport && viewport.width || window.innerWidth);
+    var height = Math.floor(viewport && viewport.height || window.innerHeight);
+    var stage = document.getElementById("landscape-stage");
+    var rotated = !!stage && height > width;
+    if (stageRotated !== rotated) {
+      stageRotated = rotated;
+      releaseTouchControls();
+    }
+    canvas.width = rotated ? height : width;
+    canvas.height = rotated ? width : height;
+    if (stage) {
+      stage.style.width = canvas.width + "px";
+      stage.style.height = canvas.height + "px";
+      stage.style.transform = rotated ? "translateX(" + width + "px) rotate(90deg)" : "translate(0, 0)";
+      stage.setAttribute("data-rotated", rotated ? "true" : "false");
+    }
+    fitLobby(canvas.width, canvas.height);
     scale = Math.min(canvas.width / V_WIDTH, canvas.height / V_HEIGHT);
     offsetX = (canvas.width - V_WIDTH * scale) / 2;
     offsetY = (canvas.height - V_HEIGHT * scale) / 2;
@@ -5155,6 +5188,9 @@
   }
 
   window.addEventListener("resize", resizeCanvas, false);
+  document.addEventListener("fullscreenchange", resizeCanvas, false);
+  document.addEventListener("webkitfullscreenchange", resizeCanvas, false);
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", resizeCanvas, false);
 
   function updateLobbyPermissions() {
     var canManage = !isRemoteClient || remoteSlot === 0;
@@ -5214,6 +5250,7 @@
     document.getElementById("btn-mode-teams").hidden = solo;
     document.getElementById("btn-local-player").hidden = solo || isRemoteClient;
     if (solo) requestLobbyAction("set_mode", MODE_HORDE);
+    if (canvas) fitLobby(canvas.width, canvas.height);
   }
 
   function bindLobbyButtons() {
@@ -5293,6 +5330,10 @@
     setupFullscreenButton();
     setupOnscreenControls();
     bindLobbyButtons();
+    var lobbyContent = document.getElementById("lobby-fit");
+    if (lobbyContent && window.ResizeObserver) {
+      new window.ResizeObserver(function () { fitLobby(canvas.width, canvas.height); }).observe(lobbyContent);
+    }
 
     window.requestAnimationFrame(gameLoop);
   }
