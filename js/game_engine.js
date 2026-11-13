@@ -594,8 +594,8 @@
         var gunY = Math.sin(aim);
         var latX = -gunY;
         var latY = gunX;
-        this.vx -= gunX * 180;
-        this.vy -= gunY * 180;
+        this.vx -= gunX * 260;
+        this.vy -= gunY * 260;
 
         Sound.playCannon();
         var sTeam = (selectedMode === MODE_TEAMS) ? (this.data.team || "blue") : null;
