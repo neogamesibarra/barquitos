@@ -51,13 +51,13 @@
   var currentGameState = 'lobby';
 
   var inputState = {
-    turn: 0,
+    heading: null,
     thrust: false,
     shoot: false
   };
 
   var lastSentInput = {
-    turn: 999,
+    heading: undefined,
     thrust: false,
     shoot: false
   };

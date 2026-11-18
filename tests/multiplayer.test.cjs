@@ -148,7 +148,7 @@ const controllerHooks = `
     slot: function () { return mySlot; },
     state: function () { return currentGameState; },
     hold: function () {
-      inputState.turn = 1;
+      inputState.heading = 0;
       inputState.thrust = true;
       inputState.shoot = true;
       sendInputUpdate(true);
@@ -167,10 +167,17 @@ const controllerHooks = `
   };
 `;
 
-function assertInputs(ship, active) {
-  assert.equal(ship.turnInput, active ? 1 : 0);
-  assert.equal(ship.thrustInput, active);
-  assert.equal(ship.shootInput, active);
+function assertInputs(ship, active, heading) {
+  if (active) {
+    assert.equal(ship.headingInput, heading);
+    assert.equal(ship.thrustInput, true);
+    assert.equal(ship.shootInput, true);
+  } else {
+    assert.equal(ship.headingInput, null);
+    assert.equal(ship.turnInput, 0);
+    assert.equal(ship.thrustInput, false);
+    assert.equal(ship.shootInput, false);
+  }
 }
 
 test('mando entra, pierde conexión, vuelve a la misma partida y suelta los controles', () => {
@@ -193,12 +200,12 @@ test('mando entra, pierde conexión, vuelve a la misma partida y suelta los cont
 
   const ship = game.ship(slot);
   controller.hold();
-  assertInputs(ship, true);
+  assertInputs(ship, true, 0);
   clock.now += 400;
   controller.refresh();
   clock.now += 1100;
   game.expire();
-  assertInputs(ship, true);
+  assertInputs(ship, true, 0);
 
   broker.loseController();
   clock.now += 400;
@@ -272,9 +279,9 @@ test('primer QR naranja administra la sala y los demás no cambian el modo ni re
   first.window.testController.bind();
   assert.equal(panel.style.display, 'flex');
   mode.fire('click');
-  assert.equal(game.mode(), 1);
+  assert.equal(game.mode(), 0);
   second.window.testController.action('set_mode', 2);
-  assert.equal(game.mode(), 1);
+  assert.equal(game.mode(), 0);
   start.fire('click');
   assert.equal(game.state(), 1);
   assert.equal(panel.style.display, 'none');
@@ -283,7 +290,7 @@ test('primer QR naranja administra la sala y los demás no cambian el modo ni re
   first.window.testController.action('start');
   assert.equal(game.ship(0), ship);
   first.window.testController.action('set_mode', 2);
-  assert.equal(game.mode(), 1);
+  assert.equal(game.mode(), 0);
 });
 
 for (const pointerEvents of [true, false]) {
@@ -297,7 +304,7 @@ for (const pointerEvents of [true, false]) {
     const controls = host.element('onscreen-touch-controls');
     const left = host.element('touch-joystick');
     left.querySelector = () => null;
-    left.getBoundingClientRect = () => ({ left: 0, width: 140 });
+    left.getBoundingClientRect = () => ({ left: 0, top: 0, width: 140, height: 140 });
     const thrust = host.element('touch-thrust');
     const shoot = host.element('touch-shoot');
     const game = host.window.testGame;
@@ -316,13 +323,13 @@ for (const pointerEvents of [true, false]) {
     const local = game.ship(1);
     const orange = game.ship(0);
     const down = (button, id) => button.fire(pointerEvents ? 'pointerdown' : 'touchstart',
-      pointerEvents ? { pointerId: id, pointerType: 'touch', clientX: 20 } : { changedTouches: [{ identifier: id, clientX: 20 }] });
+      pointerEvents ? { pointerId: id, pointerType: 'touch', clientX: 20, clientY: 70 } : { changedTouches: [{ identifier: id, clientX: 20, clientY: 70 }] });
     const up = (button, id) => button.fire(pointerEvents ? 'pointerup' : 'touchend',
       pointerEvents ? { pointerId: id } : { changedTouches: [{ identifier: id }] });
     down(left, 11);
     down(thrust, 22);
     down(shoot, 33);
-    assert.equal(local.turnInput, -1);
+    assert.ok(Math.abs(local.headingInput - Math.PI) < 1e-9);
     assert.equal(local.thrustInput, true);
     assert.equal(local.shootInput, true);
     assertInputs(orange, false);
@@ -332,11 +339,11 @@ for (const pointerEvents of [true, false]) {
     assert.equal(local.thrustInput, false);
     assert.equal(local.shootInput, true);
     left.fire(pointerEvents ? 'pointermove' : 'touchmove', pointerEvents
-      ? { pointerId: 11, clientX: 120 }
-      : { changedTouches: [{ identifier: 11, clientX: 120 }] });
-    assert.equal(local.turnInput, 1);
+      ? { pointerId: 11, clientX: 120, clientY: 70 }
+      : { changedTouches: [{ identifier: 11, clientX: 120, clientY: 70 }] });
+    assert.equal(local.headingInput, 0);
     up(left, 11);
-    assert.equal(local.turnInput, 0);
+    assert.equal(local.headingInput, null);
     host.windowEvents.get('blur')();
     assertInputs(local, false);
     down(thrust, 44);
@@ -455,12 +462,12 @@ test('cada jefe mejora una sola vez el casco de toda la flota y permite rescatar
   const local = game.ship(1);
   const orange = game.ship(0);
   assert.equal(game.defeatBoss(10).fleetRank, 1);
-  assert.equal(local.maxHealth, 4);
-  assert.equal(orange.maxHealth, 4);
+  assert.equal(local.maxHealth, 3.5);
+  assert.equal(orange.maxHealth, 3.5);
   const secondBoss = game.defeatBoss(20);
   assert.equal(secondBoss.rank, 2);
   assert.equal(secondBoss.fleetRank, 2);
-  assert.equal(local.maxHealth, 5);
+  assert.equal(local.maxHealth, 4);
   orange.die();
   local.x = orange.x;
   local.y = orange.y;

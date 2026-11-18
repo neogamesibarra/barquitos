@@ -476,6 +476,7 @@
     this.ramCooldown = 0;
     this.kills = 0;
     this.turnInput = 0;
+    this.headingInput = null;
     this.thrustInput = false;
     this.shootInput = false;
     this.rescueTime = 0;
