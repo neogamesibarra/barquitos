@@ -2396,6 +2396,17 @@
     window.CloudNet.broadcastState(syncPayload);
   }
 
+  var SYNC_MAX_COORD = 20000;
+
+  function syncNum(value, min, max, fallback) {
+    if (typeof value !== "number" || !isFinite(value)) return fallback;
+    return value < min ? min : (value > max ? max : value);
+  }
+
+  function syncCoord(value) {
+    return syncNum(value, -SYNC_MAX_COORD, SYNC_MAX_COORD, 0);
+  }
+
   function applyClientSync(msg) {
     if (msg && typeof msg.swellTime === "number" && isFinite(msg.swellTime)) waveAnim = msg.swellTime;
     if (!isRemoteClient || !msg) return;
@@ -2412,19 +2423,28 @@
     } else if (msg.st === "lobby") {
       currentState = STATE_LOBBY;
     }
-    selectedMode = msg.m;
-    currentRound = msg.r;
-    currentWave = msg.w || 1;
-    countdownTime = msg.cd;
-    roundTimer = msg.rt;
+    selectedMode = syncNum(msg.m, 0, 2, selectedMode);
+    currentRound = syncNum(msg.r, 0, 999, currentRound);
+    currentWave = syncNum(msg.w, 1, 9999, 1);
+    countdownTime = syncNum(msg.cd, 0, 60, 0);
+    roundTimer = syncNum(msg.rt, 0, 86400, 0);
     updateLobbyModeUI();
-    if (msg.ts) teamScores = msg.ts;
+    if (msg.ts) {
+      teamScores.blue = syncNum(msg.ts.blue, 0, 999999, 0);
+      teamScores.red = syncNum(msg.ts.red, 0, 999999, 0);
+    }
     if (msg.psc && msg.psc.length) {
-      for (var pi = 0; pi < msg.psc.length; pi++) {
-        if (playersData[pi]) playersData[pi].score = msg.psc[pi];
+      for (var pi = 0; pi < msg.psc.length && pi < playersData.length; pi++) {
+        playersData[pi].score = syncNum(msg.psc[pi], 0, 999999, 0);
       }
     }
-    if (msg.up) hordeUpgrades = msg.up;
+    if (msg.up) {
+      hordeUpgrades.weaponLevel = syncNum(msg.up.weaponLevel, 1, 9, 1);
+      hordeUpgrades.maxAmmo = syncNum(msg.up.maxAmmo, 1, 99, 3);
+      hordeUpgrades.maxHealth = syncNum(msg.up.maxHealth, 1, 99, 3);
+      hordeUpgrades.fleetRank = syncNum(msg.up.fleetRank, 0, 99, 0);
+      hordeUpgrades.repairs = syncNum(msg.up.repairs, 0, 999, 0);
+    }
     roundWinner = msg.rw ? { name: msg.rw, hull: "#ffca28" } : null;
     matchWinner = msg.mw ? { name: msg.mw, hull: "#ffd700" } : null;
 
@@ -2443,7 +2463,10 @@
       var syncedSlots = {};
       for (var i = 0; i < msg.sh.length; i++) {
         var item = msg.sh[i];
-        var slot = item[0];
+        // El slot debe ser un puesto real: un índice arbitrario crearía
+        // barcos fantasma y corrompería los marcadores.
+        var slot = syncNum(item[0], 0, playersData.length - 1, -1);
+        if (slot !== Math.floor(slot)) continue;
         syncedSlots[slot] = true;
         var ship = null;
         for (var s = 0; s < activeShips.length; s++) {
@@ -2452,15 +2475,18 @@
             break;
           }
         }
+        // Sanear antes de crear: el constructor copia x, y y rotación tal cual.
+        var shipX = syncCoord(item[1]);
+        var shipY = syncCoord(item[2]);
         if (!ship) {
-          ship = new Ship(slot, item[1], item[2], item[3]);
+          ship = new Ship(slot, shipX, shipY, syncNum(item[3], -1000, 1000, 0));
           activeShips.push(ship);
         }
-        ship.targetX = item[1];
-        ship.targetY = item[2];
-        ship.targetAngle = item[3];
+        ship.targetX = shipX;
+        ship.targetY = shipY;
+        ship.targetAngle = syncNum(item[3], -1000, 1000, ship.rotation);
         if (typeof item[13] === "number") {
-          ship.remoteSpeed = item[13];
+          ship.remoteSpeed = syncNum(item[13], 0, 2000, 80);
         }
 
         var distSq = (ship.x - ship.targetX) * (ship.x - ship.targetX) + (ship.y - ship.targetY) * (ship.y - ship.targetY);
@@ -2470,11 +2496,11 @@
           ship.rotation = ship.targetAngle;
         }
 
-        ship.health = item[4];
-        ship.maxHealth = item[5];
-        ship.ammo = item[6];
+        ship.maxHealth = syncNum(item[5], 1, 999, 3);
+        ship.health = syncNum(item[4], 0, ship.maxHealth, 0);
+        ship.ammo = syncNum(item[6], 0, 999, 0);
         ship.isAlive = (item[7] === 1);
-        ship.rescueTime = item[15] || 0;
+        ship.rescueTime = syncNum(item[15], 0, 60, 0);
         if (ship.data) {
           ship.data.team = item[8];
           if (item[9]) ship.data.name = item[9];
@@ -2483,8 +2509,9 @@
         ship.isRamming = (item[11] === 1);
         if (item[12] === 1) ship.flashTimer = 0.2;
         if (typeof item[14] === "number") {
-          if (ship.data) ship.data.score = item[14];
-          if (playersData[slot]) playersData[slot].score = item[14];
+          var syncedScore = syncNum(item[14], 0, 999999, 0);
+          if (ship.data) ship.data.score = syncedScore;
+          if (playersData[slot]) playersData[slot].score = syncedScore;
         }
       }
       for (var shipIndex = activeShips.length - 1; shipIndex >= 0; shipIndex--) {
@@ -2497,13 +2524,17 @@
     for (var b = 0; b < remoteBalls.length; b++) {
       var bItem = remoteBalls[b];
       var ball = cannonballs[b];
+      var bX = syncCoord(bItem[0]);
+      var bY = syncCoord(bItem[1]);
+      var bDx = syncNum(bItem[2], -5000, 5000, 0);
+      var bDy = syncNum(bItem[3], -5000, 5000, 0);
       if (!ball) {
-        cannonballs.push(new Cannonball(bItem[0], bItem[1], bItem[2], bItem[3], 0, bItem[4] === 1, bItem[6] === 1 ? 2 : 1, bItem[5]));
+        cannonballs.push(new Cannonball(bX, bY, bDx, bDy, 0, bItem[4] === 1, bItem[6] === 1 ? 2 : 1, bItem[5]));
       } else {
-        ball.x = bItem[0];
-        ball.y = bItem[1];
-        ball.dx = bItem[2];
-        ball.dy = bItem[3];
+        ball.x = bX;
+        ball.y = bY;
+        ball.dx = bDx;
+        ball.dy = bDy;
         ball.isPirate = (bItem[4] === 1);
         ball.shooterTeam = bItem[5];
         ball.isBossShot = bItem[6] === 1;
@@ -2522,11 +2553,11 @@
       for (var p = 0; p < msg.pi.length; p++) {
         var pItem = msg.pi[p];
         var ps = pirateShips[p];
-        ps.x = pItem[0];
-        ps.y = pItem[1];
-        ps.rotation = pItem[2];
-        ps.health = pItem[3];
-        ps.maxHealth = pItem[4];
+        ps.x = syncCoord(pItem[0]);
+        ps.y = syncCoord(pItem[1]);
+        ps.rotation = syncNum(pItem[2], -1000, 1000, 0);
+        ps.maxHealth = syncNum(pItem[4], 1, 9999, 1);
+        ps.health = syncNum(pItem[3], 0, ps.maxHealth, 0);
         ps.isAlive = true;
         if (pItem[5] === 1) ps.flashTimer = 0.2;
       }
@@ -2539,11 +2570,11 @@
       if (!bossGalleon || bossGalleon.wave !== currentWave) {
         bossGalleon = new BossGalleon(msg.bo[0], msg.bo[1], currentWave);
       }
-      bossGalleon.x = msg.bo[0];
-      bossGalleon.y = msg.bo[1];
-      bossGalleon.rotation = msg.bo[2];
-      bossGalleon.health = msg.bo[3];
-      bossGalleon.maxHealth = msg.bo[4];
+      bossGalleon.x = syncCoord(msg.bo[0]);
+      bossGalleon.y = syncCoord(msg.bo[1]);
+      bossGalleon.rotation = syncNum(msg.bo[2], -1000, 1000, 0);
+      bossGalleon.maxHealth = syncNum(msg.bo[4], 1, 99999, 1);
+      bossGalleon.health = syncNum(msg.bo[3], 0, bossGalleon.maxHealth, 0);
       bossGalleon.isAlive = true;
       bossGalleon.warning = msg.bo[6] || 0;
       if (msg.bo[5] === 1) bossGalleon.flashTimer = 0.2;
@@ -2558,9 +2589,9 @@
       for (var c = 0; c < msg.cr.length; c++) {
         var cItem = msg.cr[c];
         if (cItem[2] === -1) {
-          ammoCrates.push(new AmmoCrate(cItem[0], cItem[1]));
-        } else {
-          hordePowerups.push(new HordePowerup(cItem[0], cItem[1], cItem[2]));
+          ammoCrates.push(new AmmoCrate(syncCoord(cItem[0]), syncCoord(cItem[1])));
+        } else if (syncNum(cItem[2], 0, 4, -1) !== -1) {
+          hordePowerups.push(new HordePowerup(syncCoord(cItem[0]), syncCoord(cItem[1]), syncNum(cItem[2], 0, 4, 0)));
         }
       }
     }
@@ -3432,18 +3463,54 @@
     }
   }
 
+  // ==========================================================================
+  // VALIDACIÓN DE MENSAJES DE CLIENTES
+  // El anfitrión es la autoridad del juego. Todo dato que llega por MQTT es
+  // entrada no confiable: un mando puede enviar números absurdos, nombres con
+  // caracteres de control o suplantar a otro jugador con msg.slot.
+  // ==========================================================================
+  var MAX_NAME_LEN = 12;
+  var UUID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+  var INPUT_MIN_INTERVAL_MS = 15;
+
+  function sanitizeNickname(value) {
+    if (typeof value !== "string") return "";
+    var clean = value.replace(/[\u0000-\u001F\u007F]/g, "").replace(/\s+/g, " ").trim();
+    return clean.substring(0, MAX_NAME_LEN);
+  }
+
+  function sanitizeUuid(value) {
+    return (typeof value === "string" && UUID_RE.test(value)) ? value : "";
+  }
+
+  // El slot SIEMPRE se resuelve por uuid, nunca por el número que manda el
+  // cliente: msg.slot es falsificable y permitía manejar a otros jugadores.
+  function slotForUuid(uuid) {
+    if (!uuid) return -1;
+    for (var i = 0; i < playersData.length; i++) {
+      if (playersData[i].uuid === uuid && playersData[i].connected) return i;
+    }
+    return -1;
+  }
+
+  function clampNum(value, min, max, fallback) {
+    if (typeof value !== "number" || !isFinite(value)) return fallback;
+    return value < min ? min : (value > max ? max : value);
+  }
+
   function handleIncomingMessage(msg) {
     if (!msg || !msg.type) return;
 
     if (msg.type === "join" || msg.type === "rejoin") {
       if (playMenuChoice === "solo" && currentState === STATE_ARENA) return;
-      var uuid = msg.uuid;
+      var uuid = sanitizeUuid(msg.uuid);
       if (!uuid) return;
 
       var slot = -1;
       if (uuidToSlot[uuid] !== undefined) {
         slot = uuidToSlot[uuid];
       }
+      if (slot < 0 || slot >= playersData.length) slot = -1;
 
       if (slot === -1) {
         // El primer mando ocupa el naranja. La pantalla local usa otro puesto.
@@ -3463,10 +3530,8 @@
       }
 
       playersData[slot].connected = true;
-      if (msg.name && typeof msg.name === "string") {
-        var jName = msg.name.trim().substring(0, 12);
-        if (jName.length > 0) playersData[slot].customName = jName;
-      }
+      var jName = sanitizeNickname(msg.name);
+      if (jName.length > 0) playersData[slot].customName = jName;
       if (msg.team && (msg.team === "red" || msg.team === "blue")) {
         playersData[slot].team = msg.team;
       }
@@ -3515,31 +3580,22 @@
       }
       updateLobbyShips();
     } else if (msg.type === "set_name") {
-      var sSlot = (typeof msg.slot === "number") ? msg.slot : -1;
-      if (sSlot >= 0 && sSlot < playersData.length) {
-        if (msg.name && typeof msg.name === "string") {
-          var cleanName = msg.name.trim().substring(0, 12);
-          if (cleanName.length > 0) {
-            playersData[sSlot].customName = cleanName;
-            for (var sn = 0; sn < activeShips.length; sn++) {
-              if (activeShips[sn].slot === sSlot) {
-                activeShips[sn].data.customName = cleanName;
-                break;
-              }
-            }
+      var sSlot = slotForUuid(sanitizeUuid(msg.uuid));
+      var cleanName = sanitizeNickname(msg.name);
+      if (sSlot !== -1 && cleanName.length > 0) {
+        playersData[sSlot].customName = cleanName;
+        for (var sn = 0; sn < activeShips.length; sn++) {
+          if (activeShips[sn].slot === sSlot) {
+            activeShips[sn].data.customName = cleanName;
+            break;
           }
         }
       }
     } else if (msg.type === "set_team") {
-      // Buscar slot por uuid primero, luego por msg.slot como fallback
-      var tSlot = -1;
-      if (msg.uuid) {
-        for (var tu = 0; tu < playersData.length; tu++) {
-          if (playersData[tu].uuid === msg.uuid) { tSlot = playersData[tu].slot; break; }
-        }
-      }
-      if (tSlot < 0 && typeof msg.slot === "number") tSlot = msg.slot;
-      if (tSlot >= 0 && tSlot < playersData.length) {
+      // Igual que el apodo: sin uuid propio no se cambia de equipo. El
+      // fallback anterior a msg.slot permitía mover a otro jugador de equipo.
+      var tSlot = slotForUuid(sanitizeUuid(msg.uuid));
+      if (tSlot !== -1 && (msg.team === "red" || msg.team === "blue")) {
         var tm = (msg.team === "red") ? "red" : "blue";
         playersData[tSlot].team = tm;
         for (var st = 0; st < activeShips.length; st++) {
@@ -3555,31 +3611,39 @@
         }
       }
     } else if (msg.type === "input") {
-      var inSlot = -1;
-      for (var p = 0; p < playersData.length; p++) {
-        if (playersData[p].uuid === msg.uuid) {
-          inSlot = playersData[p].slot;
-          break;
-        }
-      }
+      var inSlot = slotForUuid(sanitizeUuid(msg.uuid));
 
       if (inSlot !== -1) {
+        // Limitar la frecuencia evita que un mando saturado o malicioso
+        // consuma la CPU del anfitrión con miles de mensajes por segundo.
+        var nowInput = Date.now();
+        if (nowInput - (playersData[inSlot].lastInputAt || 0) < INPUT_MIN_INTERVAL_MS) return;
+        playersData[inSlot].lastInputAt = nowInput;
+
         for (var sh = 0; sh < activeShips.length; sh++) {
-          if (activeShips[sh].slot === inSlot) {
-            activeShips[sh].headingInput = typeof msg.heading === "number" && isFinite(msg.heading) ? msg.heading : null;
-            activeShips[sh].turnInput = typeof msg.turn === "number" ? msg.turn : (typeof msg.t === "number" ? msg.t : 0);
-            activeShips[sh].thrustInput = !!(msg.thrust || msg.th);
-            var firePress = msg.firePress;
-            if (typeof firePress === "number" && isFinite(firePress) && firePress > (playersData[inSlot].lastFirePress || 0)) {
-              playersData[inSlot].lastFirePress = firePress;
-              if (currentState === STATE_ARENA && activeShips[sh].isAlive) activeShips[sh].shotBuffer = 0.8;
-            } else if (typeof firePress !== "number" && (msg.shoot || msg.sh) && !activeShips[sh].shootInput) {
-              activeShips[sh].shotBuffer = 0.8;
-            }
-            activeShips[sh].shootInput = !!(msg.shoot || msg.sh);
-            activeShips[sh].inputExpiresAt = Date.now() + REMOTE_INPUT_TIMEOUT_MS;
-            break;
+          var inputShip = activeShips[sh];
+          if (inputShip.slot !== inSlot) continue;
+
+          var rawHeading = msg.heading;
+          // Un rumbo válido es un número; se normaliza a [0, 2π).
+          inputShip.headingInput = (typeof rawHeading === "number" && isFinite(rawHeading))
+            ? ((rawHeading % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)
+            : null;
+          var rawTurn = (typeof msg.turn === "number") ? msg.turn : (typeof msg.t === "number" ? msg.t : 0);
+          inputShip.turnInput = clampNum(rawTurn, -1, 1, 0);
+          inputShip.thrustInput = !!(msg.thrust || msg.th);
+          var firePress = msg.firePress;
+          // Un firePress en el futuro bloquearía todos los disparos posteriores.
+          if (typeof firePress === "number" && isFinite(firePress) &&
+              firePress > (playersData[inSlot].lastFirePress || 0) && firePress <= nowInput + 2000) {
+            playersData[inSlot].lastFirePress = firePress;
+            if (currentState === STATE_ARENA && inputShip.isAlive) inputShip.shotBuffer = 0.8;
+          } else if (typeof firePress !== "number" && (msg.shoot || msg.sh) && !inputShip.shootInput) {
+            inputShip.shotBuffer = 0.8;
           }
+          inputShip.shootInput = !!(msg.shoot || msg.sh);
+          inputShip.inputExpiresAt = nowInput + REMOTE_INPUT_TIMEOUT_MS;
+          break;
         }
       }
     } else if (msg.type === "host_action") {

@@ -157,6 +157,17 @@ const engineHooks = `
     winner: function (name) { roundWinner = name ? { name: name } : null; },
     snapshot: function () { broadcastGameState(); },
     visibleWinner: function () { return roundWinner && roundWinner.name; },
+    name: function (slot) { return playersData[slot].customName; },
+    team: function (slot) { return playersData[slot].team; },
+    raw: function (uuid, payload) {
+      window.CloudNet.sendToHost(Object.assign({ uuid: uuid }, payload));
+    },
+    uuidOf: function (slot) { return playersData[slot].uuid; },
+    teamScore: function (side) { return teamScores[side]; },
+    applySync: applyClientSync,
+    shipOf: function (slot) {
+      return activeShips.filter(function (ship) { return ship.slot === slot; })[0];
+    },
     inviteUrl: function () {
       var captured = null;
       window.drawQRCodeToCanvas = function (canvas, url) { captured = url; };
@@ -405,6 +416,9 @@ test('jugador online táctil usa su barco y sus botones solicitan cambios al anf
   assert.equal(controls.style.display, 'flex');
   shoot.fire('pointerdown', { pointerId: 1 });
   assert.equal(game.ship(0).shootInput, true);
+  // El límite de frecuencia del anfitrión exige que el reloj avance, como
+  // ocurre entre dos toques reales.
+  clock.now += 100;
   shoot.fire('pointercancel', { pointerId: 1 });
   assert.equal(game.ship(0).shootInput, false);
 });
@@ -486,6 +500,90 @@ test('si el broker principal cae la sala cambia de servidor y el enlace lleva es
   const url = game.inviteUrl();
   assert.ok(url.indexOf('room=TEST') !== -1);
   assert.ok(url.indexOf('b=emqx') !== -1);
+});
+
+test('un mando no puede renombrar ni cambiar de equipo a otro jugador', () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const host = browser(broker, clock);
+  const first = browser(broker, clock);
+  const second = browser(broker, clock);
+  host.load('game_engine.js', engineHooks);
+  first.load('controller.js', controllerHooks);
+  second.load('controller.js', controllerHooks);
+  const game = host.window.testGame;
+  game.host();
+  first.window.testController.join();
+  first.flushTimers();
+  second.window.testController.join();
+  second.flushTimers();
+  const firstUuid = game.uuidOf(0);
+  const secondUuid = game.uuidOf(1);
+
+  // El segundo jugador intenta renombrar al primero usando su propio uuid.
+  game.raw(secondUuid, { type: 'set_name', slot: 0, name: 'IMPOSTOR' });
+  assert.notEqual(game.name(0), 'IMPOSTOR');
+
+  // Y también intenta moverlo de equipo.
+  game.raw(secondUuid, { type: 'set_team', slot: 0, team: 'red' });
+  assert.notEqual(game.team(0), 'red');
+
+  // Cada jugador sí puede cambiar lo suyo.
+  game.raw(firstUuid, { type: 'set_name', name: 'Capitana' });
+  assert.equal(game.name(0), 'Capitana');
+});
+
+test('el anfitrión descarta datos absurdos y nombres con caracteres de control', () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const host = browser(broker, clock);
+  const phone = browser(broker, clock);
+  host.load('game_engine.js', engineHooks);
+  phone.load('controller.js', controllerHooks);
+  const game = host.window.testGame;
+  game.host();
+  phone.window.testController.join();
+  phone.flushTimers();
+  const uuid = game.uuidOf(0);
+
+  game.raw(uuid, { type: 'set_name', name: '  Ca\u0000pi\u001Ftán   Largo   ' });
+  assert.equal(game.name(0), 'Capitán Larg');
+
+  const ship = game.shipOf(0);
+  game.raw(uuid, {
+    type: 'input', heading: 1e9, turn: 9999,
+    thrust: 1, shoot: 'sí', firePress: clock.now + 9e9
+  });
+  assert.ok(ship.headingInput >= 0 && ship.headingInput < Math.PI * 2);
+  assert.equal(ship.turnInput, 1);
+  assert.equal(ship.thrustInput, true);
+  assert.equal(ship.shootInput, true);
+});
+
+test('la vista remota acota lo que publica cualquiera en el broker público', () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const viewer = browser(broker, clock);
+  viewer.load('game_engine.js', engineHooks);
+  const remote = viewer.window.testGame;
+  remote.view();
+
+  remote.applySync({
+    swellTime: 1, st: 1, m: 99, r: 1e9, w: 1e9, cd: 1e9, rt: -5,
+    ts: { blue: 1e12, red: -3 }, up: { weaponLevel: 1e9, maxAmmo: 1e9, maxHealth: 1e9, fleetRank: -1, repairs: 1e9 },
+    sh: [[0, 1e12, -1e12, 1e7, 1e9, 1e9, 1e9, 1, 'blue', 'X', '', 0, 0, 1e9, 1e12, 1e9]],
+    cb: [[1e12, -1e12, 1e9, -1e9, 0, 'blue', 0]],
+    pi: [[1e12, -1e12, 1e7, 1e9, 1e9, 0]],
+    bo: null,
+    cr: [[1e12, -1e12, 99]]
+  });
+
+  assert.equal(remote.mode(), 2);
+  assert.ok(remote.teamScore('blue') <= 999999);
+  assert.ok(remote.teamScore('red') >= 0);
+  const ship = remote.shipOf(0);
+  assert.ok(Math.abs(ship.targetX) <= 20000);
+  assert.ok(ship.health >= 0 && ship.health <= ship.maxHealth);
 });
 
 test('cada jefe mejora una sola vez el casco de toda la flota y permite rescatar aliados', () => {
