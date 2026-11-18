@@ -58,6 +58,24 @@ function createBroker() {
   };
 }
 
+function createFlakyBroker(failures) {
+  const base = createBroker();
+  const OriginalClient = base.MQTT.Client;
+  base.MQTT.Client = function (...args) {
+    OriginalClient.apply(this, args);
+    const realConnect = this.connect;
+    this.connect = options => {
+      if (failures > 0) {
+        failures--;
+        options.onFailure({ errorMessage: 'broker caido' });
+        return;
+      }
+      realConnect(options);
+    };
+  };
+  return base;
+}
+
 function browser(broker, clock, touch = false, pointerEvents = true) {
   const elements = new Map();
   const windowEvents = new Map();
@@ -138,7 +156,13 @@ const engineHooks = `
     visibility: updateTouchControlsVisibility,
     winner: function (name) { roundWinner = name ? { name: name } : null; },
     snapshot: function () { broadcastGameState(); },
-    visibleWinner: function () { return roundWinner && roundWinner.name; }
+    visibleWinner: function () { return roundWinner && roundWinner.name; },
+    inviteUrl: function () {
+      var captured = null;
+      window.drawQRCodeToCanvas = function (canvas, url) { captured = url; };
+      generateLobbyQR();
+      return captured;
+    }
   };
 `;
 
@@ -444,6 +468,24 @@ test('en Horda online la pantalla móvil no añade un barco sin jugador', () => 
   game.start();
   assert.equal(game.ships(), 1);
   assert.equal(game.localSlot(), -1);
+});
+
+test('si el broker principal cae la sala cambia de servidor y el enlace lleva ese broker', () => {
+  const broker = createFlakyBroker(3);
+  const clock = { now: 10000 };
+  const host = browser(broker, clock);
+  host.load('game_engine.js', engineHooks);
+  const game = host.window.testGame;
+  host.element('qr-canvas');
+  game.host();
+  assert.equal(host.window.CloudNet.isConnected(), false);
+  for (let attempt = 0; attempt < 6; attempt++) host.flushTimers();
+  assert.equal(host.window.CloudNet.isConnected(), true);
+  assert.equal(host.window.CloudNet.getCurrentBrokerIdx(), 1);
+  assert.equal(host.window.CloudNet.getBrokerParam(), 'emqx');
+  const url = game.inviteUrl();
+  assert.ok(url.indexOf('room=TEST') !== -1);
+  assert.ok(url.indexOf('b=emqx') !== -1);
 });
 
 test('cada jefe mejora una sola vez el casco de toda la flota y permite rescatar aliados', () => {

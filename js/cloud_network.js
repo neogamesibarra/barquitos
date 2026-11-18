@@ -80,7 +80,13 @@
     client.onConnectionLost = function (responseObject) {
       isConnected = false;
       var errReason = (responseObject && responseObject.errorMessage) ? responseObject.errorMessage : 'Conexión interrumpida';
-      if (onStatusCb) onStatusCb('offline', 'Conexión perdida (' + errReason + '). Reconectando...');
+      // Una caida ya establecida tambien cuenta: si el broker muere de verdad,
+      // reintentar contra el mismo servidor en bucle no recupera la partida.
+      if (noteFailure()) {
+        if (onStatusCb) onStatusCb('offline', 'Conexión perdida (' + errReason + '). Buscando otro servidor...');
+      } else if (onStatusCb) {
+        onStatusCb('offline', 'Conexión perdida (' + errReason + '). Reconectando...');
+      }
       scheduleReconnect(broker.host);
     };
 
@@ -160,19 +166,28 @@
     }, 1200);
   }
 
+  // Registra un fallo y cambia de broker si la racha llega al limite.
+  // Devuelve true cuando efectivamente se cambio de servidor: ambos extremos
+  // de la sala avanzan en el mismo orden, asi que tienden a reencontrarse.
+  function noteFailure() {
+    consecutiveFailures++;
+    if (consecutiveFailures < 3) return false;
+    currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
+    consecutiveFailures = 0;
+    brokerLocked = false;
+    return true;
+  }
+
   function handleConnectionError(errMsg) {
     if (fallbackTimeout) {
       clearTimeout(fallbackTimeout);
       fallbackTimeout = null;
     }
-    consecutiveFailures++;
-    // Solo alternar de broker si la conexión inicial jamás se estableció y no hay sala activa bloqueada
-    if (!brokerLocked && !activeRoom && consecutiveFailures >= 3) {
-      currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
-      consecutiveFailures = 0;
+    if (noteFailure()) {
+      if (onStatusCb) onStatusCb('connecting', 'Cambiando a ' + BROKERS[currentBrokerIdx].host + '...');
+    } else if (onStatusCb) {
+      onStatusCb('connecting', 'Reintentando con ' + BROKERS[currentBrokerIdx].host + ' (' + errMsg + ')...');
     }
-    var nextBroker = BROKERS[currentBrokerIdx];
-    if (onStatusCb) onStatusCb('connecting', 'Reintentando con ' + nextBroker.host + ' (' + errMsg + ')...');
     fallbackTimeout = setTimeout(function () {
       fallbackTimeout = null;
       connect(savedCallbacks);
@@ -260,6 +275,11 @@
 
     getCurrentBrokerIdx: function () {
       return currentBrokerIdx;
+    },
+
+    // Identificador corto del broker actual para enlaces de invitacion (?b=)
+    getBrokerParam: function () {
+      return currentBrokerIdx === 1 ? 'emqx' : 'hivemq';
     },
 
     getCurrentBrokerHost: function () {

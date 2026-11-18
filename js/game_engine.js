@@ -3341,7 +3341,7 @@
     if (baseHref.indexOf("/controller.html") !== -1) {
       baseHref = baseHref.replace("/controller.html", "/index.html");
     }
-    var onlineInviteUrl = baseHref + "?sala=" + currentRoomCode;
+    var onlineInviteUrl = withBrokerParam(baseHref + "?sala=" + currentRoomCode);
 
     var btnCopy = document.getElementById("btn-copy-invite");
     var copyFeed = document.getElementById("copy-feedback");
@@ -3614,6 +3614,15 @@
     }
   }
 
+  // Cuelga el broker activo del enlace para que el invitado llegue al mismo
+  // servidor que el anfitrion. Sin esto, si el anfitrion cayo al broker de
+  // respaldo, sus invitados se conectaban al principal y nunca se veian.
+  function withBrokerParam(url) {
+    if (!window.CloudNet || !window.CloudNet.getBrokerParam) return url;
+    var sep = url.indexOf("?") === -1 ? "?" : "&";
+    return url + sep + "b=" + window.CloudNet.getBrokerParam();
+  }
+
   function generateLobbyQR() {
     var qrCanvas = document.getElementById("qr-canvas");
     if (qrCanvas && window.drawQRCodeToCanvas) {
@@ -3628,6 +3637,7 @@
         controllerUrl = location.protocol + "//" + location.host + path.replace(/\/+$/, "") + "/controller.html";
       }
       controllerUrl += "?room=" + encodeURIComponent(currentRoomCode);
+      controllerUrl = withBrokerParam(controllerUrl);
 
       window.drawQRCodeToCanvas(qrCanvas, controllerUrl, 230);
       var matchQR = document.getElementById("match-qr-canvas");
