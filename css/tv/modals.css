@@ -1,0 +1,203 @@
+/* Modal de Unirse a Sala Online */
+.join-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 17, 28, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+
+}
+
+.join-modal-box {
+  background: var(--lobby-panel);
+  border: 3px solid var(--color-accent);
+  box-shadow: 0 8px 0 #071d2d;
+  border-radius: 16px;
+  padding: 24px;
+  width: 90%;
+  max-width: 440px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.join-modal-box h2 {
+  color: var(--color-accent);
+  font-size: 22px;
+  margin: 0 0 10px 0;
+  font-weight: 900;
+}
+
+.join-modal-box p {
+  color: var(--color-muted);
+  font-size: 13px;
+  margin: 0 0 16px 0;
+  line-height: 1.4;
+}
+
+.join-modal-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1e293b;
+  border: 2px solid #334155;
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--color-text);
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: var(--space-md);
+  outline: none;
+  text-transform: uppercase;
+}
+
+.join-modal-input.nickname {
+  text-transform: none;
+  font-size: 15px;
+  font-weight: normal;
+}
+
+.join-modal-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
+}
+
+.join-team-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.join-team-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.join-team-btn.blue {
+  background: #1e3a8a;
+  color: #93c5fd;
+  border-color: #3b82f6;
+}
+
+.join-team-btn.blue.active {
+  background: #2563eb;
+  color: var(--color-text);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+}
+
+.join-team-btn.red {
+  background: #7f1d1d;
+  color: #fca5a5;
+  border-color: #ef4444;
+}
+
+.join-team-btn.red.active {
+  background: #dc2626;
+  color: var(--color-text);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+}
+
+.join-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: 14px;
+}
+
+.join-modal-btn {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 800;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 150ms ease;
+  box-sizing: border-box;
+}
+
+.join-modal-btn.confirm {
+  background: #27ae60;
+  border: 2px solid #2ecc71;
+  color: var(--color-text);
+}
+
+.join-modal-btn.confirm:hover {
+  background: #2ecc71;
+  box-shadow: 0 0 12px rgba(46, 204, 113, 0.6);
+}
+
+.join-modal-btn.screen {
+  background: #0284c7;
+  border: 2px solid #38bdf8;
+  color: var(--color-text);
+}
+
+.join-modal-btn.screen:hover {
+  background: #0369a1;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+}
+
+.join-modal-btn.cancel {
+  background: #37474f;
+  border: 2px solid #546e7a;
+  color: #cfd8dc;
+}
+
+.join-modal-btn.cancel:hover {
+  background: #455a64;
+}
+
+.podium-actions {
+  position: fixed;
+  bottom: 18px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 0 4%;
+  z-index: 650;
+}
+
+@media (max-width: 600px) {
+  .podium-actions {
+    bottom: 12px;
+    padding: 0 10px;
+    box-sizing: border-box;
+  }
+
+  .podium-actions .online-btn {
+    min-height: 44px;
+    font-size: 12px;
+  }
+}
+
+.podium-actions button {
+  width: 45%;
+  max-width: 320px;
+  min-height: 48px;
+  margin: 0 6px;
+  padding: var(--space-sm) 12px;
+  color: #fff;
+  background: #175bc4;
+  border: 2px solid #69dcff;
+  border-radius: 10px;
+  font-size: 16px;
+}
+.podium-actions button:focus {
+  outline: 3px solid #fff;
+  background: #186c4c;
+}
+
+.join-modal-box button:focus, .join-modal-box input:focus { outline: 3px solid #ffdf75; outline-offset: 2px; }

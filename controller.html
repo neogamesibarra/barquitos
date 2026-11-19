@@ -2,12 +2,16 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ctext y=%2752%27 font-size=%2752%27%3E%E2%9B%B5%3C/text%3E%3C/svg%3E">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#121820">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icons/controller-192.png">
   <title>BARQUITOS - Mando Móvil</title>
-  <link rel="stylesheet" href="css/controller.css?v=41">
+  <link rel="stylesheet" href="css/controller.css?v=60">
 </head>
 <body>
   <!-- Modal para ingresar el código de sala si no se escaneó el QR -->
@@ -24,7 +28,7 @@
   <div id="gamepad-container" class="gamepad-container">
     <!-- Barra superior con información del jugador y botón de pantalla completa -->
     <div class="top-bar">
-      <div class="status-indicator">
+      <div class="status-indicator" role="status">
         <span id="conn-dot" class="conn-dot"></span>
         <span id="conn-text" class="conn-text">Conectando...</span>
       </div>
@@ -32,6 +36,7 @@
       <div id="player-badge" class="player-badge">
         <span id="player-symbol" class="player-symbol">●</span>
         <span id="player-name" class="player-name">ASIGNANDO BARCO...</span>
+        <span id="player-team" class="player-team" hidden></span>
       </div>
 
       <div class="top-bar-actions">
@@ -39,8 +44,8 @@
           <span class="style-icon">🎮</span>
           <span id="style-text" class="style-text">CLÁSICO</span>
         </button>
-        <button id="btn-fullscreen" class="fullscreen-btn" type="button" title="Pantalla Completa">
-          PANTALLA COMPLETA
+        <button id="btn-fullscreen" class="fullscreen-btn" type="button" title="Pantalla completa" aria-label="Pantalla completa">
+          <span aria-hidden="true">⛶</span>
         </button>
         <button id="btn-ready" class="ready-btn" type="button">
           LISTO ✓
@@ -88,6 +93,9 @@
           <button id="btn-host-mode" class="host-action-btn change-mode-btn" type="button">
             🔄 MODO: BATALLA
           </button>
+          <button id="btn-host-lobby" class="host-action-btn change-mode-btn" type="button" hidden>
+            🏠 MENÚ PRINCIPAL
+          </button>
         </div>
 
         <!-- Botón Acelerar / Impulso -->
@@ -107,9 +115,10 @@
     </div>
   </div>
 
+  <p class="orientation-hint">Gira el teléfono para jugar en horizontal</p>
+
   <!-- Scripts del mando móvil (Moderno ES6+) -->
   <script src="js/paho-mqtt.min.js"></script>
-  <script src="js/cloud_network.js?v=28"></script>
-  <script src="js/controller.js?v=57"></script>
+  <script type="module" src="js/controller.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-name: Pruebas multijugador
+name: Pruebas de Barquitos
 
 on:
   push:
@@ -8,8 +8,12 @@ permissions:
   contents: read
 
 jobs:
-  multiplayer:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: node --test tests/multiplayer.test.cjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --experimental-vm-modules --test "tests/*.test.cjs"
+      - run: node --experimental-vm-modules tests/validate_repo.cjs

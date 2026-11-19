@@ -1,3 +1,14 @@
+:root {
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --color-accent: #00e5ff;
+  --color-text: #ffffff;
+  --color-muted: #b0bec5;
+  --color-highlight: #fffb00;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+}
+
 /* controller.css - Mando táctil siempre horizontal para iOS Safari y Android Chrome */
 * {
   margin: 0;
@@ -5,9 +16,7 @@
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
-  -webkit-user-select: none;
   user-select: none;
-  touch-action: none;
 }
 
 html, body {
@@ -15,20 +24,17 @@ html, body {
   height: 100%;
   overflow: hidden;
   background-color: #121820;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  color: #ffffff;
+  font-family: var(--font-ui);
+  color: var(--color-text);
   margin: 0;
   padding: 0;
-  touch-action: none;
 }
 
 /* Modal de ingreso de código de sala */
 .room-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  inset: 0;
+  min-height: 100dvh;
   background: rgba(8, 16, 24, 0.95);
   z-index: 10000;
   display: flex;
@@ -40,25 +46,31 @@ html, body {
 
 .room-dialog {
   background: #142838;
-  border: 3px solid #00e5ff;
+  border: 3px solid var(--color-accent);
   border-radius: 16px;
   padding: 22px 20px;
   max-width: 380px;
   width: 100%;
+  max-height: 100%;
+  overflow: auto;
   text-align: center;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
 }
 
 .room-dialog h2 {
   font-size: 22px;
-  color: #fffb00;
-  margin-bottom: 8px;
+  color: var(--color-highlight);
+  margin-bottom: var(--space-sm);
 }
 
 .room-dialog p {
   font-size: 13px;
-  color: #b0bec5;
-  margin-bottom: 16px;
+  color: var(--color-muted);
+  margin-bottom: var(--space-lg);
+}
+
+.room-dialog input, .nickname-box input {
+  user-select: text;
 }
 
 .room-dialog input {
@@ -66,19 +78,19 @@ html, body {
   background: #09141e;
   border: 2px solid #37474f;
   border-radius: 10px;
-  color: #00e5ff;
+  color: var(--color-accent);
   font-size: 28px;
   font-weight: 900;
   text-align: center;
   letter-spacing: 6px;
   padding: 10px;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-lg);
   outline: none;
   text-transform: uppercase;
 }
 
 .room-dialog input:focus {
-  border-color: #00e5ff;
+  border-color: var(--color-accent);
   box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
 }
 
@@ -87,10 +99,10 @@ html, body {
   background: #27ae60;
   border: none;
   border-radius: 10px;
-  color: #ffffff;
+  color: var(--color-text);
   font-size: 18px;
   font-weight: 900;
-  padding: 12px;
+  padding: var(--space-md);
   cursor: pointer;
   letter-spacing: 1px;
 }
@@ -100,14 +112,11 @@ html, body {
   display: flex;
   flex-direction: column;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   width: 100%;
-  height: 100%;
+  height: 100dvh;
   max-width: 100vw;
-  max-height: 100vh;
+  max-height: 100dvh;
   padding: 4px;
   transition: background-color 0.3s ease;
   background-color: #1a2634;
@@ -115,11 +124,11 @@ html, body {
   overflow: hidden;
 }
 
-:fullscreen, :-webkit-full-screen, :-moz-full-screen {
+:fullscreen {
   width: 100% !important;
   height: 100% !important;
   max-width: 100vw !important;
-  max-height: 100vh !important;
+  max-height: 100dvh !important;
   overflow: hidden !important;
   box-sizing: border-box !important;
 }
@@ -190,12 +199,12 @@ html, body {
 .top-bar-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .view-game-btn {
   background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  color: #ffffff;
+  color: var(--color-text);
   border: 2px solid #38bdf8;
   border-radius: 6px;
   padding: 4px 8px;
@@ -235,13 +244,13 @@ html, body {
 
 .style-toggle-btn:active {
   background: #0284c7;
-  color: #ffffff;
+  color: var(--color-text);
   transform: scale(0.95);
 }
 
 .fullscreen-btn {
   background: #2c3e50;
-  color: #00e5ff;
+  color: var(--color-accent);
   border: 2px solid #34495e;
   border-radius: 6px;
   padding: 4px 10px;
@@ -258,7 +267,7 @@ html, body {
 
 .ready-btn {
   background: #34495e;
-  color: #ffffff;
+  color: var(--color-text);
   border: 2px solid #5d6d7e;
   border-radius: 6px;
   padding: 4px 12px;
@@ -271,7 +280,7 @@ html, body {
 .ready-btn.active {
   background: #27ae60;
   border-color: #2ecc71;
-  color: #ffffff;
+  color: var(--color-text);
   box-shadow: 0 0 10px rgba(46, 204, 113, 0.6);
 }
 
@@ -281,7 +290,7 @@ html, body {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-sm);
   background: rgba(10, 20, 32, 0.75);
   border: 1px solid rgba(0, 229, 255, 0.35);
   border-radius: 8px;
@@ -311,7 +320,7 @@ html, body {
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid #37474f;
   border-radius: 6px;
-  color: #00e5ff;
+  color: var(--color-accent);
   font-size: 12px;
   font-weight: 700;
   padding: 2px 6px;
@@ -321,7 +330,7 @@ html, body {
 }
 
 .nickname-box input:focus {
-  border-color: #00e5ff;
+  border-color: var(--color-accent);
   box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
 }
 
@@ -338,7 +347,7 @@ html, body {
   font-size: 11px;
   font-weight: 800;
   cursor: pointer;
-  color: #ffffff;
+  color: var(--color-text);
   opacity: 0.7;
   transition: all 0.15s ease;
   height: 24px;
@@ -356,12 +365,13 @@ html, body {
 
 .team-choice-btn.active {
   opacity: 1;
-  box-shadow: 0 0 10px #ffffff;
+  box-shadow: 0 0 10px var(--color-text);
   transform: scale(1.04);
 }
 
 /* Zona de Mandos Táctiles */
 .controls-area {
+  touch-action: none;
   display: flex;
   flex: 1 1 0%;
   min-height: 0;
@@ -369,7 +379,7 @@ html, body {
   max-height: 100%;
   flex-direction: row;
   align-items: stretch;
-  gap: 8px;
+  gap: var(--space-sm);
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -434,7 +444,7 @@ html, body {
   height: 52px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.25);
-  border: 3px solid #ffffff;
+  border: 3px solid var(--color-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -487,7 +497,7 @@ html, body {
   max-height: 100%;
   display: flex;
   flex-direction: row;
-  gap: 8px;
+  gap: var(--space-sm);
   position: relative;
   overflow: hidden;
   box-sizing: border-box;
@@ -559,20 +569,17 @@ html, body {
 /* PANEL ANFITRIÓN (MANDO 1 EN LOBBY O PODIO) */
 .host-panel {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   width: 100%;
-  height: 100%;
+  height: 100dvh;
   display: flex;
   flex-direction: row;
   gap: 10px;
   z-index: 20;
   background: rgba(10, 20, 30, 0.95);
-  border: 2px solid #00e5ff;
+  border: 2px solid var(--color-accent);
   border-radius: 14px;
-  padding: 8px;
+  padding: var(--space-sm);
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -587,7 +594,7 @@ html, body {
   font-weight: 900;
   letter-spacing: 1px;
   cursor: pointer;
-  color: #ffffff;
+  color: var(--color-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -723,3 +730,163 @@ html, body {
   padding: max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom))
     max(4px, env(safe-area-inset-left)) max(4px, env(safe-area-inset-top));
 }
+
+/* Consola de pulgares */
+.gamepad-container {
+  --pad-bg: #0b2131;
+  --pad-panel: #123346;
+  --pad-line: #41667a;
+  --pad-accent: #74ead9;
+  --captain-color: #74ead9;
+  width: 100dvw;
+  max-width: 100dvw;
+  background: var(--pad-bg);
+  transition: none;
+  padding: max(6px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+
+.gamepad-container[data-rotated="true"] {
+  padding: max(6px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom))
+    max(8px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-top));
+}
+
+.gamepad-container .top-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 7px;
+  border: 1px solid var(--pad-line);
+  background: var(--pad-panel);
+}
+
+.status-indicator, .player-badge { min-width: 0; }
+.conn-dot { flex: none; width: 7px; height: 7px; }
+.conn-dot, .conn-dot.online, .conn-dot.offline { box-shadow: none; }
+.conn-text, .player-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-badge { gap: 5px; padding: 2px 5px; background: transparent; font-size: 12px; letter-spacing: 0; }
+.player-symbol { flex: none; margin: 0; color: var(--captain-color); text-shadow: 0 0 1px #fff; }
+.player-team { flex: none; padding: 2px 4px; border-radius: 4px; font-size: 10px; }
+.player-team[data-team="blue"] { background: #183d67; color: #bae4ff; }
+.player-team[data-team="red"] { background: #592e3b; color: #ffcbca; }
+.top-bar-actions { gap: 4px; }
+.gamepad-container .fullscreen-btn {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  min-height: 30px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.gamepad-container .controls-area { user-select: none; align-items: stretch; gap: 10px; }
+.gamepad-container .steering-zone {
+  align-items: stretch;
+  container-type: size;
+  flex: 1 1 38%;
+  max-width: none;
+  background: var(--pad-panel);
+  border: 1px solid var(--pad-line);
+}
+
+.gamepad-container .classic-steer-container { justify-content: center; }
+.gamepad-container .zone-label { top: 7px; }
+.gamepad-container .turn-labels { display: none; }
+.gamepad-container .wheel-outer {
+  width: min(75cqh, 78cqw, 188px) !important;
+  height: min(75cqh, 78cqw, 188px) !important;
+  max-width: none !important;
+  max-height: none !important;
+  flex: none;
+  border: 2px solid var(--pad-accent);
+  background: radial-gradient(circle, #173f54 0 28%, #528797 29% 30%, #0d293c 31% 60%, #244e60 61% 62%, #0d293c 63%);
+  box-shadow: none;
+}
+
+.gamepad-container .wheel-indicator {
+  inset: 0;
+  width: auto;
+  height: auto;
+  background: none;
+  box-shadow: none;
+  opacity: 0;
+  transform: rotate(var(--aim-heading, 0rad));
+  pointer-events: none;
+}
+
+.wheel-indicator::before {
+  content: "";
+  position: absolute;
+  top: calc(50% - 5px);
+  right: 5px;
+  border: 5px solid transparent;
+  border-right: 0;
+  border-left: 8px solid var(--pad-accent);
+}
+
+.is-steering .wheel-indicator { opacity: 1; }
+.gamepad-container .wheel-knob { background: #235469; border: 2px solid #e0fbff; box-shadow: none; }
+.gamepad-container .actions-zone { flex: 1 1 56%; max-width: none; gap: 8px; }
+.gamepad-container.style-compact .steering-zone { flex: 0 1 38%; max-width: 230px; }
+.gamepad-container.style-compact .actions-zone { flex: 0 1 49%; max-width: 360px; }
+.gamepad-container .touch-btn {
+  color: #fff;
+  border-width: 2px;
+  border-radius: 15px;
+  box-shadow: none;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  transition: transform 110ms ease;
+}
+
+.gamepad-container .thrust-btn { background: #154c47; border-color: #72e7ba; }
+.gamepad-container .shoot-btn { background: #70352c; border-color: #ffb58c; }
+.gamepad-container .touch-btn:is(.pressed, :active) {
+  transform: scale(.92);
+  filter: none;
+  box-shadow: none;
+}
+
+.touch-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: #fff;
+  pointer-events: none;
+  transition: opacity 110ms ease;
+}
+.touch-btn:is(.pressed, :active)::after { opacity: .19; }
+
+.orientation-hint { display: none; }
+@media (orientation: portrait) {
+  .gamepad-container[data-state="playing"] ~ .orientation-hint {
+    position: fixed;
+    z-index: 20;
+    bottom: max(7px, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    display: block;
+    width: max-content;
+    max-width: 90dvw;
+    padding: 5px 9px;
+    text-align: center;
+    color: white;
+    background: #092337;
+    border: 1px solid #6ba4b6;
+    border-radius: 8px;
+    font-size: 11px;
+    pointer-events: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gamepad-container .wheel-knob,
+  .gamepad-container .touch-btn,
+  .gamepad-container .touch-btn::after { transition: none; }
+}
+
+#btn-host-lobby[hidden] { display: none; }

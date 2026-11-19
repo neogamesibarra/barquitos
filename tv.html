@@ -2,15 +2,15 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="refresh" content="0; url=index.html">
-  <title>BARQUITOS - Redirigiendo a Pantalla Principal</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ctext y=%2752%27 font-size=%2752%27%3E%E2%9B%B5%3C/text%3E%3C/svg%3E">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Barquitos</title>
   <script>
-    // Redirigir conservando parámetros si existieran
-    window.location.replace('index.html' + window.location.search);
+    const { search, hash } = window.location;
+    window.location.replace(`index.html${search}${hash}`);
   </script>
 </head>
-<body style="background:#0d2838;color:#fff;font-family:sans-serif;text-align:center;padding-top:20%;">
-  <h2>Cargando BARQUITOS...</h2>
-  <p>Si no eres redirigido automáticamente, <a href="index.html" style="color:#00e5ff;">haz clic aquí para abrir el juego</a>.</p>
+<body>
+  <a href="index.html">Abrir Barquitos</a>
 </body>
 </html>

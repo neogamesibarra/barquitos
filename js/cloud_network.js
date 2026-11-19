@@ -1,300 +1,302 @@
+import { decodeMessage, encodeMessage } from "./engine/network_protocol.js";
+
 /**
  * BARQUITOS - Capa de Red en la Nube (Sin Computadora)
  * Utiliza MQTT seguro sobre WebSockets (WSS) a traves de brokers publicos gratuitos.
- * Compatible al 100% con Tizen 2015 (ES5 estricto).
  */
 
-(function (window) {
-  'use strict';
 
-  var BROKERS = [
-    { host: 'broker.hivemq.com', port: 8884, path: '/mqtt' },
-    { host: 'broker.emqx.io', port: 8084, path: '/mqtt' }
-  ];
+const BROKERS = [
+  { host: 'broker.hivemq.com', port: 8884, path: '/mqtt' },
+  { host: 'broker.emqx.io', port: 8084, path: '/mqtt' }
+];
 
-  function getPreferredBrokerIdx() {
-    try {
-      if (typeof window !== 'undefined' && window.location && window.location.search) {
-        var params = new URLSearchParams(window.location.search);
-        var b = params.get('b');
-        if (b === 'emqx' || b === '1') return 1;
-        if (b === 'hivemq' || b === '0') return 0;
-      }
-    } catch (e) {}
-    return 0; // HiveMQ como broker principal por defecto
+function getPreferredBrokerIdx() {
+  const broker = new URLSearchParams(window.location.search).get('b');
+  return broker === 'emqx' || broker === '1' ? 1 : 0;
+}
+
+let currentBrokerIdx = getPreferredBrokerIdx();
+let consecutiveFailures = 0;
+let retryAttempts = 0;
+let networkOffline = window.navigator?.onLine === false;
+let client = null;
+let isConnected = false;
+let activeRoom = '';
+let myId = '';
+let isHost = false;
+let onMessageCb = null;
+let onStatusCb = null;
+let receiveGameState = true;
+let savedCallbacks = null;
+let fallbackTimeout = null;
+
+function clearRetry() {
+  if (fallbackTimeout !== null) clearTimeout(fallbackTimeout);
+  fallbackTimeout = null;
+}
+
+function stopClient() {
+  clearRetry();
+  const previous = client;
+  client = null;
+  isConnected = false;
+  if (!previous) return;
+  previous.onConnectionLost = null;
+  previous.onMessageArrived = null;
+  try { previous.disconnect(); } catch {}
+}
+
+function generateId(prefix) {
+  const randomId = globalThis.crypto?.randomUUID?.().replaceAll('-', '').slice(0, 12);
+  return randomId ? `${prefix}_${randomId}` : `${prefix}_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
+}
+
+function connect(callbacks) {
+  if (callbacks) {
+    savedCallbacks = callbacks;
+  }
+  if (networkOffline) {
+    onStatusCb?.('offline', 'Sin conexión a Internet');
+    return;
+  }
+  if (typeof Paho === 'undefined' || !Paho.MQTT) {
+    if (onStatusCb) onStatusCb('error', 'Biblioteca Paho MQTT no cargada');
+    return;
   }
 
-  var currentBrokerIdx = getPreferredBrokerIdx();
-  var brokerLocked = false;
-  var consecutiveFailures = 0;
-  var client = null;
-  var isConnected = false;
-  var activeRoom = '';
-  var myId = '';
-  var isHost = false;
-  var onMessageCb = null;
-  var onStatusCb = null;
-  var receiveGameState = true;
-  var savedCallbacks = null;
-  var fallbackTimeout = null;
+  stopClient();
 
-  function generateId(prefix) {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      return prefix + '_' + crypto.randomUUID().replace(/-/g, '').substr(0, 12);
-    }
-    return prefix + '_' + Math.random().toString(36).substr(2, 8) + '_' + Date.now().toString(36);
+  const broker = BROKERS[currentBrokerIdx];
+  const clientId = generateId(isHost ? 'tv' : 'ctl');
+
+  if (onStatusCb) onStatusCb('connecting', 'Conectando con la nube (' + broker.host + ')...');
+
+  try {
+    client = new Paho.MQTT.Client(broker.host, broker.port, broker.path, clientId);
+  } catch (e) {
+    handleConnectionError('Error inicializando cliente MQTT');
+    return;
   }
 
-  function connect(callbacks) {
-    if (callbacks) {
-      savedCallbacks = callbacks;
-    }
-    if (typeof Paho === 'undefined' || !Paho.MQTT) {
-      if (onStatusCb) onStatusCb('error', 'Biblioteca Paho MQTT no cargada');
-      return;
-    }
-
-    if (client) {
-      try {
-        client.onConnectionLost = null;
-        client.onMessageArrived = null;
-        if (client.isConnected && client.isConnected()) {
-          client.disconnect();
-        }
-      } catch (eClean) {}
-      client = null;
-    }
-
-    var broker = BROKERS[currentBrokerIdx];
-    var clientId = generateId(isHost ? 'tv' : 'ctl');
-
-    if (onStatusCb) onStatusCb('connecting', 'Conectando con la nube (' + broker.host + ')...');
-
-    try {
-      client = new Paho.MQTT.Client(broker.host, broker.port, broker.path, clientId);
-    } catch (e) {
-      handleConnectionError('Error inicializando cliente MQTT');
-      return;
-    }
-
-    client.onConnectionLost = function (responseObject) {
-      isConnected = false;
-      var errReason = (responseObject && responseObject.errorMessage) ? responseObject.errorMessage : 'Conexión interrumpida';
-      // Una caida ya establecida tambien cuenta: si el broker muere de verdad,
-      // reintentar contra el mismo servidor en bucle no recupera la partida.
-      if (noteFailure()) {
-        if (onStatusCb) onStatusCb('offline', 'Conexión perdida (' + errReason + '). Buscando otro servidor...');
-      } else if (onStatusCb) {
-        onStatusCb('offline', 'Conexión perdida (' + errReason + '). Reconectando...');
-      }
-      scheduleReconnect(broker.host);
-    };
-
-    client.onMessageArrived = function (message) {
-      var topic = message.destinationName;
-      var payloadStr = message.payloadString;
-      var data = null;
-
-      try {
-        data = JSON.parse(payloadStr);
-      } catch (e) {
-        return;
-      }
-
-      if (onMessageCb) {
-        onMessageCb(topic, data);
-      }
-    };
-
-    var options = {
-      timeout: 10,
-      useSSL: true,
-      keepAliveInterval: 30,
-      cleanSession: true,
-      onSuccess: function () {
-        isConnected = true;
-        brokerLocked = true;
-        consecutiveFailures = 0;
-        if (onStatusCb) onStatusCb('online', 'Conectado a la nube (' + broker.host + ')');
-
-        // Suscribirse a los canales de la sala
-        if (isHost) {
-          // El Host (TV) escucha a todos los mandos de esta sala
-          var subTopic = 'barquitos/v1/' + activeRoom + '/in/#';
-          client.subscribe(subTopic, { qos: 0 });
-        } else {
-          // El Mando o Jugador Remoto escucha mensajes personales, difusiones y sincronización de estado
-          var mySub = 'barquitos/v1/' + activeRoom + '/out/' + myId;
-          var broadSub = 'barquitos/v1/' + activeRoom + '/broadcast';
-          var stateSub = 'barquitos/v1/' + activeRoom + '/state';
-          client.subscribe(mySub, { qos: 0 });
-          client.subscribe(broadSub, { qos: 0 });
-          if (receiveGameState) client.subscribe(stateSub, { qos: 0 });
-        }
-
-        // Dar un pequeño respiro de 60ms para que el broker registre las suscripciones antes de enviar join/inputs
-        setTimeout(function () {
-          if (callbacks && callbacks.onConnected) {
-            callbacks.onConnected();
-          }
-        }, 60);
-      },
-      onFailure: function (err) {
-        isConnected = false;
-        var errMsg = (err && err.errorMessage) ? err.errorMessage : 'Error de enlace';
-        handleConnectionError(errMsg);
-      }
-    };
-
-    try {
-      client.connect(options);
-    } catch (err) {
-      handleConnectionError('Fallo de conexión');
-    }
-  }
-
-  function scheduleReconnect(brokerHost) {
-    if (fallbackTimeout) {
-      clearTimeout(fallbackTimeout);
-      fallbackTimeout = null;
-    }
-    var bHost = brokerHost || BROKERS[currentBrokerIdx].host;
-    if (onStatusCb) onStatusCb('connecting', 'Reconectando con ' + bHost + '...');
-    fallbackTimeout = setTimeout(function () {
-      fallbackTimeout = null;
-      connect(savedCallbacks);
-    }, 1200);
-  }
-
-  // Registra un fallo y cambia de broker si la racha llega al limite.
-  // Devuelve true cuando efectivamente se cambio de servidor: ambos extremos
-  // de la sala avanzan en el mismo orden, asi que tienden a reencontrarse.
-  function noteFailure() {
-    consecutiveFailures++;
-    if (consecutiveFailures < 3) return false;
-    currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
-    consecutiveFailures = 0;
-    brokerLocked = false;
-    return true;
-  }
-
-  function handleConnectionError(errMsg) {
-    if (fallbackTimeout) {
-      clearTimeout(fallbackTimeout);
-      fallbackTimeout = null;
-    }
+  const attempt = client;
+  attempt.onConnectionLost = (responseObject) => {
+    if (client !== attempt) return;
+    isConnected = false;
+    const errReason = (responseObject && responseObject.errorMessage) ? responseObject.errorMessage : 'Conexión interrumpida';
+    // Una caida ya establecida tambien cuenta: si el broker muere de verdad,
+    // reintentar contra el mismo servidor en bucle no recupera la partida.
     if (noteFailure()) {
-      if (onStatusCb) onStatusCb('connecting', 'Cambiando a ' + BROKERS[currentBrokerIdx].host + '...');
+      if (onStatusCb) onStatusCb('offline', 'Conexión perdida (' + errReason + '). Buscando otro servidor...');
     } else if (onStatusCb) {
-      onStatusCb('connecting', 'Reintentando con ' + BROKERS[currentBrokerIdx].host + ' (' + errMsg + ')...');
+      onStatusCb('offline', 'Conexión perdida (' + errReason + '). Reconectando...');
     }
-    fallbackTimeout = setTimeout(function () {
-      fallbackTimeout = null;
-      connect(savedCallbacks);
-    }, 1200);
-  }
+    scheduleReconnect(broker.host);
+  };
 
-  function publish(topic, data) {
-    if (!client || !isConnected) return;
-    try {
-      var msg = new Paho.MQTT.Message(JSON.stringify(data));
-      msg.destinationName = topic;
-      msg.qos = 0;
-      client.send(msg);
-    } catch (e) {}
-  }
+  attempt.onMessageArrived = (message) => {
+    if (client !== attempt) return;
+    const topic = message.destinationName;
+    const data = decodeMessage(message.payloadString);
+    if (data) onMessageCb?.(topic, data);
+  };
 
-  window.CloudNet = {
-    // Inicializar la TV como anfitrion (Host)
-    initHost: function (roomCode, callbacks) {
-      isHost = true;
-      currentBrokerIdx = getPreferredBrokerIdx();
+  const options = {
+    timeout: 10,
+    useSSL: true,
+    keepAliveInterval: 30,
+    cleanSession: true,
+    onSuccess: () => {
+      if (client !== attempt) return;
+      isConnected = true;
       consecutiveFailures = 0;
-      activeRoom = roomCode.toUpperCase();
-      myId = 'tv_host';
-      onMessageCb = callbacks.onMessage;
-      onStatusCb = callbacks.onStatus;
+      retryAttempts = 0;
+      if (onStatusCb) onStatusCb('online', 'Conectado a la nube (' + broker.host + ')');
 
-      connect({
-        onConnected: function () {
-          brokerLocked = true;
-          if (callbacks.onReady) callbacks.onReady();
-        }
-      });
-    },
-
-    // Inicializar el telefono como mando (Cliente)
-    initClient: function (roomCode, playerUuid, callbacks) {
-      isHost = false;
-      brokerLocked = true;
-      currentBrokerIdx = getPreferredBrokerIdx();
-      activeRoom = roomCode.toUpperCase();
-      myId = playerUuid;
-      receiveGameState = callbacks.receiveGameState !== false;
-      onMessageCb = callbacks.onMessage;
-      onStatusCb = callbacks.onStatus;
-
-      connect({
-        onConnected: function () {
-          if (callbacks.onReady) callbacks.onReady();
-        }
-      });
-    },
-
-    // Enviar mensaje directo a un jugador
-    sendToPlayer: function (playerUuid, data) {
-      var topic = 'barquitos/v1/' + activeRoom + '/out/' + playerUuid;
-      publish(topic, data);
-    },
-
-    // Enviar mensaje al televisor desde el telefono
-    sendToHost: function (data) {
-      var topic = 'barquitos/v1/' + activeRoom + '/in/' + myId;
-      publish(topic, data);
-    },
-
-    // Difundir a todos los telefonos de la sala
-    broadcast: function (data) {
-      var topic = 'barquitos/v1/' + activeRoom + '/broadcast';
-      publish(topic, data);
-    },
-
-    // Difundir estado de la partida a jugadores remotos online (pantalla completa)
-    broadcastState: function (data) {
-      var topic = 'barquitos/v1/' + activeRoom + '/state';
-      publish(topic, data);
-    },
-
-    isHostMode: function () {
-      return isHost;
-    },
-
-    getRoomCode: function () {
-      return activeRoom;
-    },
-
-    getCurrentBrokerIdx: function () {
-      return currentBrokerIdx;
-    },
-
-    // Identificador corto del broker actual para enlaces de invitacion (?b=)
-    getBrokerParam: function () {
-      return currentBrokerIdx === 1 ? 'emqx' : 'hivemq';
-    },
-
-    getCurrentBrokerHost: function () {
-      return BROKERS[currentBrokerIdx].host;
-    },
-
-    disconnect: function () {
-      if (client && isConnected) {
-        try { client.disconnect(); } catch (e) {}
+      // Suscribirse a los canales de la sala
+      if (isHost) {
+        // El Host (TV) escucha a todos los mandos de esta sala
+        const subTopic = 'barquitos/v1/' + activeRoom + '/in/#';
+        client.subscribe(subTopic, { qos: 0 });
+      } else {
+        // El Mando o Jugador Remoto escucha mensajes personales, difusiones y sincronización de estado
+        const mySub = 'barquitos/v1/' + activeRoom + '/out/' + myId;
+        const broadSub = 'barquitos/v1/' + activeRoom + '/broadcast';
+        const stateSub = 'barquitos/v1/' + activeRoom + '/state';
+        client.subscribe(mySub, { qos: 0 });
+        client.subscribe(broadSub, { qos: 0 });
+        if (receiveGameState) client.subscribe(stateSub, { qos: 0 });
       }
-      isConnected = false;
-    },
 
-    isConnected: function () {
-      return isConnected;
+      // Dar un pequeño respiro de 60ms para que el broker registre las suscripciones antes de enviar join/inputs
+      setTimeout(() => {
+        if (client === attempt && isConnected && callbacks?.onConnected) {
+          callbacks.onConnected();
+        }
+      }, 60);
+    },
+    onFailure: (err) => {
+      if (client !== attempt) return;
+      isConnected = false;
+      const errMsg = (err && err.errorMessage) ? err.errorMessage : 'Error de enlace';
+      handleConnectionError(errMsg);
     }
   };
-})(window);
+
+  try {
+    client.connect(options);
+  } catch (err) {
+    handleConnectionError('Fallo de conexión');
+  }
+}
+
+function scheduleReconnect(brokerHost) {
+  clearRetry();
+  const bHost = brokerHost || BROKERS[currentBrokerIdx].host;
+  if (onStatusCb) onStatusCb('connecting', 'Reconectando con ' + bHost + '...');
+  scheduleRetry();
+}
+
+function scheduleRetry() {
+  clearRetry();
+  if (networkOffline || !savedCallbacks) return;
+  const delay = Math.min(1000 * 2 ** Math.min(retryAttempts++, 4), 15000);
+  fallbackTimeout = setTimeout(() => {
+    fallbackTimeout = null;
+    connect(savedCallbacks);
+  }, delay);
+}
+
+// Registra un fallo y cambia de broker si la racha llega al limite.
+// Devuelve true cuando efectivamente se cambio de servidor: ambos extremos
+// de la sala avanzan en el mismo orden, asi que tienden a reencontrarse.
+function noteFailure() {
+  consecutiveFailures++;
+  if (consecutiveFailures < 3) return false;
+  currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
+  consecutiveFailures = 0;
+  return true;
+}
+
+function handleConnectionError(errMsg) {
+  if (noteFailure()) {
+    if (onStatusCb) onStatusCb('connecting', 'Cambiando a ' + BROKERS[currentBrokerIdx].host + '...');
+  } else if (onStatusCb) {
+    onStatusCb('connecting', 'Reintentando con ' + BROKERS[currentBrokerIdx].host + ' (' + errMsg + ')...');
+  }
+  scheduleRetry();
+}
+
+function publish(topic, data) {
+  if (!client || !isConnected) return;
+  try {
+    const msg = new Paho.MQTT.Message(encodeMessage(data));
+    msg.destinationName = topic;
+    msg.qos = 0;
+    client.send(msg);
+  } catch (e) {}
+}
+
+export const CloudNet = {
+  // Inicializar la TV como anfitrion (Host)
+  initHost: (roomCode, callbacks) => {
+    isHost = true;
+    currentBrokerIdx = getPreferredBrokerIdx();
+    consecutiveFailures = 0;
+    retryAttempts = 0;
+    activeRoom = roomCode.toUpperCase();
+    myId = 'tv_host';
+    onMessageCb = callbacks.onMessage;
+    onStatusCb = callbacks.onStatus;
+
+    connect({ onConnected: callbacks.onReady });
+  },
+
+  // Inicializar el telefono como mando (Cliente)
+  initClient: (roomCode, playerUuid, callbacks) => {
+    isHost = false;
+    const preferred = callbacks.preferredBroker;
+    currentBrokerIdx = preferred === 'emqx' ? 1 : preferred === 'hivemq' ? 0 : getPreferredBrokerIdx();
+    consecutiveFailures = 0;
+    retryAttempts = 0;
+    activeRoom = roomCode.toUpperCase();
+    myId = playerUuid;
+    receiveGameState = callbacks.receiveGameState !== false;
+    onMessageCb = callbacks.onMessage;
+    onStatusCb = callbacks.onStatus;
+
+    connect({ onConnected: callbacks.onReady });
+  },
+
+  // Enviar mensaje directo a un jugador
+  sendToPlayer: (playerUuid, data) => {
+    const topic = 'barquitos/v1/' + activeRoom + '/out/' + playerUuid;
+    publish(topic, data);
+  },
+
+  // Enviar mensaje al televisor desde el telefono
+  sendToHost: (data) => {
+    const topic = 'barquitos/v1/' + activeRoom + '/in/' + myId;
+    publish(topic, data);
+  },
+
+  // Difundir a todos los telefonos de la sala
+  broadcast: (data) => {
+    const topic = 'barquitos/v1/' + activeRoom + '/broadcast';
+    publish(topic, data);
+  },
+
+  // Difundir estado de la partida a jugadores remotos online (pantalla completa)
+  broadcastState: (data) => {
+    const topic = 'barquitos/v1/' + activeRoom + '/state';
+    publish(topic, data);
+  },
+
+  isHostMode: () => {
+    return isHost;
+  },
+
+  getRoomCode: () => {
+    return activeRoom;
+  },
+
+  getCurrentBrokerIdx: () => {
+    return currentBrokerIdx;
+  },
+
+  // Identificador corto del broker actual para enlaces de invitacion (?b=)
+  getBrokerParam: () => {
+    return currentBrokerIdx === 1 ? 'emqx' : 'hivemq';
+  },
+
+  getCurrentBrokerHost: () => {
+    return BROKERS[currentBrokerIdx].host;
+  },
+
+  disconnect: () => {
+    savedCallbacks = null;
+    stopClient();
+  },
+
+  retryNow: () => {
+    if (!networkOffline && fallbackTimeout !== null && !isConnected && savedCallbacks) connect(savedCallbacks);
+  },
+
+  isConnected: () => {
+    return isConnected;
+  }
+};
+
+window.addEventListener('offline', () => {
+  networkOffline = true;
+  stopClient();
+  if (savedCallbacks) onStatusCb?.('offline', 'Sin conexión a Internet');
+});
+
+window.addEventListener('online', () => {
+  const shouldReconnect = networkOffline || fallbackTimeout !== null;
+  networkOffline = false;
+  if (!shouldReconnect || isConnected || !savedCallbacks) return;
+  retryAttempts = 0;
+  connect(savedCallbacks);
+});

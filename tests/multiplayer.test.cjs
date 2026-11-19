@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
-const { join } = require('node:path');
+const { dirname, join, resolve } = require('node:path');
 const vm = require('node:vm');
 
 function mockElement() {
@@ -37,7 +37,7 @@ function createBroker() {
     this.send = message => {
       for (const client of clients) {
         if (client.matches(message.destinationName)) {
-          delivered.push([client, message.destinationName]);
+          delivered.push([client, message.destinationName, JSON.parse(message.payloadString)]);
           client.onMessageArrived(message);
         }
       }
@@ -76,18 +76,25 @@ function createFlakyBroker(failures) {
   return base;
 }
 
-function browser(broker, clock, touch = false, pointerEvents = true) {
+function browser(broker, clock, touch = false, pointerEvents = true, sessionStorage = new Map()) {
   const elements = new Map();
   const windowEvents = new Map();
   const documentEvents = new Map();
   const timers = [];
+  const intervals = new Set();
   const window = {
     addEventListener: (type, callback) => windowEvents.set(type, callback),
     location: { search: '', href: 'https://example.test/index.html' },
+    sessionStorage: {
+      getItem: key => sessionStorage.get(key) ?? null,
+      setItem: (key, value) => sessionStorage.set(key, value),
+      removeItem: key => sessionStorage.delete(key)
+    },
     navigator: { maxTouchPoints: touch ? 5 : 0 }
   };
   if (pointerEvents) window.PointerEvent = function () {};
   const document = {
+    readyState: "loading",
     hidden: false,
     getElementById: id => elements.get(id) || null,
     querySelector: () => null,
@@ -96,17 +103,37 @@ function browser(broker, clock, touch = false, pointerEvents = true) {
   const context = vm.createContext({
     window, document, console, Paho: broker, URLSearchParams,
     Date: { now: () => clock.now },
-    setTimeout: callback => timers.push(callback),
-    setInterval: () => 1,
-    clearInterval() {}
+    setTimeout(callback, delay) {
+      const timer = { callback, delay };
+      timers.push(timer);
+      return timer;
+    },
+    clearTimeout(timer) { timer.cancelled = true; },
+    setInterval(callback) {
+      intervals.add(callback);
+      return callback;
+    },
+    clearInterval: callback => intervals.delete(callback)
   });
-  function load(file, hooks = '') {
-    const source = readFileSync(join(__dirname, '..', 'js', file), 'utf8');
-    const entry = source.lastIndexOf('})(window);');
-    assert.ok(entry >= 0);
-    vm.runInContext(source.slice(0, entry) + hooks + source.slice(entry), context, { filename: file });
+  const modules = new Map();
+  function getModule(file) {
+    if (!modules.has(file)) {
+      modules.set(file, new vm.SourceTextModule(readFileSync(file, 'utf8'), {
+        context, identifier: file
+      }));
+    }
+    return modules.get(file);
   }
-  load('cloud_network.js');
+  function link(specifier, importer) {
+    return getModule(resolve(dirname(importer.identifier), specifier));
+  }
+  async function load(file, hooks) {
+    const identifier = join(__dirname, '..', 'js', file);
+    const entry = new vm.SourceTextModule(hooks, { context, identifier });
+    await entry.link(link);
+    await entry.evaluate();
+    window.CloudNet = getModule(join(dirname(identifier), 'cloud_network.js')).namespace.CloudNet;
+  }
   return {
     window, document, windowEvents, documentEvents, load,
     element(id) {
@@ -114,59 +141,78 @@ function browser(broker, clock, touch = false, pointerEvents = true) {
       elements.set(id, element);
       return element;
     },
-    flushTimers() { while (timers.length) timers.shift()(); }
+    nextTimeout() { return timers.find(timer => !timer.cancelled)?.delay; },
+    tickIntervals() { for (const callback of intervals) callback(); },
+    flushTimers() {
+      while (timers.length) {
+        const timer = timers.shift();
+        if (!timer.cancelled) timer.callback();
+      }
+    }
   };
 }
 
 const engineHooks = `
+import "./game_engine.js";
+import { STATE_ARENA, STATE_LOBBY, STATE_PODIUM } from "./engine/config.js";
+import { setupOnscreenControls, updateTouchControlsVisibility } from "./engine/controls.js";
+import { BossGalleon } from "./engine/entities.js";
+import { bindLobbyButtons } from "./engine/lobby.js";
+import { startNewMatch, updateRescues } from "./engine/modes.js";
+import { applyClientSync, broadcastGameState, connectCloudNet, expireRemoteInputs, generateLobbyQR, handleClientIncomingMessage } from "./engine/multiplayer.js";
+import { getLootPosition, isInsideIsland } from "./engine/physics.js";
+import { state } from "./engine/state.js";
+
+
   window.testGame = {
     host: function () {
-      currentRoomCode = "TEST";
+      state.currentRoomCode = "TEST";
       connectCloudNet();
     },
     view: function () {
-      isRemoteClient = true;
+      state.isRemoteClient = true;
       window.CloudNet.initClient("TEST", "viewer", {
         onMessage: handleClientIncomingMessage
       });
     },
     ship: function (slot) {
-      return activeShips.filter(function (ship) { return ship.slot === slot; })[0];
+      return state.activeShips.filter(function (ship) { return ship.slot === slot; })[0];
     },
     expire: function () { expireRemoteInputs(Date.now()); },
-    arena: function () { currentState = STATE_ARENA; },
-    lobby: function () { currentState = STATE_LOBBY; updateTouchControlsVisibility(); },
-    mode: function () { return selectedMode; },
-    state: function () { return currentState; },
-    localSlot: function () { return localPlayerSlot; },
-    ships: function () { return activeShips.length; },
+    arena: function () { state.currentState = STATE_ARENA; },
+    podium: function () { state.currentState = STATE_PODIUM; window.CloudNet.broadcast({ type: "state_change", state: STATE_PODIUM }); },
+    lobby: function () { state.currentState = STATE_LOBBY; updateTouchControlsVisibility(); },
+    mode: function () { return state.selectedMode; },
+    state: function () { return state.currentState; },
+    localSlot: function () { return state.localPlayerSlot; },
+    ships: function () { return state.activeShips.length; },
     defeatBoss: function (wave) {
       var boss = new BossGalleon(960, 150, wave);
       boss.die();
       boss.die();
-      return { rank: boss.rank, fleetRank: hordeUpgrades.fleetRank };
+      return { rank: boss.rank, fleetRank: state.hordeUpgrades.fleetRank };
     },
     rescue: updateRescues,
     lootAtIsland: function () { return getLootPosition(960, 540); },
     nearIsland: isInsideIsland,
-    connected: function () { return playersData.filter(function (p) { return p.connected; }).length; },
+    connected: function () { return state.playersData.filter(function (p) { return p.connected; }).length; },
     controls: setupOnscreenControls,
     buttons: bindLobbyButtons,
     start: startNewMatch,
     visibility: updateTouchControlsVisibility,
-    winner: function (name) { roundWinner = name ? { name: name } : null; },
+    winner: function (name) { state.roundWinner = name ? { name: name } : null; },
     snapshot: function () { broadcastGameState(); },
-    visibleWinner: function () { return roundWinner && roundWinner.name; },
-    name: function (slot) { return playersData[slot].customName; },
-    team: function (slot) { return playersData[slot].team; },
+    visibleWinner: function () { return state.roundWinner && state.roundWinner.name; },
+    name: function (slot) { return state.playersData[slot].customName; },
+    team: function (slot) { return state.playersData[slot].team; },
     raw: function (uuid, payload) {
       window.CloudNet.sendToHost(Object.assign({ uuid: uuid }, payload));
     },
-    uuidOf: function (slot) { return playersData[slot].uuid; },
-    teamScore: function (side) { return teamScores[side]; },
+    uuidOf: function (slot) { return state.playersData[slot].uuid; },
+    teamScore: function (side) { return state.teamScores[side]; },
     applySync: applyClientSync,
     shipOf: function (slot) {
-      return activeShips.filter(function (ship) { return ship.slot === slot; })[0];
+      return state.activeShips.filter(function (ship) { return ship.slot === slot; })[0];
     },
     inviteUrl: function () {
       var captured = null;
@@ -178,10 +224,15 @@ const engineHooks = `
 `;
 
 const controllerHooks = `
+  import "./controller.js";
+  import { CloudNet } from "./cloud_network.js";
+  import { connectToRoom, session } from "./controller/session.js";
+  import { elements, updateHostControls, setupActionButtons } from "./controller/ui.js";
+  import { inputState, markFirePress, sendInputUpdate } from "./controller/joystick.js";
   window.testController = {
     join: function () { connectToRoom("TEST"); },
-    slot: function () { return mySlot; },
-    state: function () { return currentGameState; },
+    slot: function () { return session.mySlot; },
+    state: function () { return session.currentGameState; },
     hold: function () {
       inputState.heading = 0;
       inputState.thrust = true;
@@ -189,13 +240,25 @@ const controllerHooks = `
       sendInputUpdate(true);
     },
     refresh: function () { sendInputUpdate(); },
+    steer: (heading, immediate = false) => {
+      inputState.heading = heading;
+      sendInputUpdate(immediate);
+    },
+    fire: () => {
+      inputState.shoot = true;
+      markFirePress();
+      sendInputUpdate(true);
+    },
+    setName: name => { session.myCustomName = name; },
+    room: () => session.currentRoom,
     action: function (action, mode) {
-      window.CloudNet.sendToHost({ type: "host_action", uuid: playerUUID, action: action, mode: mode });
+      CloudNet.sendToHost({ type: "host_action", uuid: session.playerUUID, action: action, mode: mode });
     },
     bind: function () {
-      elHostPanel = document.getElementById('host-panel');
-      elBtnHostStart = document.getElementById('btn-host-start');
-      elBtnHostMode = document.getElementById('btn-host-mode');
+      elements.elHostPanel = document.getElementById('host-panel');
+      elements.elBtnHostStart = document.getElementById('btn-host-start');
+      elements.elBtnHostMode = document.getElementById('btn-host-mode');
+      elements.elBtnHostLobby = document.getElementById('btn-host-lobby');
       updateHostControls();
       setupActionButtons();
     }
@@ -215,13 +278,13 @@ function assertInputs(ship, active, heading) {
   }
 }
 
-test('mando entra, pierde conexión, vuelve a la misma partida y suelta los controles', () => {
+test('mando entra, pierde conexión, vuelve a la misma partida y suelta los controles', async () => {
   const broker = createBroker();
   const clock = { now: 10000 };
   const host = browser(broker, clock);
   const phone = browser(broker, clock);
-  host.load('game_engine.js', engineHooks);
-  phone.load('controller.js', controllerHooks);
+  await host.load('game_engine.js', engineHooks);
+  await phone.load('controller.js', controllerHooks);
   const game = host.window.testGame;
   const controller = phone.window.testController;
 
@@ -255,21 +318,21 @@ test('mando entra, pierde conexión, vuelve a la misma partida y suelta los cont
   assertInputs(ship, false);
 
   controller.hold();
-  phone.window.onload();
+  phone.documentEvents.get("DOMContentLoaded")();
   phone.document.hidden = true;
   phone.documentEvents.get('visibilitychange')();
   assertInputs(ship, false);
 });
 
-test('la vista remota limpia el ganador de la ronda y el mando no recibe el tablero', () => {
+test('la vista remota limpia el ganador de la ronda y el mando no recibe el tablero', async () => {
   const broker = createBroker();
   const clock = { now: 10000 };
   const host = browser(broker, clock);
   const viewer = browser(broker, clock);
   const phone = browser(broker, clock);
-  host.load('game_engine.js', engineHooks);
-  viewer.load('game_engine.js', engineHooks);
-  phone.load('controller.js', controllerHooks);
+  await host.load('game_engine.js', engineHooks);
+  await viewer.load('game_engine.js', engineHooks);
+  await phone.load('controller.js', controllerHooks);
   const game = host.window.testGame;
   const remote = viewer.window.testGame;
 
@@ -289,15 +352,15 @@ test('la vista remota limpia el ganador de la ronda y el mando no recibe el tabl
   assert.equal(remote.visibleWinner(), null);
 });
 
-test('primer QR naranja administra la sala y los demás no cambian el modo ni reinician la ronda', () => {
+test('primer QR naranja administra la sala y los demás no cambian el modo ni reinician la ronda', async () => {
   const broker = createBroker();
   const clock = { now: 10000 };
   const host = browser(broker, clock);
   const first = browser(broker, clock);
   const second = browser(broker, clock);
-  host.load('game_engine.js', engineHooks);
-  first.load('controller.js', controllerHooks);
-  second.load('controller.js', controllerHooks);
+  await host.load('game_engine.js', engineHooks);
+  await first.load('controller.js', controllerHooks);
+  await second.load('controller.js', controllerHooks);
   const panel = first.element('host-panel');
   const mode = first.element('btn-host-mode');
   const start = first.element('btn-host-start');
@@ -329,13 +392,13 @@ test('primer QR naranja administra la sala y los demás no cambian el modo ni re
 });
 
 for (const pointerEvents of [true, false]) {
-  test('anfitrión móvil y QR controlan barcos independientes con multitáctil ' + (pointerEvents ? 'pointer' : 'touch'), () => {
+  test('anfitrión móvil y QR controlan barcos independientes con multitáctil ' + (pointerEvents ? 'pointer' : 'touch'), async () => {
     const broker = createBroker();
     const clock = { now: 10000 };
     const host = browser(broker, clock, true, pointerEvents);
     const phone = browser(broker, clock);
-    host.load('game_engine.js', engineHooks);
-    phone.load('controller.js', controllerHooks);
+    await host.load('game_engine.js', engineHooks);
+    await phone.load('controller.js', controllerHooks);
     const controls = host.element('onscreen-touch-controls');
     const left = host.element('touch-joystick');
     left.querySelector = () => null;
@@ -389,13 +452,13 @@ for (const pointerEvents of [true, false]) {
   });
 }
 
-test('jugador online táctil usa su barco y sus botones solicitan cambios al anfitrión', () => {
+test('jugador online táctil usa su barco y sus botones solicitan cambios al anfitrión', async () => {
   const broker = createBroker();
   const clock = { now: 10000 };
   const host = browser(broker, clock);
   const online = browser(broker, clock, true);
-  host.load('game_engine.js', engineHooks);
-  online.load('game_engine.js', engineHooks);
+  await host.load('game_engine.js', engineHooks);
+  await online.load('game_engine.js', engineHooks);
   host.window.testGame.host();
   online.window.location.search = '?sala=TEST';
   online.window.location.href += '?sala=TEST';
@@ -423,37 +486,37 @@ test('jugador online táctil usa su barco y sus botones solicitan cambios al anf
   assert.equal(game.ship(0).shootInput, false);
 });
 
-test('el teclado local no conduce el barco naranja del mando', () => {
+test('el teclado local no conduce el barco naranja del mando', async () => {
   const broker = createBroker();
   const clock = { now: 10000 };
   const host = browser(broker, clock);
   const phone = browser(broker, clock);
-  host.load('game_engine.js', engineHooks);
-  phone.load('controller.js', controllerHooks);
+  await host.load('game_engine.js', engineHooks);
+  await phone.load('controller.js', controllerHooks);
   const game = host.window.testGame;
   game.host();
   phone.window.testController.join();
   phone.flushTimers();
   game.start();
-  host.windowEvents.get('keydown')({ keyCode: 87, preventDefault() {} });
+  host.windowEvents.get('keydown')({ key: 'w', preventDefault() {} });
   assert.equal(game.ship(0).thrustInput, false);
   assert.equal(game.ship(game.localSlot()).thrustInput, true);
 });
 
-test('un toque en iniciar tiene un único manejador de inicio', () => {
+test('un toque en iniciar tiene un único manejador de inicio', async () => {
   const html = readFileSync(join(__dirname, '..', 'index.html'), 'utf8');
   const button = html.match(/<button[^>]*id="btn-start-game"[^>]*>/)[0];
   assert.ok(!button.includes('onclick='));
   assert.ok(!html.includes('id="touch-ram"'));
 });
 
-test('Horda comienza con un solo barco y admite un mando durante la partida', () => {
+test('Horda comienza con un solo barco y admite un mando durante la partida', async () => {
   const broker = createBroker();
   const clock = { now: 10000 };
   const host = browser(broker, clock);
   const phone = browser(broker, clock);
-  host.load('game_engine.js', engineHooks);
-  phone.load('controller.js', controllerHooks);
+  await host.load('game_engine.js', engineHooks);
+  await phone.load('controller.js', controllerHooks);
   const game = host.window.testGame;
   game.host();
   host.window.BarquitosGame.setMode(2);
@@ -467,13 +530,13 @@ test('Horda comienza con un solo barco y admite un mando durante la partida', ()
   assert.equal(game.nearIsland(loot.x, loot.y, 36), false);
 });
 
-test('en Horda online la pantalla móvil no añade un barco sin jugador', () => {
+test('en Horda online la pantalla móvil no añade un barco sin jugador', async () => {
   const broker = createBroker();
   const clock = { now: 10000 };
   const host = browser(broker, clock, true);
   const phone = browser(broker, clock);
-  host.load('game_engine.js', engineHooks);
-  phone.load('controller.js', controllerHooks);
+  await host.load('game_engine.js', engineHooks);
+  await phone.load('controller.js', controllerHooks);
   const game = host.window.testGame;
   game.host();
   phone.window.testController.join();
@@ -484,11 +547,11 @@ test('en Horda online la pantalla móvil no añade un barco sin jugador', () => 
   assert.equal(game.localSlot(), -1);
 });
 
-test('si el broker principal cae la sala cambia de servidor y el enlace lleva ese broker', () => {
+test('si el broker principal cae la sala cambia de servidor y el enlace lleva ese broker', async () => {
   const broker = createFlakyBroker(3);
   const clock = { now: 10000 };
   const host = browser(broker, clock);
-  host.load('game_engine.js', engineHooks);
+  await host.load('game_engine.js', engineHooks);
   const game = host.window.testGame;
   host.element('qr-canvas');
   game.host();
@@ -502,15 +565,15 @@ test('si el broker principal cae la sala cambia de servidor y el enlace lleva es
   assert.ok(url.indexOf('b=emqx') !== -1);
 });
 
-test('un mando no puede renombrar ni cambiar de equipo a otro jugador', () => {
+test('un mando no puede renombrar ni cambiar de equipo a otro jugador', async () => {
   const broker = createBroker();
   const clock = { now: 10000 };
   const host = browser(broker, clock);
   const first = browser(broker, clock);
   const second = browser(broker, clock);
-  host.load('game_engine.js', engineHooks);
-  first.load('controller.js', controllerHooks);
-  second.load('controller.js', controllerHooks);
+  await host.load('game_engine.js', engineHooks);
+  await first.load('controller.js', controllerHooks);
+  await second.load('controller.js', controllerHooks);
   const game = host.window.testGame;
   game.host();
   first.window.testController.join();
@@ -533,13 +596,13 @@ test('un mando no puede renombrar ni cambiar de equipo a otro jugador', () => {
   assert.equal(game.name(0), 'Capitana');
 });
 
-test('el anfitrión descarta datos absurdos y nombres con caracteres de control', () => {
+test('el anfitrión descarta datos absurdos y nombres con caracteres de control', async () => {
   const broker = createBroker();
   const clock = { now: 10000 };
   const host = browser(broker, clock);
   const phone = browser(broker, clock);
-  host.load('game_engine.js', engineHooks);
-  phone.load('controller.js', controllerHooks);
+  await host.load('game_engine.js', engineHooks);
+  await phone.load('controller.js', controllerHooks);
   const game = host.window.testGame;
   game.host();
   phone.window.testController.join();
@@ -560,11 +623,11 @@ test('el anfitrión descarta datos absurdos y nombres con caracteres de control'
   assert.equal(ship.shootInput, true);
 });
 
-test('la vista remota acota lo que publica cualquiera en el broker público', () => {
+test('la vista remota acota lo que publica cualquiera en el broker público', async () => {
   const broker = createBroker();
   const clock = { now: 10000 };
   const viewer = browser(broker, clock);
-  viewer.load('game_engine.js', engineHooks);
+  await viewer.load('game_engine.js', engineHooks);
   const remote = viewer.window.testGame;
   remote.view();
 
@@ -586,13 +649,13 @@ test('la vista remota acota lo que publica cualquiera en el broker público', ()
   assert.ok(ship.health >= 0 && ship.health <= ship.maxHealth);
 });
 
-test('cada jefe mejora una sola vez el casco de toda la flota y permite rescatar aliados', () => {
+test('cada jefe mejora una sola vez el casco de toda la flota y permite rescatar aliados', async () => {
   const broker = createBroker();
   const clock = { now: 10000 };
   const host = browser(broker, clock);
   const phone = browser(broker, clock);
-  host.load('game_engine.js', engineHooks);
-  phone.load('controller.js', controllerHooks);
+  await host.load('game_engine.js', engineHooks);
+  await phone.load('controller.js', controllerHooks);
   const game = host.window.testGame;
   game.host();
   host.window.BarquitosGame.setMode(2);
@@ -616,4 +679,210 @@ test('cada jefe mejora una sola vez el casco de toda la flota y permite rescatar
   game.rescue(1);
   assert.equal(orange.isAlive, true);
   assert.equal(orange.health, 1);
+});
+
+test('el mando limita el giro a 25 Hz, filtra temblores y entrega las acciones críticas', async () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const host = browser(broker, clock);
+  const phone = browser(broker, clock);
+  await host.load('game_engine.js', engineHooks);
+  await phone.load('controller.js', controllerHooks);
+  host.window.testGame.host();
+  host.window.testGame.arena();
+  const controller = phone.window.testController;
+  controller.join();
+  phone.flushTimers();
+  const ship = host.window.testGame.ship(controller.slot());
+  const sent = () => broker.delivered.filter((entry) => entry[2]?.type === 'input').length;
+  controller.steer(0);
+  for (let step = 1; step < 200; step++) {
+    clock.now += 5;
+    controller.steer(step / 10);
+  }
+  assert.equal(sent(), 25);
+  const lastHeading = broker.delivered.at(-1)[2].heading;
+  clock.now += 50;
+  controller.steer(lastHeading + 0.01);
+  assert.equal(sent(), 25);
+  clock.now += 350;
+  controller.refresh();
+  assert.equal(sent(), 26, 'el heartbeat renueva el control');
+  controller.steer(null, true);
+  assert.equal(ship.headingInput, null, 'el anfitrión aplica la liberación dentro del throttle');
+  controller.fire();
+  assert.equal(ship.shotBuffer, 0.8, 'el disparo llega inmediatamente al anfitrión');
+  assert.equal(sent(), 28);
+});
+
+test('una recarga sin código explícito recupera el barco y el apodo confirmados', async () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const storage = new Map();
+  const host = browser(broker, clock);
+  const first = browser(broker, clock, true, true, storage);
+  await host.load('game_engine.js', engineHooks);
+  await first.load('controller.js', controllerHooks);
+  const game = host.window.testGame;
+  game.host();
+  game.arena();
+  first.window.testController.setName('Marina');
+  first.window.testController.join();
+  first.flushTimers();
+  const slot = first.window.testController.slot();
+  const ship = game.ship(slot);
+  first.window.CloudNet.disconnect();
+  const reloaded = browser(broker, clock, true, true, storage);
+  await reloaded.load('controller.js', controllerHooks);
+  reloaded.documentEvents.get('DOMContentLoaded')();
+  reloaded.flushTimers();
+  assert.equal(reloaded.window.testController.room(), 'TEST');
+  assert.equal(reloaded.window.testController.slot(), slot);
+  assert.equal(game.ship(slot), ship);
+  assert.equal(game.name(slot), 'Marina');
+  assert.equal(game.connected(), 1);
+  reloaded.windowEvents.get('popstate')();
+  assert.equal(storage.size, 0);
+  assert.equal(reloaded.window.CloudNet.isConnected(), false);
+});
+
+test('una sesión desconocida se borra al responder otro anfitrión y no ocupa un barco', async () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const storage = new Map([['barquitos_controller_session', JSON.stringify({
+    roomId: 'TEST', playerId: 'u-previous', playerName: 'Capitana', expiresAt: 20000
+  })]]);
+  const host = browser(broker, clock);
+  const phone = browser(broker, clock, true, true, storage);
+  await host.load('game_engine.js', engineHooks);
+  await phone.load('controller.js', controllerHooks);
+  host.window.testGame.host();
+  phone.documentEvents.get('DOMContentLoaded')();
+  phone.flushTimers();
+  assert.equal(phone.window.testController.room(), '');
+  assert.equal(phone.window.testController.slot(), -1);
+  assert.equal(host.window.testGame.connected(), 0);
+  assert.equal(storage.size, 0);
+});
+
+test('se descarta la sesión si el broker está disponible pero el anfitrión no responde', async () => {
+  const storage = new Map([['barquitos_controller_session', JSON.stringify({
+    roomId: 'TEST', playerId: 'u-previous', playerName: 'Capitana', expiresAt: 60000
+  })]]);
+  const clock = { now: 10000 };
+  const phone = browser(createBroker(), clock, true, true, storage);
+  await phone.load('controller.js', controllerHooks);
+  phone.documentEvents.get('DOMContentLoaded')();
+  phone.flushTimers();
+  phone.document.hidden = true;
+  for (let step = 0; step < 10; step++) phone.tickIntervals();
+  assert.equal(storage.size, 1, 'el tiempo en segundo plano no agota los reintentos');
+  phone.document.hidden = false;
+  for (let step = 0; step < 8; step++) {
+    clock.now += 1500;
+    phone.tickIntervals();
+  }
+  assert.equal(storage.size, 0);
+  assert.equal(phone.window.testController.room(), '');
+  assert.equal(phone.window.CloudNet.isConnected(), false);
+});
+
+test('se libera la plaza fantasma al volver al lobby y se conserva durante una ronda', async () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const host = browser(broker, clock);
+  const phone = browser(broker, clock);
+  const replacement = browser(broker, clock);
+  await host.load('game_engine.js', engineHooks);
+  await phone.load('controller.js', controllerHooks);
+  await replacement.load('controller.js', controllerHooks);
+  const game = host.window.testGame;
+  game.host();
+  phone.window.testController.join();
+  phone.flushTimers();
+  assert.equal(game.connected(), 1);
+
+  game.arena();
+  phone.window.CloudNet.disconnect();
+  clock.now += 46000;
+  game.expire();
+  assert.equal(game.connected(), 1);
+  game.lobby();
+  game.expire();
+  assert.equal(game.connected(), 0);
+
+  replacement.window.testController.join();
+  replacement.flushTimers();
+  assert.equal(replacement.window.testController.slot(), 0);
+});
+
+test('el transporte pausa los reintentos sin red y reconecta en el evento online', async () => {
+  const broker = createFlakyBroker(1);
+  const host = browser(broker, { now: 10000 });
+  await host.load('game_engine.js', engineHooks);
+  host.window.testGame.host();
+  assert.equal(host.nextTimeout(), 1000);
+  host.windowEvents.get('offline')();
+  assert.equal(host.nextTimeout(), undefined);
+  assert.equal(host.window.CloudNet.isConnected(), false);
+  host.windowEvents.get('online')();
+  assert.equal(host.window.CloudNet.isConnected(), true);
+  host.flushTimers();
+});
+
+test('el anfitrión vuelve del podio desde el mando 1 y sincroniza la sala con los demás mandos', async () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const host = browser(broker, clock);
+  const first = browser(broker, clock);
+  const second = browser(broker, clock);
+  await host.load('game_engine.js', engineHooks);
+  await first.load('controller.js', controllerHooks);
+  await second.load('controller.js', controllerHooks);
+  const game = host.window.testGame;
+  game.host();
+  for (const phone of [first, second]) {
+    phone.window.testController.join();
+    phone.flushTimers();
+  }
+  const menu = first.element('btn-host-lobby');
+  first.window.testController.bind();
+  game.podium();
+  assert.equal(menu.hidden, false);
+  second.window.testController.action('lobby');
+  assert.equal(game.state(), 3);
+  menu.fire('touchend');
+  menu.fire('click');
+  assert.equal(game.state(), 0);
+  assert.equal(first.window.testController.state(), 'lobby');
+  assert.equal(second.window.testController.state(), 'lobby');
+  assert.equal(menu.hidden, true);
+});
+
+test('ready, apodo, equipo y acción de anfitrión renuevan la plaza sin enviar controles', async () => {
+  for (const payload of [
+    { type: 'ready', ready: true },
+    { type: 'set_name', name: 'Mar' },
+    { type: 'set_team', team: 'red' },
+    { type: 'host_action', action: 'toggle_mode' }
+  ]) {
+    const broker = createBroker();
+    const clock = { now: 10000 };
+    const host = browser(broker, clock);
+    const phone = browser(broker, clock);
+    await host.load('game_engine.js', engineHooks);
+    await phone.load('controller.js', controllerHooks);
+    const game = host.window.testGame;
+    game.host();
+    phone.window.testController.join();
+    phone.flushTimers();
+    clock.now += 44000;
+    game.raw(game.uuidOf(0), payload);
+    clock.now += 2000;
+    game.expire();
+    assert.equal(game.connected(), 1, payload.type);
+    clock.now += 44000;
+    game.expire();
+    assert.equal(game.connected(), 0, payload.type);
+  }
 });

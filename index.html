@@ -2,21 +2,23 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ctext y=%2752%27 font-size=%2752%27%3E%E2%9B%B5%3C/text%3E%3C/svg%3E">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
-  <link rel="stylesheet" href="css/tv.css?v=45">
+  <link rel="stylesheet" href="css/tv/base.css">
+  <link rel="stylesheet" href="css/tv/lobby.css">
+  <link rel="stylesheet" href="css/tv/hud.css">
+  <link rel="stylesheet" href="css/tv/modals.css">
 </head>
 <body>
   <script>
     // Si se accede con código de sala para mando (?room=XXXX) sin ?sala=, redirigir al mando móvil
     // Si se accede con ?sala=XXXX o ?join=XXXX, se permanece en index.html como Jugador Online en Pantalla
-    (function() {
-      var q = window.location.search;
-      if (q && q.indexOf('room=') !== -1 && q.indexOf('sala=') === -1 && q.indexOf('join=') === -1) {
-        window.location.replace('controller.html' + q);
-      }
-    })();
+    const { search, hash } = window.location;
+    const params = new URLSearchParams(search);
+    if (params.has('room') && !params.has('sala') && !params.has('join')) {
+      window.location.replace(`controller.html${search}${hash}`);
+    }
   </script>
 
   <div id="landscape-stage">
@@ -37,9 +39,9 @@
   <div id="lobby-ui" class="lobby-container">
     <div id="lobby-fit">
     <div class="lobby-header">
-      <h1 class="game-title">BARQUITOS</h1>
+      <h1 class="game-title">Barquitos</h1>
       <p class="game-subtitle">Batallas navales para jugar juntos · Hasta 8 jugadores</p>
-      <div id="cloud-status" class="status-tag connecting">Conectando a la nube...</div>
+      <div id="cloud-status" class="status-tag connecting" role="status">Conectando a la nube...</div>
     </div>
 
     <div class="lobby-layout">
@@ -54,6 +56,7 @@
         </div>
       <p>Escanea el QR para usar tu celular como mando.</p>
     </section>
+    <div class="lobby-play">
     <nav id="play-menu" class="play-menu" aria-label="Opciones de juego">
       <button type="button" class="mode-btn" data-play="solo" aria-controls="play-options" aria-expanded="false">Un Jugador</button>
       <button type="button" class="mode-btn" data-play="local" aria-controls="play-options" aria-expanded="false">Multijugador Local</button>
@@ -69,28 +72,34 @@
       <p id="play-local-help" class="invite-help" hidden>Conecta los mandos con el QR.</p>
       <p id="play-solo-help" class="invite-help" hidden>Horda Pirata en solitario.</p>
         <div class="mode-buttons-row">
-          <button id="btn-mode-horde" class="mode-btn active" type="button">
-            <span class="mode-icon">💀</span>
+          <button id="btn-mode-horde" aria-pressed="true" class="mode-btn active" type="button">
+            <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v14m0-13 7 10h-7m-2-7-5 7h5m-7 4h18l-3 3H6z"/></svg>
             <span class="mode-name">HORDA PIRATA</span>
-            <span class="mode-desc">Juega solo o en equipo contra piratas. Un jefe cada 10 oleadas.</span>
+            <span class="mode-desc">Resiste las oleadas piratas. Hay un jefe cada 10.</span>
           </button>
 
-          <button id="btn-mode-battle" class="mode-btn" type="button">
-            <span class="mode-icon">⚔️</span>
+          <button id="btn-mode-battle" aria-pressed="false" class="mode-btn" type="button">
+            <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l16 16M20 4L4 20M4 4v5m0-5h5m11 0h-5m5 0v5"/></svg>
             <span class="mode-name">TODOS CONTRA TODOS</span>
-            <span class="mode-desc">Compitan entre amigos. Gana el último barco a flote.</span>
+            <span class="mode-desc">Gana el último barco a flote.</span>
           </button>
 
-          <button id="btn-mode-teams" class="mode-btn" type="button">
-            <span class="mode-icon">🚩</span>
+          <button id="btn-mode-teams" aria-pressed="false" class="mode-btn" type="button">
+            <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 18h20l-3 3H5zM7 15V5l-4 8h4m10 2V5l4 8h-4"/></svg>
             <span class="mode-name">BATALLA POR EQUIPOS</span>
-            <span class="mode-desc">Azul contra rojo. Cooperen para hundir al equipo rival.</span>
+            <span class="mode-desc">Azul contra rojo. Hundan a la flota rival.</span>
           </button>
 
         </div>
       <button id="btn-local-player" class="online-btn" type="button">Jugar en esta pantalla</button>
       <button id="btn-start-game" class="start-btn" type="button">Iniciar partida</button>
       <p id="start-player-notice" class="invite-help" hidden></p>
+    </section>
+    </div>
+    <section class="lobby-roster" aria-labelledby="lobby-roster-heading">
+      <h2 id="lobby-roster-heading">Tripulación</h2>
+      <p id="lobby-roster-empty">Los capitanes aparecerán aquí al conectarse.</p>
+      <ul id="lobby-roster-list" aria-label="Jugadores conectados"></ul>
     </section>
     </div>
     </div>
@@ -175,10 +184,7 @@
 
   <!-- Scripts del juego (Moderno ES6+) -->
   <script src="js/paho-mqtt.min.js"></script>
-  <script src="js/cloud_network.js?v=28"></script>
   <script src="js/qrcode.min.js"></script>
-  <script src="js/sound_synth.js?v=27"></script>
-  <script src="js/tizen_keys.js?v=27"></script>
-  <script src="js/game_engine.js?v=58"></script>
+  <script type="module" src="js/game_engine.js"></script>
 </body>
 </html>

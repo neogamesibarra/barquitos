@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "strict": false,
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler"
+  },
+  "include": ["js/**/*.js", "js/**/*.d.ts"],
+  "exclude": ["js/paho-mqtt.min.js", "js/qrcode.min.js", "tests/"]
+}

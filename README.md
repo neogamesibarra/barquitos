@@ -4,12 +4,48 @@
 
 Sin descargas, sin aplicaciones pesadas y sin configuraciones complicadas: solo abre el juego en tu pantalla, escanea el código QR con tu celular y ¡que comience la batalla! 🌊💣
 
+## Desarrollo y despliegue
+
+Barquitos está orientado a navegadores modernos con módulos ES nativos, Canvas 2D, Web Audio y WebSocket. GitHub Pages sirve los archivos directamente, sin instalar dependencias ni ejecutar una compilación.
+
+Desde la raíz del proyecto puedes iniciar un servidor estático con Python:
+
+```sh
+python -m http.server 8080
+```
+
+Abre [el juego](http://localhost:8080/index.html) o [el mando táctil](http://localhost:8080/controller.html). La ruta `tv.html` conserva los enlaces existentes y reenvía los parámetros de sala y el fragmento de la URL.
+
+| Ruta | Responsabilidad |
+| --- | --- |
+| `index.html`, `controller.html`, `tv.html` | Pantalla de juego, mando y redirección |
+| `js/game_engine.js`, `js/engine/bootstrap.js` | Entrada del juego e inicialización del navegador |
+| `js/engine/config.js`, `state.js` | Configuración de la arena y estado de la partida |
+| `js/engine/entities.js`, `physics.js` | Entidades, movimiento, colisiones y límites |
+| `js/engine/modes.js`, `game_loop.js`, `events.js` | Modos, rondas, simulación a 60 Hz y eventos del juego |
+| `js/engine/renderer.js`, `entity_renderer.js`, `effects.js`, `hud.js` | Canvas, efectos y marcadores |
+| `js/engine/controls.js`, `lobby.js`, `viewport.js` | Entrada local, interfaz de sala y ajuste de pantalla |
+| `js/engine/multiplayer.js`, `js/cloud_network.js` | Sincronización y transporte MQTT sobre WebSocket |
+| `js/controller.js`, `js/controller/`, `js/sound_synth.js` | Entrada del mando, módulos del mando y audio procedural |
+| `css/tv/` | Hojas de base, lobby, HUD y modales enlazadas desde `index.html` |
+| `manifest.json`, `sw.js`, `icons/` | Mando instalable y caché de recursos estáticos |
+| `tests/` | Pruebas de física, modos y multijugador |
+
+El mando se puede instalar en navegadores compatibles al abrirlo por HTTPS o desde localhost. Conserva la sesión de la pestaña tras recargar y el botón Atrás del navegador cierra la sesión del mando. La caché permite abrir el mando si falla el servidor estático. Una partida multijugador sigue requiriendo conexión al broker MQTT. Durante la partida el mando solicita mantener encendida la pantalla en navegadores compatibles. Las plazas de mandos que dejan de enviar señales durante 45 segundos se liberan en la sala de espera.
+
+Ejecuta la misma suite que GitHub Actions con Node.js 24. Las pruebas usan un broker MQTT simulado y cargan los módulos del navegador en contextos aislados:
+
+```sh
+node --experimental-vm-modules tests/validate_repo.cjs
+node --experimental-vm-modules --test "tests/*.test.cjs"
+```
+
 ---
 
 ## 🚀 Cómo Jugar en 3 Sencillos Pasos
 
 ### 1. Abre el Juego en la Pantalla Grande 📺
-Entra al juego desde el navegador de tu Smart TV (Samsung Tizen o cualquier televisor), computadora o proyector:
+Entra al juego desde el navegador de un televisor con navegador moderno o desde una computadora conectada a la pantalla:
 👉 **[https://neogamesibarra.github.io/barquitos/](https://neogamesibarra.github.io/barquitos/)**
 
 Coloca el navegador en **Pantalla Completa** para disfrutar de toda la acción. En pantalla verás el código de sala y un **Código QR**.
@@ -21,7 +57,7 @@ Coloca el navegador en **Pantalla Completa** para disfrutar de toda la acción. 
 - Pulsa el botón **LISTO ✓**.
 
 ### 3. ¡A Navegar y Combatir! ⚔️
-El Capitán del **Mando 1** (o usando el control remoto de la tele) puede seleccionar el modo de juego y presionar **INICIAR PARTIDA**.
+El Capitán del **Mando 1** (o el anfitrión desde la pantalla principal) puede seleccionar el modo de juego y presionar **INICIAR PARTIDA**.
 
 ---
 

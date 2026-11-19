@@ -1,3 +1,13 @@
+:root {
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --color-accent: #00e5ff;
+  --color-text: #ffffff;
+  --color-muted: #b0bec5;
+  --color-highlight: #fffb00;
+  --space-md: 12px;
+  --space-lg: 16px;
+}
+
 /* landing.css - Estilos de la página principal de BARQUITOS */
 * {
   margin: 0;
@@ -7,18 +17,17 @@
 
 body {
   background: linear-gradient(135deg, #0b2230 0%, #154563 100%);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  color: #ffffff;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-family: var(--font-ui);
+  color: var(--color-text);
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
   padding: 20px;
 }
 
 .landing-card {
   background: rgba(13, 30, 45, 0.95);
-  border: 3px solid #00e5ff;
+  border: 3px solid var(--color-accent);
   border-radius: 20px;
   padding: 35px 30px;
   max-width: 650px;
@@ -31,7 +40,7 @@ body {
   font-size: 56px;
   font-weight: 900;
   letter-spacing: 6px;
-  color: #fffb00;
+  color: var(--color-highlight);
   text-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
   margin-bottom: 5px;
 }
@@ -39,20 +48,19 @@ body {
 .tagline {
   font-size: 18px;
   font-weight: bold;
-  color: #00e5ff;
+  color: var(--color-accent);
   margin-bottom: 6px;
 }
 
 .subtitle {
   font-size: 14px;
-  color: #b0bec5;
+  color: var(--color-muted);
   margin-bottom: 30px;
 }
 
 .role-selector {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: grid;
+  gap: var(--space-lg);
   margin-bottom: 30px;
 }
 
@@ -95,7 +103,7 @@ body {
 .btn-tv {
   background: linear-gradient(135deg, #1b4965 0%, #2b6cb0 100%);
   border: 2px solid #63b3ed;
-  color: #ffffff;
+  color: var(--color-text);
 }
 
 .btn-tv:hover {
@@ -105,7 +113,7 @@ body {
 .btn-controller {
   background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
   border: 2px solid #2ecc71;
-  color: #ffffff;
+  color: var(--color-text);
 }
 
 .btn-controller:hover {
@@ -123,7 +131,7 @@ body {
 .instructions h3 {
   font-size: 16px;
   color: #ffca28;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-md);
   text-align: center;
 }
 
