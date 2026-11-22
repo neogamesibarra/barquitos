@@ -1,6 +1,6 @@
 import { MODE_HORDE, PLAYER_PROFILES, STATE_LOBBY, arenaBounds } from "./config.js";
 
-/** @typedef {typeof PLAYER_PROFILES[number] & {lastInputAt?: number, lastFirePress?: number, lastSeenAt?: number}} PlayerProfile */
+/** @typedef {typeof PLAYER_PROFILES[number] & {lastInputAt?: number, lastFirePress?: number, lastSeenAt?: number, wantsShipStatus?: boolean}} PlayerProfile */
 /** @typedef {{x: number, y: number, w: number, h: number}} ArenaBounds */
 /** @typedef {{name: string, hull: string, slot?: number, customName?: string}} RoundWinner */
 /** @typedef {{text: string, x: number, y: number, color: string, size: number, life: number, maxLife: number, vy: number}} FloatingText */
