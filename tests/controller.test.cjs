@@ -12,6 +12,7 @@ async function controllerFixture(initial, navigator = {}) {
   const outgoing = [];
   const storage = new Map(initial ? [[KEY, JSON.stringify(initial)]] : []);
   const listeners = new Map();
+  const frames = [];
   let connection;
   let connected = true;
   const CloudNet = {
@@ -27,6 +28,8 @@ async function controllerFixture(initial, navigator = {}) {
   };
   const window = {
     navigator,
+    PointerEvent: function () {},
+    requestAnimationFrame: fn => frames.push(fn),
     location: { href: 'https://test/barquitos/controller.html', search: '' },
     sessionStorage: {
       getItem: key => storage.get(key) ?? null,
@@ -53,11 +56,12 @@ async function controllerFixture(initial, navigator = {}) {
     export * from './controller/joystick.js';
     export * from './controller/session.js';
     export * from './controller/ui.js';
+    export * from './gamepad.js';
   `, { identifier: resolve(JS, 'test-entry.js'), context });
   await entry.link((specifier, importer) => moduleFor(resolve(dirname(importer.identifier), specifier)));
   await entry.evaluate();
   return {
-    api: entry.namespace, clock, outgoing, storage, listeners, document, CloudNet,
+    api: entry.namespace, clock, outgoing, storage, listeners, document, CloudNet, frames,
     receive: message => connection.onMessage('', message)
   };
 }
@@ -151,8 +155,14 @@ function tapButton() {
   const handlers = new Map();
   return {
     hidden: true, style: {},
+    classList: {
+      values: new Set(),
+      add(name) { this.values.add(name); },
+      remove(...names) { for (const name of names) this.values.delete(name); },
+      toggle(name, enabled) { if (enabled) this.values.add(name); else this.values.delete(name); }
+    },
     addEventListener: (type, handler) => handlers.set(type, handler),
-    tap: type => handlers.get(type)({ preventDefault() {} })
+    tap: (type, values = {}) => handlers.get(type)({ preventDefault() {}, ...values })
   };
 }
 
@@ -217,4 +227,93 @@ test('los estados intermedios mantienen el juego y el podio limpia los inputs y 
   assert.equal(release.th, 0);
   assert.equal(release.sh, 0);
   assert.equal(release.firePress, 0);
+});
+
+test('la zona muerta y la curva del stick preservan los extremos y suavizan el giro leve', async () => {
+  const { api } = await controllerFixture();
+  assert.equal(api.stickResponse(0.1, 0.08, 0.14).heading, null);
+  const half = api.stickResponse(0, 0.57, 0.14);
+  assert.equal(half.heading, Math.PI / 2);
+  assert.ok(Math.abs(half.magnitude - Math.pow(0.5, 1.5)) < 1e-10);
+  assert.equal(api.stickResponse(-1, 0.5, 0.14).magnitude, 1);
+});
+
+test('el mando actualiza munición y hundimiento y filtra los disparos hasta revivir', async () => {
+  const fixture = await controllerFixture();
+  const { api, outgoing } = fixture;
+  const ammo = tapButton();
+  const sunk = tapButton();
+  const shoot = tapButton();
+  Object.assign(api.elements, { elAmmo: ammo, elSunk: sunk, elBtnShoot: shoot });
+  api.connectToRoom('TEST');
+  fixture.receive({ type: 'init', slot: 0, state: 1, name: 'Capitán 1' });
+  fixture.receive({ type: 'ship_status', alive: true, ammo: 0, maxAmmo: 5 });
+  assert.equal(ammo.textContent, '0 / 5');
+  assert.equal(shoot.classList.values.has('is-empty'), true);
+
+  fixture.receive({ type: 'ship_status', alive: false, ammo: 2, maxAmmo: 5 });
+  assert.equal(sunk.hidden, false);
+  api.inputState.shoot = true;
+  api.markFirePress();
+  api.sendInputUpdate(true);
+  assert.equal(outgoing.at(-1).sh, 0);
+  assert.equal(outgoing.at(-1).firePress, 0);
+  fixture.receive({ type: 'ship_status', alive: true, ammo: 5, maxAmmo: 5 });
+  assert.equal(sunk.hidden, true);
+  assert.equal(ammo.textContent, '5 / 5');
+  assert.equal(shoot.classList.values.has('is-empty'), false);
+});
+
+test('el mando físico activa el sondeo al conectarse y libera sus entradas al desconectarse', async () => {
+  let pad = null;
+  const { api, frames, listeners, outgoing } = await controllerFixture(undefined, {
+    getGamepads: () => [pad]
+  });
+  api.session.mySlot = 0;
+  api.session.currentGameState = 'playing';
+  api.initJoystick();
+  assert.equal(frames.length, 0);
+  pad = { connected: true, axes: [0.1, 0], buttons: [] };
+  listeners.get('gamepadconnected')();
+  frames.shift()();
+  assert.equal(api.inputState.heading, null);
+  pad.axes = [0, -0.8];
+  pad.buttons[7] = { pressed: true };
+  pad.buttons[1] = { pressed: true };
+  frames.shift()();
+  assert.equal(outgoing.at(-1).heading, -Math.PI / 2);
+  assert.equal(outgoing.at(-1).sh, 1);
+  assert.equal(outgoing.at(-1).th, 1);
+  pad = null;
+  frames.shift()();
+  assert.equal(outgoing.at(-1).heading, null);
+  assert.equal(outgoing.at(-1).th, 0);
+  assert.equal(outgoing.at(-1).sh, 0);
+  assert.equal(frames.length, 0);
+});
+
+test('el joystick flotante nace bajo el pulgar, mide desde ese origen y vuelve al centro al cancelar', async () => {
+  const { api, clock, outgoing } = await controllerFixture();
+  const zone = tapButton();
+  zone.setPointerCapture = () => {};
+  const wheel = tapButton();
+  wheel.getBoundingClientRect = () => ({ width: 100, height: 100 });
+  wheel.parentElement = { getBoundingClientRect: () => ({ left: 100, top: 50, width: 200, height: 100 }) };
+  wheel.style.setProperty = () => {};
+  const knob = { style: {}, offsetWidth: 40 };
+  Object.assign(api.elements, { elSteeringZone: zone, elWheelOuter: wheel, elWheelKnob: knob });
+  api.session.mySlot = 0;
+  api.initJoystick();
+  zone.tap('pointerdown', { pointerId: 1, clientX: 160, clientY: 120 });
+  assert.equal(wheel.style.transform, 'translate(-40px, 20px)');
+  assert.equal(api.inputState.heading, null);
+  clock.now += 40;
+  zone.tap('pointermove', { pointerId: 1, clientX: 165, clientY: 120 });
+  assert.equal(api.inputState.heading, null);
+  zone.tap('pointermove', { pointerId: 1, clientX: 185, clientY: 120 });
+  assert.equal(api.inputState.heading, 0);
+  assert.ok(outgoing.at(-1).magnitude > 0 && outgoing.at(-1).magnitude < 1);
+  zone.tap('pointercancel', { pointerId: 1 });
+  assert.equal(wheel.style.transform, '');
+  assert.equal(outgoing.at(-1).heading, null);
 });
