@@ -203,6 +203,39 @@ test('el mando anfitrión muestra Menú principal solo en podio y envía una sol
   assert.equal(menu.hidden, true);
 });
 
+test('el permiso explícito activa el panel y las acciones fuera del puesto cero', async () => {
+  const { api, receive, outgoing, clock } = await controllerFixture();
+  const panel = tapButton();
+  const start = tapButton();
+  const mode = tapButton();
+  api.elements.elHostPanel = panel;
+  api.elements.elBtnHostStart = start;
+  api.elements.elBtnHostMode = mode;
+  api.setupActionButtons();
+  api.connectToRoom('TEST');
+  receive({ type: 'init', slot: 0, state: 0, isHost: false });
+  assert.equal(panel.style.display, 'none');
+  receive({ type: 'init', slot: 2, state: 0, isHost: true });
+  assert.equal(panel.style.display, 'flex');
+  mode.tap('touchend');
+  mode.tap('click');
+  start.tap('click');
+  const actions = () => outgoing.filter(packet => packet.type === 'host_action').map(packet => packet.action);
+  assert.deepEqual(actions(), ['toggle_mode', 'start']);
+
+  receive({ type: 'state_change', state: 1 });
+  assert.equal(panel.style.display, 'none');
+  receive({ type: 'state_change', state: 3 });
+  assert.equal(panel.style.display, 'flex');
+  receive({ type: 'host_permissions', isHost: false });
+  assert.equal(panel.style.display, 'none');
+  clock.now += 1000;
+  start.tap('click');
+  assert.deepEqual(actions(), ['toggle_mode', 'start']);
+  receive({ type: 'host_permissions', isHost: true });
+  assert.equal(panel.style.display, 'flex');
+});
+
 test('los estados intermedios mantienen el juego y el podio limpia los inputs y el disparo pendiente', async () => {
   const fixture = await controllerFixture();
   const { api, outgoing } = fixture;

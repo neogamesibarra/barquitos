@@ -7,7 +7,7 @@ import { removeParticle, spawnWaterFoam } from "./effects.js";
 import { AmmoCrate, BossGalleon, removeCannonball, spawnCannonball, HordePowerup, PirateShip, Ship, updateLobbyShips } from "./entities.js";
 import { updateAllShipsHUD, updateHordeUpgradesHUD, updateTeamScoresHUD } from "./hud.js";
 import { openPlayMenu, requestLobbyAction, setupInviteButtons, setupRemotePlayerBarEvents, updateLobbyModeUI, updateLobbyPermissions, updateRemoteTeamUI, updateRemoteTeamVisibility } from "./lobby.js";
-import { initArenaIslands, startNewMatch } from "./modes.js";
+import { initArenaIslands } from "./modes.js";
 import { applyWaterDrift, getSafeSpawnPoint, pushByWaves } from "./physics.js";
 import { state } from "./state.js";
 
@@ -378,6 +378,7 @@ function handleClientIncomingMessage(topic, msg) {
   if (msg.type === "init") {
     stopClientJoinRetry();
     state.remoteSlot = msg.slot;
+    state.remoteIsHost = typeof msg.isHost === "boolean" ? msg.isHost : msg.slot === 0;
     if (typeof msg.mode === "number") state.selectedMode = msg.mode;
     if (typeof msg.state === "number") state.currentState = msg.state;
     updateLobbyPermissions();
@@ -422,6 +423,9 @@ function handleClientIncomingMessage(topic, msg) {
       }
     } catch(e){}
 
+  } else if (msg.type === "host_permissions" && typeof msg.isHost === "boolean") {
+    state.remoteIsHost = msg.isHost;
+    updateLobbyPermissions();
   } else if (msg.type === "team_confirmed") {
     if (msg.team) {
       state.mySelectedTeam = msg.team;
@@ -648,6 +652,20 @@ function connectCloudNet() {
 // ==========================================================================
 const INPUT_MIN_INTERVAL_MS = 15;
 
+function getRemoteHostUuid() {
+  return state.playersData.find(player => player.connected === true && sanitizeUuid(player.uuid))?.uuid;
+}
+
+function updateRemoteHost(previousHost, initializedUuid) {
+  const currentHost = getRemoteHostUuid();
+  if (currentHost === previousHost) return;
+  for (const uuid of [previousHost, currentHost]) {
+    if (uuid && uuid !== initializedUuid) {
+      CloudNet.sendToPlayer(uuid, { type: "host_permissions", isHost: uuid === currentHost });
+    }
+  }
+}
+
 // El slot SIEMPRE se resuelve por uuid, nunca por el número que manda el
 // cliente: msg.slot es falsificable y permitía manejar a otros jugadores.
 function slotForUuid(uuid) {
@@ -672,6 +690,7 @@ function handleIncomingMessage(msg) {
     const uuid = sanitizeUuid(msg.uuid);
     if (!uuid) return;
 
+    const previousHost = getRemoteHostUuid();
     let slot = slotForUuid(uuid);
     if (slot === -1 && msg.type === "rejoin" && msg.resumeOnly === true) {
       CloudNet.sendToPlayer(uuid, { type: "session_expired" });
@@ -727,6 +746,7 @@ function handleIncomingMessage(msg) {
       CloudNet.sendToPlayer(uuid, {
         type: "init",
         slot: slot,
+        isHost: uuid === getRemoteHostUuid(),
         name: state.playersData[slot].name,
         customName: state.playersData[slot].customName,
         hull: state.playersData[slot].hull,
@@ -740,6 +760,7 @@ function handleIncomingMessage(msg) {
       });
     }
 
+    updateRemoteHost(previousHost, uuid);
     updateLobbyShips();
   } else if (msg.type === "ready") {
     const slot = renewPlayerLease(msg.uuid);
@@ -814,22 +835,19 @@ function handleIncomingMessage(msg) {
       }
     }
   } else if (msg.type === "host_action") {
-    if (renewPlayerLease(msg.uuid) !== 0) return;
+    if (renewPlayerLease(msg.uuid) === -1 || msg.uuid !== getRemoteHostUuid()) return;
     if (state.currentState !== STATE_LOBBY && state.currentState !== STATE_PODIUM) return;
     if (msg.action === "start") {
-      startNewMatch();
+      if (state.playMenuChoice === "solo") openPlayMenu("online");
+      requestLobbyAction("start");
     } else if (msg.action === "lobby") {
       requestLobbyAction("lobby");
     } else if (msg.action === "set_mode") {
-      if (typeof msg.mode === "number" && msg.mode >= 0 && msg.mode <= 2) {
-        state.selectedMode = msg.mode;
-        updateLobbyModeUI();
-        broadcastCurrentMode();
+      if (Number.isInteger(msg.mode) && msg.mode >= 0 && msg.mode <= MODE_HORDE) {
+        requestLobbyAction("set_mode", msg.mode);
       }
     } else if (msg.action === "toggle_mode") {
-      state.selectedMode = (state.selectedMode + 1) % 3;
-      updateLobbyModeUI();
-      broadcastCurrentMode();
+      requestLobbyAction("set_mode", (state.selectedMode + 1) % (MODE_HORDE + 1));
     }
   }
 }
@@ -901,6 +919,7 @@ function expireRemoteInputs(now) {
   // Se conservan barcos y puntuaciones durante la partida y el podio.
   // La sala de espera puede reasignar la plaza si ya no recibe el heartbeat.
   if (state.currentState !== STATE_LOBBY || !CloudNet.isConnected()) return;
+  const previousHost = getRemoteHostUuid();
   let rosterChanged = false;
   for (let slot = 0; slot < state.playersData.length; slot++) {
     const player = state.playersData[slot];
@@ -910,7 +929,10 @@ function expireRemoteInputs(now) {
     state.playersData[slot] = { ...PLAYER_PROFILES[slot] };
     rosterChanged = true;
   }
-  if (rosterChanged) updateLobbyShips();
+  if (rosterChanged) {
+    updateRemoteHost(previousHost);
+    updateLobbyShips();
+  }
 }
 
 export { applyClientSync, broadcastCurrentMode, broadcastGameState, connectCloudNet, expireRemoteInputs, generateLobbyQR, generateRoomCode, getQueryParam, handleClientIncomingMessage, sendTvAction, updateRemoteClient, withBrokerParam };

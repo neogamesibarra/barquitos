@@ -317,7 +317,7 @@ function updateLobbyModeUI() {
 }
 
 function updateLobbyPermissions() {
-  const canManage = !state.isRemoteClient || state.remoteSlot === 0;
+  const canManage = !state.isRemoteClient || state.remoteIsHost;
   const start = /** @type {HTMLButtonElement|null} */ (document.getElementById("btn-start-game"));
   if (start) {
     start.style.display = canManage ? "" : "none";
@@ -333,7 +333,7 @@ function updateLobbyPermissions() {
 function requestLobbyAction(action, mode) {
   if (state.currentState !== STATE_LOBBY && state.currentState !== STATE_PODIUM) return;
   if (state.isRemoteClient) {
-    if (state.remoteSlot !== 0 || !CloudNet) return;
+    if (!state.remoteIsHost || !CloudNet) return;
     CloudNet.sendToHost({ type: "host_action", uuid: state.myPlayerUUID, action: action, mode: mode });
   } else if (action === "start") {
     startNewMatch();
@@ -351,7 +351,7 @@ function requestLobbyAction(action, mode) {
 
 function updatePodiumActions() {
   const panel = document.getElementById("podium-actions");
-  if (panel) panel.style.display = state.currentState === STATE_PODIUM && (!state.isRemoteClient || state.remoteSlot === 0) ? "flex" : "none";
+  if (panel) panel.style.display = state.currentState === STATE_PODIUM && (!state.isRemoteClient || state.remoteIsHost) ? "flex" : "none";
 }
 
 function openPlayMenu(choice) {

@@ -69,6 +69,7 @@ const state = {
   // Variables Multijugador Online (Jugar con amigos en otros países)
   isRemoteClient: false,
   remoteSlot: -1,
+  remoteIsHost: false,
   localPlayerSlot: -1,
   /** @type {(() => void)|null} */
   releaseTouchControls: null,

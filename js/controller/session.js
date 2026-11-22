@@ -75,6 +75,7 @@ const session = {
   playerUUID: savedSession?.playerId ?? getOrCreateUUID(),
   currentRoom: roomFromLink || savedSession?.roomId || '',
   mySlot: -1,
+  isHost: false,
   isReady: false,
   shipAlive: true,
   ammo: null,
@@ -140,6 +141,7 @@ function leaveRoom(message = 'Conéctate a una sala') {
   savedSession = null;
   session.currentRoom = '';
   session.mySlot = -1;
+  session.isHost = false;
   session.isReady = false;
   setGameState('lobby');
   updateReadyUI();
@@ -161,6 +163,8 @@ function connectToRoom(roomCode) {
   }
   session.currentRoom = nextRoom;
   session.mySlot = -1;
+  session.isHost = false;
+  updateHostControls();
   if (elements.elRoomOverlay) elements.elRoomOverlay.style.display = 'none';
   if (elements.elConnText) elements.elConnText.textContent = `Conectando a ${session.currentRoom}...`;
 
@@ -177,6 +181,8 @@ function connectToRoom(roomCode) {
       if (elements.elConnText) elements.elConnText.textContent = text;
       if (status !== 'online') {
         session.mySlot = -1;
+        session.isHost = false;
+        updateHostControls();
         setWakeLockActive(false);
         releaseInputs();
         clearFirePress();
@@ -213,6 +219,7 @@ function handleServerMessage(msg) {
   if (msg.type === 'init') {
     stopJoinRetry();
     session.mySlot = msg.slot;
+    session.isHost = typeof msg.isHost === "boolean" ? msg.isHost : session.mySlot === 0;
     session.myCustomName = msg.customName || session.myCustomName;
     saveSession();
     if (window.history && !window.history.state?.barquitosRoom) {
@@ -244,6 +251,10 @@ function handleServerMessage(msg) {
     updateReadyUI();
     updateHostControls();
     updateLobbyConfigBarVisibility();
+  } else if (msg.type === 'host_permissions') {
+    if (session.mySlot === -1 || typeof msg.isHost !== 'boolean') return;
+    session.isHost = msg.isHost;
+    updateHostControls();
   } else if (msg.type === 'team_confirmed') {
     if (msg.team) {
       session.myTeam = msg.team;

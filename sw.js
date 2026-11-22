@@ -1,9 +1,9 @@
 const cachePrefix = `barquitos:${self.registration.scope}:`;
-const cacheName = `${cachePrefix}v7`;
+const cacheName = `${cachePrefix}v8`;
 const controllerShell = [
   './controller.html',
   './manifest.json',
-  './css/controller.css?v=62',
+  './css/controller.css?v=63',
   './js/controller.js',
   './js/gamepad.js',
   './js/controller/joystick.js',

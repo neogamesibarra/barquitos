@@ -153,7 +153,7 @@ function renderLobby() {
   const waiting = needsMorePlayers();
   const occupied = soloRoomOccupied();
   const startButton = /** @type {HTMLButtonElement|null} */ (document.getElementById("btn-start-game"));
-  const disabled = occupied || waiting || (state.isRemoteClient && state.remoteSlot !== 0);
+  const disabled = occupied || waiting || (state.isRemoteClient && !state.remoteIsHost);
   if (startButton && startButton.disabled !== disabled) startButton.disabled = disabled;
   const notice = document.getElementById("start-player-notice");
   if (notice) {

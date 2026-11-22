@@ -104,14 +104,17 @@ function updateShipStatusUI() {
   elements.elBtnShoot?.classList.toggle('is-empty', known && session.ammo === 0);
 }
 
+function canManageGame() {
+  return session.isHost && (session.currentGameState === 'lobby' || session.currentGameState === 'podium');
+}
+
 function updateHostControls() {
   if (elements.elBtnHostLobby) {
-    elements.elBtnHostLobby.hidden = session.mySlot !== 0 || session.currentGameState !== 'podium';
+    elements.elBtnHostLobby.hidden = !session.isHost || session.currentGameState !== 'podium';
   }
   if (!elements.elHostPanel) return;
 
-  // Solo el Mando 1 (session.mySlot === 0) muestra controles de anfitrión en podio o lobby
-  if (session.mySlot === 0 && (session.currentGameState === 'podium' || session.currentGameState === 'lobby')) {
+  if (canManageGame()) {
     elements.elHostPanel.style.display = 'flex';
     if (elements.elBtnThrust) elements.elBtnThrust.style.display = 'none';
     if (elements.elBtnShoot) elements.elBtnShoot.style.display = 'none';
@@ -120,7 +123,7 @@ function updateHostControls() {
     }
     updateHostModeBtnText();
   } else {
-    // Durante la ronda activa o en mandos 2-8: botones táctiles normales de acción
+    // Controles de juego para los demás estados y mandos
     elements.elHostPanel.style.display = 'none';
     if (elements.elBtnThrust) elements.elBtnThrust.style.display = 'flex';
     if (elements.elBtnShoot) elements.elBtnShoot.style.display = 'flex';
@@ -307,49 +310,20 @@ function bindTap(button, delay, action) {
 }
 
 function setupActionButtons() {
-  // Botones del Anfitrión (Mando 1) con soporte para click y touch
-  if (elements.elBtnHostStart) {
-    let lastHostStartTap = 0;
-    function handleHostStart(e) {
-      const now = Date.now();
-      if (now - lastHostStartTap < 350) return;
-      lastHostStartTap = now;
-      if (e && e.preventDefault) e.preventDefault();
-      triggerVibration(50);
-      if (CloudNet) {
-        CloudNet.sendToHost({
-          type: "host_action",
-          uuid: session.playerUUID,
-          action: "start"
-        });
-      }
-    }
-    elements.elBtnHostStart.addEventListener("click", handleHostStart, false);
-    elements.elBtnHostStart.addEventListener("touchend", handleHostStart, false);
-  }
+  bindTap(elements.elBtnHostStart, 350, () => {
+    if (!canManageGame() || !CloudNet.isConnected()) return;
+    triggerVibration(50);
+    CloudNet.sendToHost({ type: "host_action", uuid: session.playerUUID, action: "start" });
+  });
 
-  if (elements.elBtnHostMode) {
-    let lastHostModeTap = 0;
-    function handleHostMode(e) {
-      const now = Date.now();
-      if (now - lastHostModeTap < 300) return;
-      lastHostModeTap = now;
-      if (e && e.preventDefault) e.preventDefault();
-      triggerVibration(40);
-      if (CloudNet) {
-        CloudNet.sendToHost({
-          type: "host_action",
-          uuid: session.playerUUID,
-          action: "toggle_mode"
-        });
-      }
-    }
-    elements.elBtnHostMode.addEventListener("click", handleHostMode, false);
-    elements.elBtnHostMode.addEventListener("touchend", handleHostMode, false);
-  }
+  bindTap(elements.elBtnHostMode, 300, () => {
+    if (!canManageGame() || !CloudNet.isConnected()) return;
+    triggerVibration(40);
+    CloudNet.sendToHost({ type: "host_action", uuid: session.playerUUID, action: "toggle_mode" });
+  });
 
   bindTap(elements.elBtnHostLobby, 350, () => {
-    if (session.mySlot !== 0 || session.currentGameState !== 'podium') return;
+    if (!session.isHost || session.currentGameState !== 'podium' || !CloudNet.isConnected()) return;
     CloudNet.sendToHost({ type: "host_action", uuid: session.playerUUID, action: "lobby" });
   });
 

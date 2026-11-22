@@ -184,6 +184,10 @@ import { state } from "./engine/state.js";
     lobby: function () { state.currentState = STATE_LOBBY; updateTouchControlsVisibility(); },
     mode: function () { return state.selectedMode; },
     state: function () { return state.currentState; },
+    occupyFirstSlotLocally: function () {
+      state.localPlayerSlot = 0;
+      state.playersData[0].connected = true;
+    },
     localSlot: function () { return state.localPlayerSlot; },
     ships: function () { return state.activeShips.length; },
     defeatBoss: function (wave) {
@@ -233,6 +237,8 @@ const controllerHooks = `
   window.testController = {
     join: function () { connectToRoom("TEST"); },
     slot: function () { return session.mySlot; },
+    isHost: function () { return session.isHost; },
+    mode: function () { return session.currentMode; },
     state: function () { return session.currentGameState; },
     hold: function () {
       inputState.heading = 0;
@@ -390,6 +396,64 @@ test('primer QR naranja administra la sala y los demás no cambian el modo ni re
   assert.equal(game.ship(0), ship);
   first.window.testController.action('set_mode', 2);
   assert.equal(game.mode(), 0);
+});
+
+test('el primer QR administra la sala con un jugador local en el puesto cero', async () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const host = browser(broker, clock);
+  const first = browser(broker, clock);
+  const second = browser(broker, clock);
+  await host.load('game_engine.js', engineHooks);
+  await first.load('controller.js', controllerHooks);
+  await second.load('controller.js', controllerHooks);
+  const game = host.window.testGame;
+  const lobby = host.element('lobby-ui');
+  lobby.style.display = 'flex';
+  const battle = host.element('btn-mode-battle');
+  const firstPhone = first.window.testController;
+  const secondPhone = second.window.testController;
+  const firstPanel = first.element('host-panel');
+  const firstMode = first.element('btn-host-mode');
+  const firstStart = first.element('btn-host-start');
+  const secondMode = second.element('btn-host-mode');
+  game.host();
+  game.occupyFirstSlotLocally();
+  for (const [device, controller] of [[first, firstPhone], [second, secondPhone]]) {
+    controller.bind();
+    controller.join();
+    device.flushTimers();
+  }
+
+  assert.equal(firstPhone.slot(), 1);
+  assert.equal(firstPhone.isHost(), true);
+  assert.equal(firstPanel.style.display, 'flex');
+  assert.equal(secondPhone.isHost(), false);
+
+  firstMode.fire('touchend');
+  assert.equal(game.mode(), 0);
+  assert.equal(battle.className, 'mode-btn active');
+  assert.equal(secondPhone.mode(), 0);
+  firstPhone.action('set_mode', 1);
+  assert.equal(game.mode(), 1);
+  assert.equal(secondPhone.mode(), 1);
+
+  firstStart.fire('click');
+  assert.equal(game.state(), 1); // STATE_ARENA
+  assert.equal(lobby.style.display, 'none');
+  assert.equal(firstPhone.state(), 'playing');
+  assert.equal(secondPhone.state(), 'playing');
+
+  game.podium();
+  firstPhone.action('lobby');
+  first.window.CloudNet.disconnect();
+  clock.now += 46000;
+  secondPhone.action('toggle_mode'); // Renueva su plaza sin permisos de anfitrión.
+  assert.equal(game.mode(), 1);
+  game.expire();
+  assert.equal(secondPhone.isHost(), true);
+  secondMode.fire('click');
+  assert.equal(game.mode(), 2);
 });
 
 for (const pointerEvents of [true, false]) {

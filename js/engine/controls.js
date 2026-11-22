@@ -319,7 +319,7 @@ function bindKeyboard() {
   window.addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
     const tag = /** @type {HTMLElement|null} */ (e.target)?.tagName;
-    if (state.currentState === STATE_PODIUM && (!state.isRemoteClient || state.remoteSlot === 0)) {
+    if (state.currentState === STATE_PODIUM && (!state.isRemoteClient || state.remoteIsHost)) {
       if (k === "arrowleft" || k === "arrowright") {
         state.podiumSelectedBtn = k === "arrowleft" ? 0 : 1;
         const button = /** @type {HTMLButtonElement|null} */ (document.getElementById(state.podiumSelectedBtn === 0 ? "btn-play-again" : "btn-back-lobby"));
