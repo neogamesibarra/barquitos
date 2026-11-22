@@ -16,6 +16,8 @@ const elements = {
   elWheelKnob: null,
   elBtnThrust: null,
   elBtnShoot: null,
+  elAmmo: null,
+  elSunk: null,
   elBtnStyleToggle: null,
   elStyleText: null,
   elHostPanel: null,
@@ -84,6 +86,22 @@ function updateLobbyConfigBarVisibility() {
     elements.elLobbyConfigBar.style.display = 'flex';
     updateTeamButtonsUI();
   }
+}
+
+function updateShipStatusUI() {
+  const active = session.currentGameState === 'playing';
+  const known = active && session.ammo !== null;
+  if (elements.elAmmo) {
+    elements.elAmmo.hidden = !known;
+    elements.elAmmo.textContent = known ? `${session.ammo} / ${session.maxAmmo}` : '';
+    // La cifra conserva el valor exacto cuando el cargador supera las ocho ranuras visibles.
+    const slots = Math.min(8, session.maxAmmo);
+    const filled = Math.min(slots, session.ammo ?? 0);
+    elements.elAmmo.style.setProperty?.('--ammo-slots', String(slots));
+    elements.elAmmo.style.setProperty?.('--ammo-filled', String(filled));
+  }
+  if (elements.elSunk) elements.elSunk.hidden = !active || session.shipAlive;
+  elements.elBtnShoot?.classList.toggle('is-empty', known && session.ammo === 0);
 }
 
 function updateHostControls() {
@@ -409,6 +427,8 @@ function initUI() {
   elements.elWheelKnob = document.getElementById('wheel-knob');
   elements.elBtnThrust = document.getElementById('btn-thrust');
   elements.elBtnShoot = document.getElementById('btn-shoot');
+  elements.elAmmo = document.getElementById('ship-ammo');
+  elements.elSunk = document.getElementById('ship-sunk');
 
   elements.elBtnStyleToggle = document.getElementById('btn-style-toggle');
   elements.elStyleText = document.getElementById('style-text');
@@ -494,5 +514,5 @@ function initUI() {
   window.visualViewport?.addEventListener('scroll', updateLayoutDimensions);
 }
 
-export { controllerRotated, elements, initUI, setupActionButtons, showPlayer, triggerVibration,
+export { updateShipStatusUI, controllerRotated, elements, initUI, setupActionButtons, showPlayer, triggerVibration,
   updateHostControls, updateHostModeBtnText, updateLobbyConfigBarVisibility, updateReadyUI, updateTeamButtonsUI };
