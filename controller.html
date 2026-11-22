@@ -11,7 +11,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icons/controller-192.png">
   <title>BARQUITOS - Mando Móvil</title>
-  <link rel="stylesheet" href="css/controller.css?v=60">
+  <link rel="stylesheet" href="css/controller.css?v=62">
 </head>
 <body>
   <!-- Modal para ingresar el código de sala si no se escaneó el QR -->
@@ -66,15 +66,18 @@
     </div>
 
     <!-- Zona de mandos táctiles -->
+    <p id="ship-sunk" class="ship-sunk" role="status" hidden><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="24" cy="9" r="3"/><path d="M24 12v25M17 18h14M10 27c0 8 6 13 14 13s14-5 14-13m-32 3 4-4 4 4m20 0 4-4 4 4"/></svg><strong>¡TE HUNDIERON!</strong> <span>Esperando siguiente ronda…</span></p>
     <div class="controls-area">
+      <svg class="bridge-compass" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="24" cy="24" r="20"/><circle cx="24" cy="24" r="15"/><path d="m29 14-3 12-7 8 3-12zM24 2v5m0 34v5M2 24h5m34 0h5"/></svg>
       <!-- MITAD IZQUIERDA: Zona de Dirección (Timón Clásico o Botones Compactos) -->
       <div id="steering-zone" class="steering-zone">
         <!-- Modo Clásico: Timón Naval Virtual -->
         <div id="classic-steer" class="classic-steer-container">
           <div class="zone-label">TIMÓN / GIRO</div>
           <div id="wheel-outer" class="wheel-outer" aria-label="Joystick de dirección de 360 grados">
+            <svg class="wheel-dial" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 2v5m0 34v5M2 24h5m34 0h5M8.5 8.5l3 3m25 25 3 3m0-31-3 3m-25 25-3 3"/><circle cx="24" cy="24" r="15" stroke-width=".65"/></svg>
             <div id="wheel-indicator" class="wheel-indicator"></div>
-            <div id="wheel-knob" class="wheel-knob">⚓</div>
+            <div id="wheel-knob" class="wheel-knob"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="24" cy="9" r="3"/><path d="M24 12v25M17 18h14M10 27c0 8 6 13 14 13s14-5 14-13m-32 3 4-4 4 4m20 0 4-4 4 4"/></svg></div>
           </div>
           <div class="turn-labels">
             <span>DIRECCIÓN 360°</span>
@@ -100,16 +103,17 @@
 
         <!-- Botón Acelerar / Impulso -->
         <div id="btn-thrust" class="touch-btn thrust-btn">
-          <div class="btn-icon">💨</div>
+          <div class="btn-icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 7c9 5 9 11 0 17-9-6-9-12 0-17zm-15 26c0-10 5-13 15-9 0 11-6 14-15 9zm30 0c-9 5-15 2-15-9 10-4 15-1 15 9z"/><circle cx="24" cy="24" r="3" fill="currentColor"/></svg></div>
           <div class="btn-label">ACELERAR</div>
           <div class="btn-sublabel">IMPULSO</div>
         </div>
 
         <!-- Botón Disparar Cañón -->
         <div id="btn-shoot" class="touch-btn shoot-btn">
-          <div class="btn-icon">💣</div>
+          <div class="btn-icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="24" cy="24" r="14"/><circle cx="24" cy="24" r="4"/><path d="M24 4v9m0 22v9M4 24h9m22 0h9"/></svg></div>
           <div class="btn-label">DISPARAR</div>
           <div class="btn-sublabel">CAÑÓN</div>
+          <output id="ship-ammo" class="ship-ammo" aria-label="Munición" hidden></output>
         </div>
       </div>
     </div>
