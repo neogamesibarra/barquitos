@@ -3,7 +3,7 @@ import { setWakeLockActive, syncWakeLock } from "./pwa.js";
 import { CloudNet } from "../cloud_network.js";
 import { clearFirePress, releaseInputs, sendInputUpdate } from "./joystick.js";
 import { elements, showPlayer, triggerVibration, updateHostControls, updateHostModeBtnText,
-  updateLobbyConfigBarVisibility, updateReadyUI, updateTeamButtonsUI } from "./ui.js";
+  updateShipStatusUI, updateLobbyConfigBarVisibility, updateReadyUI, updateTeamButtonsUI } from "./ui.js";
 
 function getQueryParam(name) {
   try {
@@ -76,6 +76,9 @@ const session = {
   currentRoom: roomFromLink || savedSession?.roomId || '',
   mySlot: -1,
   isReady: false,
+  shipAlive: true,
+  ammo: null,
+  maxAmmo: 0,
   currentGameState: 'lobby',
   currentMode: 0,
   myTeam: 'blue',
@@ -99,6 +102,7 @@ function requestJoin() {
   CloudNet.sendToHost({
     type: savedSession ? 'rejoin' : 'join',
     resumeOnly: Boolean(savedSession),
+    shipStatus: true,
     uuid: session.playerUUID,
     name: session.myCustomName,
     team: session.myTeam
@@ -194,6 +198,12 @@ function setGameState(state) {
     // La cuenta atrás y el fin de ronda viven en la arena. El código 2 se admite por compatibilidad.
     session.currentGameState = 'playing';
   }
+  if (session.currentGameState !== 'playing') {
+    session.shipAlive = true;
+    session.ammo = null;
+    session.maxAmmo = 0;
+  }
+  updateShipStatusUI();
   setWakeLockActive(session.currentGameState === 'playing' && session.mySlot !== -1);
 }
 
@@ -239,6 +249,18 @@ function handleServerMessage(msg) {
       session.myTeam = msg.team;
       updateTeamButtonsUI();
     }
+  } else if (msg.type === 'ship_status') {
+    if (session.mySlot === -1 || session.currentGameState !== 'playing' ||
+        typeof msg.alive !== 'boolean' || !Number.isFinite(msg.ammo) || !Number.isFinite(msg.maxAmmo)) return;
+    session.maxAmmo = Math.max(0, Math.min(999, Math.floor(msg.maxAmmo)));
+    session.ammo = Math.max(0, Math.min(session.maxAmmo, Math.floor(msg.ammo)));
+    const sunk = session.shipAlive && !msg.alive;
+    session.shipAlive = msg.alive;
+    if (sunk) {
+      clearFirePress();
+      releaseInputs();
+    }
+    updateShipStatusUI();
   } else if (msg.type === 'state_change') {
     setGameState(msg.state);
     if (session.currentGameState !== 'playing') {
