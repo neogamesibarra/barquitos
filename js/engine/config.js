@@ -11,6 +11,7 @@ const MODE_BATTLE = 0;
 const MODE_TEAMS = 1;
 
 const MODE_HORDE = 2;
+export const HORDE_LEADERBOARD_URL = "https://horda-pirata-default-rtdb.firebaseio.com/horde_top10.json";
 
 const PLAYER_PROFILES = [
   { slot: 0, name: "Capitán 1", hull: "#E67E22", sail: "#FFF8E7", stripe: "#2ECC71", symbol: "circle", uuid: "", connected: false, ready: false, score: 0, team: "blue", customName: "" },

@@ -1,9 +1,10 @@
 import { CloudNet } from "../cloud_network.js";
-import { MODE_BATTLE, MODE_HORDE, MODE_TEAMS, STATE_LOBBY, STATE_PODIUM } from "./config.js";
+import { MODE_BATTLE, MODE_HORDE, MODE_TEAMS, STATE_ARENA, STATE_LOBBY, STATE_PODIUM } from "./config.js";
 import { ensureLocalPlayer, releaseLocalInputs } from "./controls.js";
 import { updateLobbyShips } from "./entities.js";
 import { startNewMatch } from "./modes.js";
-import { broadcastCurrentMode, sendTvAction, withBrokerParam } from "./multiplayer.js";
+import { broadcastCurrentMode, sendTvAction, setGamePaused, withBrokerParam } from "./multiplayer.js";
+import { updateHordeLeaderboardVisibility } from "./hud.js";
 import { state } from "./state.js";
 import { fitLobby } from "./viewport.js";
 
@@ -331,7 +332,9 @@ function updateLobbyPermissions() {
 }
 
 function requestLobbyAction(action, mode) {
-  if (state.currentState !== STATE_LOBBY && state.currentState !== STATE_PODIUM) return;
+  const leavingPause = !state.isRemoteClient && state.currentState === STATE_ARENA &&
+    state.isPaused && action === "lobby";
+  if (!leavingPause && state.currentState !== STATE_LOBBY && state.currentState !== STATE_PODIUM) return;
   if (state.isRemoteClient) {
     if (!state.remoteIsHost || !CloudNet) return;
     CloudNet.sendToHost({ type: "host_action", uuid: state.myPlayerUUID, action: action, mode: mode });
@@ -342,8 +345,10 @@ function requestLobbyAction(action, mode) {
     updateLobbyModeUI();
     broadcastCurrentMode();
   } else if (action === "lobby") {
+    setGamePaused(false);
     releaseLocalInputs();
     state.currentState = STATE_LOBBY;
+    updateHordeLeaderboardVisibility();
     updateLobbyShips();
     sendTvAction("state_change", null, STATE_LOBBY);
   }
@@ -378,6 +383,8 @@ function openPlayMenu(choice) {
 }
 
 function bindLobbyButtons() {
+  document.getElementById("btn-pause-resume")?.addEventListener("click", () => setGamePaused(false));
+  document.getElementById("btn-pause-lobby")?.addEventListener("click", () => requestLobbyAction("lobby"));
   const menu = document.getElementById("play-menu");
   if (menu) {
     menu.addEventListener("click", (event) => {

@@ -9,6 +9,7 @@ import { MODE_HORDE, PLAYER_PROFILES, STATE_LOBBY, arenaBounds } from "./config.
 
 const state = {
   currentState: STATE_LOBBY,
+  isPaused: false,
   selectedMode: MODE_HORDE,
   currentRoomCode: "",
   /** @type {Record<string, number>} */

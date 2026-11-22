@@ -5,7 +5,7 @@ import { MODE_HORDE, PLAYER_PROFILES, STATE_ARENA, STATE_LOBBY, STATE_PODIUM } f
 import { releaseLocalInputs, sendLocalInputsToHost, updateLocalPlayerButton, updateTouchControlsVisibility } from "./controls.js";
 import { removeParticle, spawnWaterFoam } from "./effects.js";
 import { AmmoCrate, BossGalleon, removeCannonball, spawnCannonball, HordePowerup, PirateShip, Ship, updateLobbyShips } from "./entities.js";
-import { updateAllShipsHUD, updateHordeUpgradesHUD, updateTeamScoresHUD } from "./hud.js";
+import { updateAllShipsHUD, updateHordeUpgradesHUD, updatePauseOverlay, updateTeamScoresHUD } from "./hud.js";
 import { openPlayMenu, requestLobbyAction, setupInviteButtons, setupRemotePlayerBarEvents, updateLobbyModeUI, updateLobbyPermissions, updateRemoteTeamUI, updateRemoteTeamVisibility } from "./lobby.js";
 import { initArenaIslands } from "./modes.js";
 import { applyWaterDrift, getSafeSpawnPoint, pushByWaves } from "./physics.js";
@@ -121,7 +121,10 @@ function applyClientSync(payload) {
     initArenaIslands();
   }
 
-  if (msg.st !== undefined) state.currentState = msg.st;
+  if (msg.st !== undefined) {
+    state.currentState = msg.st;
+    if (state.currentState !== STATE_ARENA) applyPauseState(false);
+  }
   state.selectedMode = syncNum(msg.m, 0, 2, state.selectedMode);
   state.currentRound = syncNum(msg.r, 0, 999, state.currentRound);
   state.currentWave = syncNum(msg.w, 1, 9999, 1);
@@ -381,6 +384,7 @@ function handleClientIncomingMessage(topic, msg) {
     state.remoteIsHost = typeof msg.isHost === "boolean" ? msg.isHost : msg.slot === 0;
     if (typeof msg.mode === "number") state.selectedMode = msg.mode;
     if (typeof msg.state === "number") state.currentState = msg.state;
+    applyPauseState(state.currentState === STATE_ARENA && msg.paused === true);
     updateLobbyPermissions();
     const slotBadge = document.getElementById("remote-player-slot");
     if (slotBadge) {
@@ -435,6 +439,8 @@ function handleClientIncomingMessage(topic, msg) {
     state.selectedMode = msg.mode;
     updateLobbyModeUI();
     updateRemoteTeamVisibility();
+  } else if (msg.type === "pause_state" && typeof msg.paused === "boolean") {
+    if (state.currentState === STATE_ARENA) applyPauseState(msg.paused);
   } else if (msg.type === "state_change") {
     if (typeof msg.state === "number") {
       state.currentState = msg.state;
@@ -445,6 +451,7 @@ function handleClientIncomingMessage(topic, msg) {
     } else if (msg.state === "lobby") {
       state.currentState = STATE_LOBBY;
     }
+    if (state.currentState !== STATE_ARENA) applyPauseState(false);
     const lobbyUI = document.getElementById("lobby-ui");
     if (lobbyUI) {
       lobbyUI.style.display = (state.currentState === STATE_LOBBY) ? "flex" : "none";
@@ -652,6 +659,26 @@ function connectCloudNet() {
 // ==========================================================================
 const INPUT_MIN_INTERVAL_MS = 15;
 
+function applyPauseState(paused) {
+  if (state.isPaused === paused) return;
+  state.isPaused = paused;
+  (state.releaseTouchControls ?? releaseLocalInputs)();
+  for (const ship of state.activeShips) {
+    ship.turnInput = 0;
+    ship.headingInput = null;
+    ship.thrustInput = ship.shootInput = false;
+    ship.shotBuffer = 0;
+    ship.inputExpiresAt = 0;
+  }
+  updatePauseOverlay();
+}
+
+function setGamePaused(paused) {
+  if (state.isRemoteClient || state.currentState !== STATE_ARENA || state.isPaused === paused) return;
+  applyPauseState(paused);
+  if (CloudNet.isConnected()) CloudNet.broadcast({ type: "pause_state", paused });
+}
+
 function getRemoteHostUuid() {
   return state.playersData.find(player => player.connected === true && sanitizeUuid(player.uuid))?.uuid;
 }
@@ -747,6 +774,7 @@ function handleIncomingMessage(msg) {
         type: "init",
         slot: slot,
         isHost: uuid === getRemoteHostUuid(),
+        paused: state.isPaused,
         name: state.playersData[slot].name,
         customName: state.playersData[slot].customName,
         hull: state.playersData[slot].hull,
@@ -805,6 +833,7 @@ function handleIncomingMessage(msg) {
       const nowInput = Date.now();
       const player = state.playersData[inSlot];
       player.lastSeenAt = nowInput;
+      if (state.isPaused) return;
       const { heading, thrust, shoot, firePress, turn } = decodeInput(msg);
 
       for (const inputShip of state.activeShips) {
@@ -836,6 +865,10 @@ function handleIncomingMessage(msg) {
     }
   } else if (msg.type === "host_action") {
     if (renewPlayerLease(msg.uuid) === -1 || msg.uuid !== getRemoteHostUuid()) return;
+    if (msg.action === "toggle_pause") {
+      setGamePaused(!state.isPaused);
+      return;
+    }
     if (state.currentState !== STATE_LOBBY && state.currentState !== STATE_PODIUM) return;
     if (msg.action === "start") {
       if (state.playMenuChoice === "solo") openPlayMenu("online");
@@ -935,4 +968,4 @@ function expireRemoteInputs(now) {
   }
 }
 
-export { applyClientSync, broadcastCurrentMode, broadcastGameState, connectCloudNet, expireRemoteInputs, generateLobbyQR, generateRoomCode, getQueryParam, handleClientIncomingMessage, sendTvAction, updateRemoteClient, withBrokerParam };
+export { applyClientSync, broadcastCurrentMode, broadcastGameState, connectCloudNet, expireRemoteInputs, generateLobbyQR, generateRoomCode, getQueryParam, handleClientIncomingMessage, sendTvAction, setGamePaused, updateRemoteClient, withBrokerParam };

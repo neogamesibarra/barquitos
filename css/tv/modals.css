@@ -201,3 +201,60 @@
 }
 
 .join-modal-box button:focus, .join-modal-box input:focus { outline: 3px solid #ffdf75; outline-offset: 2px; }
+
+.pause-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 700;
+  display: grid;
+  place-items: center;
+  background: #06131cc9;
+}
+
+.pause-overlay[hidden], .pause-actions[hidden], .horde-leaderboard[hidden] {
+  display: none;
+}
+
+.pause-card, .horde-leaderboard {
+  background: #0b2134;
+  border: 1px solid #537a91;
+  border-radius: 16px;
+  color: #f1f7ff;
+  box-shadow: 0 12px 40px #0008;
+}
+
+.pause-card {
+  padding: clamp(16px, 4vmin, 48px);
+  text-align: center;
+}
+
+.pause-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.horde-leaderboard {
+  position: absolute;
+  inset: 3% 0 auto;
+  z-index: 640;
+  width: min(92%, 850px);
+  max-height: calc(97% - 78px);
+  margin-inline: auto;
+  padding: clamp(10px, 2vmin, 24px);
+  overflow: auto;
+  box-sizing: border-box;
+  font-size: clamp(12px, 2.5vmin, 28px);
+}
+
+.horde-leaderboard h2, .horde-leaderboard p { margin: 0 0 .35em; }
+.horde-leaderboard table { width: 100%; border-collapse: collapse; }
+.horde-leaderboard :is(th, td) {
+  padding: .3em .55em;
+  text-align: right;
+  border-bottom: 1px solid #345367;
+  font-variant-numeric: tabular-nums;
+}
+.horde-leaderboard :is(th, td):nth-child(2) { text-align: left; overflow-wrap: anywhere; }
+.horde-leaderboard .latest-score { background: #245f51; color: #fff; font-weight: 700; }

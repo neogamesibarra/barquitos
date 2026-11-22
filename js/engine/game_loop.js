@@ -1,4 +1,4 @@
-import { pollLocalGamepad } from "./controls.js";
+import { pollLocalGamepad, sendLocalInputsToHost } from "./controls.js";
 import { MODE_HORDE, STATE_ARENA, STATE_LOBBY, STATE_PODIUM } from "./config.js";
 import { updateBattle, updateHorde } from "./modes.js";
 import { broadcastGameState, expireRemoteInputs, updateRemoteClient } from "./multiplayer.js";
@@ -51,7 +51,7 @@ function gameLoop(time) {
   }
 
   try {
-    render(dt);
+    render(state.isPaused && state.currentState === STATE_ARENA ? 0 : dt);
   } catch (drawError) {
     // Reset also clears a leaked clipping region/save stack after a failed draw.
     if (state.canvas) state.canvas.width = state.canvas.width;
@@ -63,6 +63,11 @@ function gameLoop(time) {
 
 /** @param {number} dt */
 function update(dt) {
+  if (state.currentState === STATE_ARENA && state.isPaused) {
+    if (state.isRemoteClient) sendLocalInputsToHost();
+    else broadcastGameState();
+    return;
+  }
   state.waveAnim += dt;
   if (state.shakeTimer > 0) {
     state.shakeTimer -= dt;

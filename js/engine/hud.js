@@ -1,5 +1,6 @@
 import { gameEvents } from "./events.js";
-import { MODE_HORDE, MODE_TEAMS, STATE_ARENA, TOTAL_ROUNDS, V_HEIGHT, V_WIDTH } from "./config.js";
+import { MODE_HORDE, MODE_TEAMS, STATE_ARENA, STATE_PODIUM, TOTAL_ROUNDS, V_HEIGHT, V_WIDTH } from "./config.js";
+import { recordHordeScore } from "./leaderboard.js";
 import { state } from "./state.js";
 import { offsetX, offsetY, scale } from "./viewport.js";
 
@@ -253,6 +254,52 @@ function setLobbyUIVisible(visible) {
   if (pR) pR.style.display = "none";
 }
 
+function updatePauseOverlay() {
+  const overlay = document.getElementById("pause-overlay");
+  if (overlay) overlay.hidden = !state.isPaused || state.currentState !== STATE_ARENA;
+  const actions = document.getElementById("pause-actions");
+  if (actions) actions.hidden = state.isRemoteClient;
+}
+
+let rankingRequest = 0;
+
+function updateHordeLeaderboardVisibility() {
+  if (state.currentState === STATE_PODIUM && state.selectedMode === MODE_HORDE) return;
+  rankingRequest++;
+  const panel = document.getElementById("horde-leaderboard");
+  if (panel) panel.hidden = true;
+}
+
+/** @param {Parameters<typeof recordHordeScore>[0]} result */
+async function showHordeLeaderboard(result) {
+  const request = ++rankingRequest;
+  const panel = document.getElementById("horde-leaderboard");
+  const status = document.getElementById("horde-ranking-status");
+  const rows = document.getElementById("horde-ranking-rows");
+  if (panel && status && rows) {
+    panel.hidden = false;
+    status.textContent = "Cargando puntajes…";
+    rows.replaceChildren();
+  }
+
+  const { entries, entry, global } = await recordHordeScore(result);
+  if (!panel || !status || !rows || request !== rankingRequest || state.currentState !== STATE_PODIUM) return;
+  status.textContent = global ? "Ranking global" : "Ranking local";
+  for (let index = 0; index < entries.length; index++) {
+    const item = entries[index];
+    const row = document.createElement("tr");
+    const latest = item.id === entry.id;
+    row.classList.toggle("latest-score", latest);
+    for (const value of [index + 1, item.players.join(", "), item.wave, item.score]) {
+      const cell = document.createElement("td");
+      cell.textContent = String(value);
+      row.append(cell);
+    }
+    if (latest) row.cells[0].setAttribute("aria-label", "Puesto " + (index + 1) + ", tu partida");
+    rows.append(row);
+  }
+}
+
 gameEvents.on('ship:hud', updateShipHUD);
 
-export { setLobbyUIVisible, updateAllShipsHUD, updateHordeUpgradesHUD, updateShipHUD, updateTeamScoresHUD };
+export { setLobbyUIVisible, showHordeLeaderboard, updateHordeLeaderboardVisibility, updatePauseOverlay, updateAllShipsHUD, updateHordeUpgradesHUD, updateShipHUD, updateTeamScoresHUD };

@@ -12,6 +12,7 @@ function mockElement() {
     classList: { add: name => classes.add(name), remove: name => classes.delete(name), contains: name => classes.has(name) },
     addEventListener(type, callback) { listeners.set(type, callback); },
     setPointerCapture() {},
+    setAttribute(name, value) { this[name] = value; },
     fire(type, values = {}) {
       const event = { cancelable: true, preventDefault() {}, stopPropagation() {}, button: 0, ...values };
       listeners.get(type)?.(event);
@@ -76,13 +77,18 @@ function createFlakyBroker(failures) {
   return base;
 }
 
-function browser(broker, clock, touch = false, pointerEvents = true, sessionStorage = new Map()) {
+function browser(broker, clock, touch = false, pointerEvents = true, sessionStorage = new Map(), fetch = undefined) {
   const elements = new Map();
   const windowEvents = new Map();
   const documentEvents = new Map();
   const timers = [];
   const intervals = new Set();
+  const localStorage = new Map();
   const window = {
+    localStorage: {
+      getItem: key => localStorage.get(key) ?? null,
+      setItem: (key, value) => localStorage.set(key, value)
+    },
     addEventListener: (type, callback) => windowEvents.set(type, callback),
     location: { search: '', href: 'https://example.test/index.html' },
     sessionStorage: {
@@ -102,7 +108,8 @@ function browser(broker, clock, touch = false, pointerEvents = true, sessionStor
   };
   const context = vm.createContext({
     window, document, console, Paho: broker, URLSearchParams,
-    Date: { now: () => clock.now },
+    Date: class extends Date { static now() { return clock.now; } },
+    fetch,
     setTimeout(callback, delay) {
       const timer = { callback, delay };
       timers.push(timer);
@@ -156,15 +163,32 @@ const engineHooks = `
 import "./game_engine.js";
 import { STATE_ARENA, STATE_LOBBY, STATE_PODIUM } from "./engine/config.js";
 import { pollLocalGamepad, setupOnscreenControls, updateTouchControlsVisibility } from "./engine/controls.js";
+import { startGameLoop } from "./engine/game_loop.js";
 import { BossGalleon } from "./engine/entities.js";
 import { bindLobbyButtons } from "./engine/lobby.js";
-import { startNewMatch, updateRescues } from "./engine/modes.js";
+import { startNewMatch, updateHorde, updateRescues } from "./engine/modes.js";
 import { applyClientSync, broadcastGameState, connectCloudNet, expireRemoteInputs, generateLobbyQR, handleClientIncomingMessage } from "./engine/multiplayer.js";
 import { getLootPosition, isInsideIsland } from "./engine/physics.js";
 import { state } from "./engine/state.js";
 
 
   window.testGame = {
+    paused: () => state.isPaused,
+    startLoop: startGameLoop,
+    countdown: () => state.countdownTime,
+    loseHorde: () => {
+      state.currentWave = 5;
+      state.countdownTime = 0;
+      state.waveEnemiesToSpawn = 1;
+      state.waveSpawnTimer = 2;
+      state.roundOverTimer = 4;
+      for (const ship of state.activeShips) {
+        ship.isAlive = false;
+        ship.data.score = 250;
+        ship.data.customName = "Capitana";
+      }
+      updateHorde(1 / 60);
+    },
     host: function () {
       state.currentRoomCode = "TEST";
       connectCloudNet();
@@ -238,6 +262,7 @@ const controllerHooks = `
     join: function () { connectToRoom("TEST"); },
     slot: function () { return session.mySlot; },
     isHost: function () { return session.isHost; },
+    paused: () => session.isPaused,
     mode: function () { return session.currentMode; },
     state: function () { return session.currentGameState; },
     hold: function () {
@@ -266,6 +291,7 @@ const controllerHooks = `
       elements.elBtnHostStart = document.getElementById('btn-host-start');
       elements.elBtnHostMode = document.getElementById('btn-host-mode');
       elements.elBtnHostLobby = document.getElementById('btn-host-lobby');
+      elements.elBtnHostPause = document.getElementById('btn-host-pause');
       updateHostControls();
       setupActionButtons();
     }
@@ -454,6 +480,156 @@ test('el primer QR administra la sala con un jugador local en el puesto cero', a
   assert.equal(secondPhone.isHost(), true);
   secondMode.fire('click');
   assert.equal(game.mode(), 2);
+});
+
+test('solo el anfitrión QR pausa la arena y todos los mandos reciben la pausa', async () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const host = browser(broker, clock);
+  const first = browser(broker, clock);
+  const second = browser(broker, clock);
+  let nextFrame;
+  host.window.requestAnimationFrame = frame => { nextFrame = frame; };
+  const overlay = host.element('pause-overlay');
+  const resume = host.element('btn-pause-resume');
+  const menu = host.element('btn-pause-lobby');
+  const pause = first.element('btn-host-pause');
+  await host.load('game_engine.js', engineHooks);
+  await first.load('controller.js', controllerHooks);
+  await second.load('controller.js', controllerHooks);
+  const game = host.window.testGame;
+  const captain = first.window.testController;
+  const guest = second.window.testController;
+  game.host();
+  game.occupyFirstSlotLocally();
+  game.buttons();
+  captain.bind();
+  captain.join();
+  first.flushTimers();
+  guest.join();
+  second.flushTimers();
+
+  captain.action('toggle_pause');
+  assert.equal(game.paused(), false);
+  captain.action('start');
+  captain.hold();
+  const ship = game.ship(captain.slot());
+  assert.equal(ship.thrustInput, true);
+  guest.action('toggle_pause');
+  assert.equal(game.paused(), false);
+  pause.fire('click');
+  assert.equal(game.paused(), true);
+  assert.equal(ship.thrustInput, false);
+  assert.equal(ship.shotBuffer, 0);
+  assert.equal(overlay.hidden, false);
+  assert.equal(captain.paused(), true);
+  assert.equal(guest.paused(), true);
+  game.startLoop();
+  const countdown = game.countdown();
+  nextFrame(0);
+  nextFrame(100);
+  assert.equal(game.countdown(), countdown);
+  guest.hold();
+  assert.equal(game.ship(guest.slot()).thrustInput, false);
+
+  const late = browser(broker, clock);
+  await late.load('controller.js', controllerHooks);
+  late.window.testController.join();
+  late.flushTimers();
+  assert.equal(late.window.testController.paused(), true);
+  resume.fire('click');
+  assert.equal(game.paused(), false);
+  assert.equal(overlay.hidden, true);
+  assert.equal(guest.paused(), false);
+  nextFrame(200);
+  assert.ok(game.countdown() < countdown);
+
+  clock.now += 300;
+  pause.fire('touchend');
+  assert.equal(game.paused(), true);
+  menu.fire('click');
+  assert.equal(game.state(), 0);
+  assert.equal(game.paused(), false);
+  assert.equal(guest.state(), 'lobby');
+  assert.equal(guest.paused(), false);
+  captain.action('start');
+  assert.equal(game.state(), 1);
+  assert.equal(game.paused(), false);
+});
+
+test('ranking de Horda combina Firebase vacío u objeto, recorta a diez y funciona sin red', async () => {
+  const requests = [];
+  let remote = null;
+  let offline = false;
+  const host = browser(createBroker(), { now: 10000 }, false, true, new Map(), async (url, options) => {
+    requests.push({ url, options });
+    if (offline) throw new Error('sin conexión');
+    if (options.method === 'PUT') remote = JSON.parse(options.body);
+    return { ok: true, json: async () => remote, headers: { get: () => '"version"' } };
+  });
+  await host.load('game_engine.js', `
+    import "./cloud_network.js";
+    import { getHordeLeaderboard, recordHordeScore } from "./engine/leaderboard.js";
+    window.ranking = { getHordeLeaderboard, recordHordeScore };
+  `);
+  const ranking = host.window.ranking;
+  assert.equal((await ranking.getHordeLeaderboard()).length, 0);
+  const record = (wave, score) => ranking.recordHordeScore({ wave, score, players: ['Capitana'] });
+  const first = await record(1, 999);
+  assert.equal(first.global, true);
+  assert.equal(first.entries[0].id, first.entry.id);
+  assert.equal(requests.at(-1).options.headers['If-Match'], '"version"');
+
+  remote = Object.fromEntries(Array.from({ length: 11 }, (_, index) => [index, {
+    id: 'fleet-' + index, wave: index + 2, score: 50, players: ['Flota'], date: '2026-11-22'
+  }]));
+  const result = await record(12, 70);
+  assert.equal(result.entries.length, 10);
+  assert.equal(result.entries[0].id, result.entry.id);
+  assert.equal(result.entries[1].score, 50);
+  assert.equal(remote.at(-1).wave, 4);
+  offline = true;
+  const fallback = await record(13, 1);
+  assert.equal(fallback.global, false);
+  assert.equal(fallback.entries[0].wave, 13);
+  assert.equal((await ranking.getHordeLeaderboard())[0].id, fallback.entry.id);
+  assert.equal(JSON.parse(host.window.localStorage.getItem('barquitos_horde_top10')).length, 10);
+});
+
+test('la derrota de Horda abre la tabla y marca el puntaje de la flota', async () => {
+  const puts = [];
+  const host = browser(createBroker(), { now: 10000 }, false, true, new Map(), async (_url, options) => {
+    if (options.method === 'PUT') puts.push(JSON.parse(options.body));
+    return { ok: true, json: async () => null };
+  });
+  const panel = host.element('horde-leaderboard');
+  const status = host.element('horde-ranking-status');
+  const body = host.element('horde-ranking-rows');
+  const rows = [];
+  body.replaceChildren = () => { rows.length = 0; };
+  body.append = row => rows.push(row);
+  host.document.createElement = () => {
+    const cells = [];
+    return {
+      cells,
+      append: cell => cells.push(cell),
+      setAttribute() {},
+      classList: { toggle(name, enabled) { if (enabled) this.active = name; } }
+    };
+  };
+  await host.load('game_engine.js', engineHooks);
+  const game = host.window.testGame;
+  game.start();
+  game.loseHorde();
+  assert.equal(game.state(), 3);
+  assert.equal(panel.hidden, false);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(puts.length, 1);
+  assert.equal(status.textContent, 'Ranking global');
+  assert.deepEqual(rows[0].cells.map(cell => cell.textContent), ['1', 'Capitana', '5', '250']);
+  assert.equal(rows[0].classList.active, 'latest-score');
+  game.start();
+  assert.equal(panel.hidden, true);
 });
 
 for (const pointerEvents of [true, false]) {

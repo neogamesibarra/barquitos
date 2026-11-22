@@ -161,6 +161,7 @@ function tapButton() {
       remove(...names) { for (const name of names) this.values.delete(name); },
       toggle(name, enabled) { if (enabled) this.values.add(name); else this.values.delete(name); }
     },
+    setAttribute(name, value) { this[name] = value; },
     addEventListener: (type, handler) => handlers.set(type, handler),
     tap: (type, values = {}) => handlers.get(type)({ preventDefault() {}, ...values })
   };
@@ -234,6 +235,37 @@ test('el permiso explícito activa el panel y las acciones fuera del puesto cero
   assert.deepEqual(actions(), ['toggle_mode', 'start']);
   receive({ type: 'host_permissions', isHost: true });
   assert.equal(panel.style.display, 'flex');
+});
+
+test('el botón de pausa sigue el permiso y confirma su icono con el estado del motor', async () => {
+  const { api, receive, outgoing, clock } = await controllerFixture();
+  const pause = tapButton();
+  api.elements.elBtnHostPause = pause;
+  api.setupActionButtons();
+  api.connectToRoom('TEST');
+  receive({ type: 'init', slot: 2, state: 0, isHost: true });
+  assert.equal(pause.hidden, true);
+  receive({ type: 'state_change', state: 1 });
+  assert.equal(pause.hidden, false);
+  pause.tap('touchend');
+  pause.tap('click');
+  const actions = () => outgoing.filter(packet => packet.action === 'toggle_pause');
+  assert.equal(actions().length, 1);
+  assert.equal(pause['aria-pressed'], 'false');
+
+  receive({ type: 'pause_state', paused: true });
+  assert.equal(pause.textContent, '▶️');
+  assert.equal(pause['aria-pressed'], 'true');
+  clock.now += 300;
+  pause.tap('click');
+  assert.equal(actions().length, 2);
+  receive({ type: 'pause_state', paused: false });
+  assert.equal(pause.textContent, '⏸️');
+  receive({ type: 'host_permissions', isHost: false });
+  assert.equal(pause.hidden, true);
+  clock.now += 300;
+  pause.tap('click');
+  assert.equal(actions().length, 2);
 });
 
 test('los estados intermedios mantienen el juego y el podio limpia los inputs y el disparo pendiente', async () => {

@@ -48,6 +48,7 @@ let lastPadBack = false;
 let localFirePress = 0;
 
 function updateLocalInputValues(immediate) {
+  if (state.isPaused) return;
   let turn = 0;
   const left = state.keyState.left;
   const right = state.keyState.right;
@@ -95,6 +96,10 @@ function releaseLocalInputs() {
   touchState.shoot = false;
   localPad.heading = null;
   localPad.thrust = localPad.shoot = false;
+  localFirePress = 0;
+  state.localInputState.turn = 0;
+  state.localInputState.heading = null;
+  state.localInputState.thrust = state.localInputState.shoot = false;
   updateLocalInputValues(true);
 }
 

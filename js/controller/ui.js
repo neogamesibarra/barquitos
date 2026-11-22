@@ -24,6 +24,7 @@ const elements = {
   elBtnHostStart: null,
   elBtnHostMode: null,
   elBtnHostLobby: null,
+  elBtnHostPause: null,
   elRoomOverlay: null,
   elRoomInput: null,
   elBtnJoin: null,
@@ -108,7 +109,18 @@ function canManageGame() {
   return session.isHost && (session.currentGameState === 'lobby' || session.currentGameState === 'podium');
 }
 
+function canPauseGame() {
+  return session.isHost && session.currentGameState === 'playing';
+}
+
 function updateHostControls() {
+  const pause = elements.elBtnHostPause;
+  if (pause) {
+    pause.hidden = !canPauseGame();
+    pause.textContent = session.isPaused ? "▶️" : "⏸️";
+    pause.setAttribute('aria-label', session.isPaused ? 'Reanudar partida' : 'Pausar partida');
+    pause.setAttribute('aria-pressed', String(session.isPaused));
+  }
   if (elements.elBtnHostLobby) {
     elements.elBtnHostLobby.hidden = !session.isHost || session.currentGameState !== 'podium';
   }
@@ -310,6 +322,11 @@ function bindTap(button, delay, action) {
 }
 
 function setupActionButtons() {
+  bindTap(elements.elBtnHostPause, 300, () => {
+    if (!canPauseGame() || !CloudNet.isConnected()) return;
+    CloudNet.sendToHost({ type: "host_action", uuid: session.playerUUID, action: "toggle_pause" });
+  });
+
   bindTap(elements.elBtnHostStart, 350, () => {
     if (!canManageGame() || !CloudNet.isConnected()) return;
     triggerVibration(50);
@@ -411,6 +428,7 @@ function initUI() {
   elements.elBtnHostStart = document.getElementById('btn-host-start');
   elements.elBtnHostMode = document.getElementById('btn-host-mode');
   elements.elBtnHostLobby = document.getElementById('btn-host-lobby');
+  elements.elBtnHostPause = document.getElementById('btn-host-pause');
 
   elements.elRoomOverlay = document.getElementById('room-overlay');
   elements.elRoomInput = document.getElementById('room-input');

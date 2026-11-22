@@ -76,6 +76,7 @@ const session = {
   currentRoom: roomFromLink || savedSession?.roomId || '',
   mySlot: -1,
   isHost: false,
+  isPaused: false,
   isReady: false,
   shipAlive: true,
   ammo: null,
@@ -162,6 +163,7 @@ function connectToRoom(roomCode) {
     savedSession = null;
   }
   session.currentRoom = nextRoom;
+  session.isPaused = false;
   session.mySlot = -1;
   session.isHost = false;
   updateHostControls();
@@ -182,6 +184,7 @@ function connectToRoom(roomCode) {
       if (status !== 'online') {
         session.mySlot = -1;
         session.isHost = false;
+        session.isPaused = false;
         updateHostControls();
         setWakeLockActive(false);
         releaseInputs();
@@ -205,12 +208,21 @@ function setGameState(state) {
     session.currentGameState = 'playing';
   }
   if (session.currentGameState !== 'playing') {
+    session.isPaused = false;
     session.shipAlive = true;
     session.ammo = null;
     session.maxAmmo = 0;
   }
   updateShipStatusUI();
   setWakeLockActive(session.currentGameState === 'playing' && session.mySlot !== -1);
+}
+
+function setPaused(paused) {
+  if (session.isPaused === paused) return;
+  session.isPaused = paused;
+  clearFirePress();
+  releaseInputs();
+  updateHostControls();
 }
 
 function handleServerMessage(msg) {
@@ -226,6 +238,7 @@ function handleServerMessage(msg) {
       window.history.pushState({ barquitosRoom: true }, '', window.location.href);
     }
     setGameState(msg.state);
+    setPaused(session.currentGameState === 'playing' && msg.paused === true);
     session.isReady = !!msg.ready;
     if (msg.mode !== undefined) session.currentMode = msg.mode;
     if (msg.team) session.myTeam = msg.team;
@@ -272,6 +285,8 @@ function handleServerMessage(msg) {
       releaseInputs();
     }
     updateShipStatusUI();
+  } else if (msg.type === 'pause_state') {
+    if (session.currentGameState === 'playing' && typeof msg.paused === 'boolean') setPaused(msg.paused);
   } else if (msg.type === 'state_change') {
     setGameState(msg.state);
     if (session.currentGameState !== 'playing') {

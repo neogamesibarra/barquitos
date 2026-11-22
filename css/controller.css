@@ -851,7 +851,7 @@ html, body {
   .gamepad-container .touch-btn::after { transition: none; }
 }
 
-#btn-host-lobby[hidden] { display: none; }
+#btn-host-pause[hidden], #btn-host-lobby[hidden] { display: none; }
 
 
 .gamepad-container {

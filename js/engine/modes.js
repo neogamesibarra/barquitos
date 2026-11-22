@@ -3,7 +3,7 @@ import { gameEvents } from "./events.js";
 import { ARENA_ISLANDS, MODE_HORDE, MODE_TEAMS, STATE_ARENA, STATE_PODIUM, TOTAL_ROUNDS, arenaBounds } from "./config.js";
 import { ensureLocalPlayer, releaseLocalInputs } from "./controls.js";
 import { clearCannonballs, AmmoCrate, Island, BossGalleon, PirateShip, Ship } from "./entities.js";
-import { setLobbyUIVisible } from "./hud.js";
+import { setLobbyUIVisible, showHordeLeaderboard, updateHordeLeaderboardVisibility, updatePauseOverlay } from "./hud.js";
 import { requestLobbyAction } from "./lobby.js";
 import { sendTvAction } from "./multiplayer.js";
 import { getSafeSpawnPoint, stepBattlePhysics, stepHordeCollisions } from "./physics.js";
@@ -334,6 +334,8 @@ function startNewMatch() {
     ensureLocalPlayer();
   }
   console.log("[BARQUITOS] INICIANDO NUEVA PARTIDA! Modo:", state.selectedMode);
+  state.isPaused = false;
+  updatePauseOverlay();
   state.currentRound = 0;
   state.teamScores.blue = 0;
   state.teamScores.red = 0;
@@ -343,6 +345,7 @@ function startNewMatch() {
     state.playersData[i].score = 0;
   }
   startRoundByMode();
+  updateHordeLeaderboardVisibility();
 }
 
 function startRoundByMode() {
@@ -711,6 +714,13 @@ function openPodiumScreen() {
   gameEvents.emit("match:end");
   gameEvents.emit("effect:confetti", 90);
   sendTvAction("state_change", null, STATE_PODIUM);
+  if (state.selectedMode === MODE_HORDE) {
+    void showHordeLeaderboard({
+      wave: state.currentWave,
+      score: sorted.reduce((total, player) => total + player.score, 0),
+      players: sorted.map(player => player.customName || player.name)
+    });
+  }
 }
 
 export { applyGlobalPowerup, initArenaIslands, needsMorePlayers, soloRoomOccupied, startNewMatch, startRoundByMode, updateBattle, updateHorde, updateRescues };

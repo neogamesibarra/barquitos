@@ -31,16 +31,19 @@ function sendInputUpdate(isImmediate = false) {
   if (session.mySlot === -1 || !CloudNet || !CloudNet.isConnected()) return;
 
   const now = Date.now();
-  const heading = inputState.heading;
+  const heading = session.isPaused ? null : inputState.heading;
+  const magnitude = session.isPaused ? 0 : inputState.magnitude;
   const previousHeading = lastSentInput.heading;
   const delta = heading - previousHeading;
   const headingChanged = heading == null || previousHeading == null
     ? heading !== previousHeading
     : Math.abs(Math.atan2(Math.sin(delta), Math.cos(delta))) >= HEADING_THRESHOLD;
-  const thrustDiff = inputState.thrust !== lastSentInput.thrust;
-  const shootDiff = inputState.shoot !== lastSentInput.shoot;
+  const thrust = !session.isPaused && inputState.thrust;
+  const shoot = !session.isPaused && inputState.shoot;
+  const thrustDiff = thrust !== lastSentInput.thrust;
+  const shootDiff = shoot !== lastSentInput.shoot;
   const stateChanged = headingChanged || thrustDiff || shootDiff ||
-    Math.abs(inputState.magnitude - lastSentInput.magnitude) >= 0.025;
+    Math.abs(magnitude - lastSentInput.magnitude) >= 0.025;
   const needsHeartbeat = (now - lastHeartbeatTime >= HEARTBEAT_MS);
 
   if (!isImmediate && !stateChanged && !needsHeartbeat) {
@@ -53,19 +56,19 @@ function sendInputUpdate(isImmediate = false) {
 
   lastSentInputTime = now;
   lastHeartbeatTime = now;
-  lastSentInput.heading = inputState.heading;
-  lastSentInput.magnitude = inputState.magnitude;
-  lastSentInput.thrust = inputState.thrust;
-  lastSentInput.shoot = inputState.shoot;
+  lastSentInput.heading = heading;
+  lastSentInput.magnitude = magnitude;
+  lastSentInput.thrust = thrust;
+  lastSentInput.shoot = shoot;
 
   CloudNet.sendToHost({
     type: 'input',
     uuid: session.playerUUID,
-    th: inputState.thrust ? 1 : 0,
-    sh: inputState.shoot && session.shipAlive ? 1 : 0,
-    heading: inputState.heading,
-    magnitude: Math.round(inputState.magnitude * 1000) / 1000,
-    firePress: session.shipAlive && now - firePress < 1100 ? firePress : 0
+    th: thrust ? 1 : 0,
+    sh: shoot && session.shipAlive ? 1 : 0,
+    heading,
+    magnitude: Math.round(magnitude * 1000) / 1000,
+    firePress: !session.isPaused && session.shipAlive && now - firePress < 1100 ? firePress : 0
   });
 }
 

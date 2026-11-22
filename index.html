@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="css/tv/base.css">
   <link rel="stylesheet" href="css/tv/lobby.css">
   <link rel="stylesheet" href="css/tv/hud.css">
-  <link rel="stylesheet" href="css/tv/modals.css">
+  <link rel="stylesheet" href="css/tv/modals.css?v=2">
 </head>
 <body>
   <script>
@@ -155,6 +155,25 @@
     <canvas id="match-qr-canvas" width="230" height="230" aria-label="Código QR de la sala"></canvas>
     <span>ÚNETE A LA PARTIDA</span>
   </aside>
+
+  <section id="pause-overlay" class="pause-overlay" aria-labelledby="pause-heading" hidden>
+    <div class="pause-card">
+      <h2 id="pause-heading">⏸️ JUEGO EN PAUSA</h2>
+      <div id="pause-actions" class="pause-actions">
+        <button id="btn-pause-resume" class="online-btn" type="button">REANUDAR</button>
+        <button id="btn-pause-lobby" class="online-btn" type="button">VOLVER AL MENÚ</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="horde-leaderboard" class="horde-leaderboard" aria-labelledby="horde-ranking-title" hidden>
+    <h2 id="horde-ranking-title">Top 10 de Horda Pirata</h2>
+    <p id="horde-ranking-status" role="status"></p>
+    <table>
+      <thead><tr><th scope="col">Posición</th><th scope="col">Capitanes / Flota</th><th scope="col">Oleada</th><th scope="col">Puntaje</th></tr></thead>
+      <tbody id="horde-ranking-rows"></tbody>
+    </table>
+  </section>
 
   <div id="podium-actions" class="podium-actions" style="display: none;">
     <button id="btn-play-again" class="online-btn" type="button">OTRA PARTIDA</button>
