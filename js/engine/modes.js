@@ -507,6 +507,7 @@ function updateRescues(dt) {
 }
 
 function updateHorde(dt) {
+  if (state.currentState !== STATE_ARENA) return;
   if (state.countdownTime > 0.5) {
     state.countdownTime -= dt;
     const step = Math.ceil(state.countdownTime - 0.5);
@@ -536,11 +537,9 @@ function updateHorde(dt) {
   updateRescues(dt);
 
   // Actualizar barcos aliados
-  let anyAllyAlive = false;
   for (let s = 0; s < state.activeShips.length; s++) {
     const ship = state.activeShips[s];
     ship.update(dt);
-    if (ship.isAlive) anyAllyAlive = true;
 
     // Limitar barcos aliados a la zona jugable (los marcadores laterales NO son jugables)
     if (ship.isAlive) {
@@ -653,6 +652,15 @@ function updateHorde(dt) {
     state.ammoCrates.push(new AmmoCrate(ammoSpawn.x, ammoSpawn.y));
   }
 
+  // La derrota tiene prioridad sobre la restauración de barcos al cerrar la oleada.
+  if (!state.activeShips.some(ship => ship.isAlive)) {
+    if (!state.roundWinner) gameEvents.emit("round:end", false);
+    state.roundWinner = { name: "¡LA FLOTA HA CAÍDO!", hull: "#ff1744" };
+    state.roundOverTimer += dt;
+    if (state.roundOverTimer >= 4) openPodiumScreen();
+    return;
+  }
+
   // Fin de oleada: todos los piratas y jefe muertos (Éxito de ronda)
   if (state.waveEnemiesToSpawn === 0 && state.pirateShips.length === 0 && (!state.bossGalleon || !state.bossGalleon.isAlive)) {
     if (state.waveIntermissionTimer === 0) {
@@ -682,15 +690,6 @@ function updateHorde(dt) {
     }
   }
 
-  // Comprobar derrota del equipo
-  if (!anyAllyAlive) {
-    if (!state.roundWinner) gameEvents.emit("round:end", false);
-    state.roundWinner = { name: "¡LA FLOTA HA CAÍDO!", hull: "#ff1744" };
-    state.roundOverTimer += dt;
-    if (state.roundOverTimer >= 4.0) {
-      openPodiumScreen();
-    }
-  }
 }
 
 function concludeRoundCheck() {
@@ -702,6 +701,7 @@ function concludeRoundCheck() {
 }
 
 function openPodiumScreen() {
+  if (state.currentState !== STATE_ARENA) return;
   state.currentState = STATE_PODIUM;
   state.podiumAnimTimer = 0;
   let sorted = [];
@@ -711,16 +711,17 @@ function openPodiumScreen() {
   if (sorted.length === 0) sorted = [state.playersData[0], state.playersData[1]];
   sorted.sort((a, b) => { return b.score - a.score; });
   state.matchWinner = sorted[0];
+  if (state.selectedMode === MODE_HORDE) {
+    const fleet = state.activeShips.map(ship => state.playersData[ship.slot]);
+    void showHordeLeaderboard({
+      wave: state.currentWave,
+      score: fleet.reduce((total, player) => total + player.score, 0),
+      players: fleet.map(player => player.customName || player.name)
+    });
+  }
   gameEvents.emit("match:end");
   gameEvents.emit("effect:confetti", 90);
   sendTvAction("state_change", null, STATE_PODIUM);
-  if (state.selectedMode === MODE_HORDE) {
-    void showHordeLeaderboard({
-      wave: state.currentWave,
-      score: sorted.reduce((total, player) => total + player.score, 0),
-      players: sorted.map(player => player.customName || player.name)
-    });
-  }
 }
 
 export { applyGlobalPowerup, initArenaIslands, needsMorePlayers, soloRoomOccupied, startNewMatch, startRoundByMode, updateBattle, updateHorde, updateRescues };

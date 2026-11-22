@@ -27,7 +27,7 @@ function topScores(...collections) {
   ).slice(0, LIMIT);
 }
 
-function readLocal() {
+function getLocalHordeLeaderboard() {
   try { return topScores(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "null")); }
   catch { return []; }
 }
@@ -49,12 +49,13 @@ async function getHordeLeaderboard() {
       const response = await fetch(HORDE_LEADERBOARD_URL, { ...requestOptions(), cache: "no-store" });
       if (response.ok) {
         const entries = topScores(await response.json());
-        saveLocal(topScores(readLocal(), entries));
+        saveLocal(topScores(getLocalHordeLeaderboard(), entries));
         return entries;
       }
+      console.warn("[Horda Pirata] Firebase GET HTTP " + response.status);
     } catch { /* Use the offline copy. */ }
   }
-  return readLocal();
+  return getLocalHordeLeaderboard();
 }
 
 /** @param {{wave: number, score: number, players: string[]}} result */
@@ -63,7 +64,7 @@ async function recordHordeScore(result) {
   const id = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
     ? crypto.randomUUID() : date + "-" + Math.random().toString(36).slice(2);
   const entry = { ...result, id, date };
-  const local = topScores(readLocal(), [entry]);
+  const local = topScores(getLocalHordeLeaderboard(), [entry]);
   saveLocal(local);
 
   if (HORDE_LEADERBOARD_URL) {
@@ -72,21 +73,27 @@ async function recordHordeScore(result) {
         const response = await fetch(HORDE_LEADERBOARD_URL, {
           ...requestOptions(), cache: "no-store", headers: { "X-Firebase-ETag": "true" }
         });
-        if (!response.ok) break;
-        const entries = topScores(await response.json(), local, readLocal(), [entry]);
+        if (!response.ok) {
+          console.warn("[Horda Pirata] Firebase GET HTTP " + response.status);
+          break;
+        }
+        const entries = topScores(await response.json(), local, getLocalHordeLeaderboard(), [entry]);
         const etag = response.headers?.get("ETag");
         const headers = { "Content-Type": "application/json", ...(etag ? { "If-Match": etag } : {}) };
         const saved = await fetch(HORDE_LEADERBOARD_URL, {
           ...requestOptions(), method: "PUT", headers, body: JSON.stringify(entries)
         });
-        if (saved.status === 412) continue;
-        if (!saved.ok) break;
-        saveLocal(topScores(readLocal(), entries));
+        if (saved.status === 412 && attempt < 2) continue;
+        if (!saved.ok) {
+          console.warn("[Horda Pirata] Firebase PUT HTTP " + saved.status);
+          break;
+        }
+        saveLocal(topScores(getLocalHordeLeaderboard(), entries));
         return { entries, entry, global: true };
       }
     } catch { /* Keep the locally recorded score when Firebase is unavailable. */ }
   }
-  return { entries: topScores(local, readLocal()), entry, global: false };
+  return { entries: topScores(local, getLocalHordeLeaderboard()), entry, global: false };
 }
 
-export { getHordeLeaderboard, recordHordeScore };
+export { getHordeLeaderboard, getLocalHordeLeaderboard, recordHordeScore };

@@ -342,6 +342,7 @@ function requestLobbyAction(action, mode) {
     startNewMatch();
   } else if (action === "set_mode") {
     state.selectedMode = mode;
+    updateHordeLeaderboardVisibility();
     updateLobbyModeUI();
     broadcastCurrentMode();
   } else if (action === "lobby") {

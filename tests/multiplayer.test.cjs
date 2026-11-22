@@ -179,15 +179,14 @@ import { state } from "./engine/state.js";
     loseHorde: () => {
       state.currentWave = 5;
       state.countdownTime = 0;
-      state.waveEnemiesToSpawn = 1;
-      state.waveSpawnTimer = 2;
-      state.roundOverTimer = 4;
+      state.waveEnemiesToSpawn = 0;
+      state.roundOverTimer = 0;
       for (const ship of state.activeShips) {
         ship.isAlive = false;
         ship.data.score = 250;
         ship.data.customName = "Capitana";
       }
-      updateHorde(1 / 60);
+      for (let tick = 0; tick < 250; tick++) updateHorde(1 / 60);
     },
     host: function () {
       state.currentRoomCode = "TEST";
@@ -598,8 +597,11 @@ test('ranking de Horda combina Firebase vacío u objeto, recorta a diez y funcio
 
 test('la derrota de Horda abre la tabla y marca el puntaje de la flota', async () => {
   const puts = [];
+  let finishRead;
+  const reading = new Promise(resolve => { finishRead = resolve; });
   const host = browser(createBroker(), { now: 10000 }, false, true, new Map(), async (_url, options) => {
     if (options.method === 'PUT') puts.push(JSON.parse(options.body));
+    else await reading;
     return { ok: true, json: async () => null };
   });
   const panel = host.element('horde-leaderboard');
@@ -623,6 +625,9 @@ test('la derrota de Horda abre la tabla y marca el puntaje de la flota', async (
   game.loseHorde();
   assert.equal(game.state(), 3);
   assert.equal(panel.hidden, false);
+  assert.equal(status.textContent, 'Cargando ranking global...');
+  assert.deepEqual(rows[0].cells.map(cell => cell.textContent), ['1', 'Capitana', '5', '250']);
+  finishRead();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(puts.length, 1);
   assert.equal(status.textContent, 'Ranking global');

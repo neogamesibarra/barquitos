@@ -1,6 +1,6 @@
 import { gameEvents } from "./events.js";
 import { MODE_HORDE, MODE_TEAMS, STATE_ARENA, STATE_PODIUM, TOTAL_ROUNDS, V_HEIGHT, V_WIDTH } from "./config.js";
-import { recordHordeScore } from "./leaderboard.js";
+import { getLocalHordeLeaderboard, recordHordeScore } from "./leaderboard.js";
 import { state } from "./state.js";
 import { offsetX, offsetY, scale } from "./viewport.js";
 
@@ -262,12 +262,15 @@ function updatePauseOverlay() {
 }
 
 let rankingRequest = 0;
+let hasHordeResults = false;
 
 function updateHordeLeaderboardVisibility() {
-  if (state.currentState === STATE_PODIUM && state.selectedMode === MODE_HORDE) return;
-  rankingRequest++;
+  if (state.currentState !== STATE_PODIUM) {
+    rankingRequest++;
+    hasHordeResults = false;
+  }
   const panel = document.getElementById("horde-leaderboard");
-  if (panel) panel.hidden = true;
+  if (panel) panel.hidden = !hasHordeResults || state.selectedMode !== MODE_HORDE;
 }
 
 /** @param {Parameters<typeof recordHordeScore>[0]} result */
@@ -276,19 +279,25 @@ async function showHordeLeaderboard(result) {
   const panel = document.getElementById("horde-leaderboard");
   const status = document.getElementById("horde-ranking-status");
   const rows = document.getElementById("horde-ranking-rows");
-  if (panel && status && rows) {
-    panel.hidden = false;
-    status.textContent = "Cargando puntajes…";
-    rows.replaceChildren();
-  }
+  hasHordeResults = true;
+  updateHordeLeaderboardVisibility();
+  const pending = recordHordeScore(result);
+  if (status) status.textContent = "Cargando ranking global...";
+  if (rows) paintHordeScores(rows, getLocalHordeLeaderboard());
 
-  const { entries, entry, global } = await recordHordeScore(result);
+  const { entries, entry, global } = await pending;
   if (!panel || !status || !rows || request !== rankingRequest || state.currentState !== STATE_PODIUM) return;
   status.textContent = global ? "Ranking global" : "Ranking local";
+  paintHordeScores(rows, entries, entry.id);
+}
+
+/** @param {HTMLElement} rows @param {ReturnType<typeof getLocalHordeLeaderboard>} entries */
+function paintHordeScores(rows, entries, latestId = "") {
+  rows.replaceChildren();
   for (let index = 0; index < entries.length; index++) {
     const item = entries[index];
     const row = document.createElement("tr");
-    const latest = item.id === entry.id;
+    const latest = item.id === latestId;
     row.classList.toggle("latest-score", latest);
     for (const value of [index + 1, item.players.join(", "), item.wave, item.score]) {
       const cell = document.createElement("td");
