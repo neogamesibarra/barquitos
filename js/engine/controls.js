@@ -1,3 +1,4 @@
+import { buttonPressed, connectedGamepad, stickResponse } from "../gamepad.js";
 import { CloudNet } from "../cloud_network.js";
 import { SoundSynth as Sound } from "../sound_synth.js";
 import { STATE_ARENA, STATE_LOBBY, STATE_PODIUM } from "./config.js";
@@ -40,6 +41,10 @@ function updateLocalPlayerButton() {
 
 const touchState = { heading: null, thrust: false, shoot: false };
 
+const localPad = { heading: null, magnitude: 0, thrust: false, shoot: false };
+let lastPadDirection = 0;
+let lastPadConfirm = false;
+let lastPadBack = false;
 let localFirePress = 0;
 
 function updateLocalInputValues(immediate) {
@@ -50,9 +55,9 @@ function updateLocalInputValues(immediate) {
   else if (right && !left) turn = 1.0;
 
   state.localInputState.turn = turn;
-  state.localInputState.heading = left || right ? null : touchState.heading;
-  state.localInputState.thrust = state.keyState.thrust || touchState.thrust;
-  const shooting = state.keyState.shoot || touchState.shoot;
+  state.localInputState.heading = left || right ? null : touchState.heading ?? localPad.heading;
+  state.localInputState.thrust = state.keyState.thrust || touchState.thrust || localPad.thrust;
+  const shooting = state.keyState.shoot || touchState.shoot || localPad.shoot;
   if (shooting && !state.localInputState.shoot) localFirePress = Date.now();
   state.localInputState.shoot = shooting;
 
@@ -72,6 +77,7 @@ function updateLocalInputValues(immediate) {
     if (localShip) {
       localShip.turnInput = state.localInputState.turn;
       localShip.headingInput = state.localInputState.heading;
+      localShip.headingMagnitude = touchState.heading !== null ? 1 : localPad.magnitude;
       localShip.thrustInput = state.localInputState.thrust;
       if (state.localInputState.shoot && !localShip.shootInput) localShip.shotBuffer = 0.8;
       localShip.shootInput = state.localInputState.shoot;
@@ -87,6 +93,8 @@ function releaseLocalInputs() {
   touchState.heading = null;
   touchState.thrust = false;
   touchState.shoot = false;
+  localPad.heading = null;
+  localPad.thrust = localPad.shoot = false;
   updateLocalInputValues(true);
 }
 
@@ -249,6 +257,63 @@ function setupOnscreenControls() {
   updateTouchControlsVisibility();
 }
 
+/** @param {number} direction */
+function navigateLobby(direction) {
+  const modal = document.getElementById('join-modal');
+  const scope = modal?.style.display !== 'none' && modal ? modal : document.getElementById('lobby-ui');
+  if (!scope) return;
+  const candidates = /** @type {NodeListOf<HTMLButtonElement>} */ (scope.querySelectorAll('button'));
+  const visible = Array.from(candidates).filter(button => !button.disabled && button.getClientRects().length);
+  const index = visible.findIndex(button => button === document.activeElement);
+  visible[index === -1 ? 0 : (index + direction + visible.length) % visible.length]?.focus();
+}
+
+function pollLocalGamepad() {
+  if (state.isRemoteClient) return;
+  const pad = document.hidden ? null : connectedGamepad();
+  if (!pad && localPad.heading === null && !localPad.thrust && !localPad.shoot &&
+      !lastPadDirection && !lastPadConfirm && !lastPadBack) return;
+  const x = pad?.axes[0] || 0;
+  const y = pad?.axes[1] || 0;
+  const confirm = Boolean(pad && buttonPressed(pad, 0));
+  const back = Boolean(pad && buttonPressed(pad, 1));
+  if (state.currentState === STATE_ARENA && pad) {
+    const { heading, magnitude } = stickResponse(x, y, 0.18);
+    localPad.heading = heading;
+    localPad.magnitude = magnitude;
+    localPad.thrust = back || buttonPressed(pad, 6);
+    localPad.shoot = confirm || buttonPressed(pad, 7);
+    updateLocalInputValues(false);
+  } else {
+    const hadInput = localPad.heading !== null || localPad.thrust || localPad.shoot;
+    localPad.heading = null;
+    localPad.thrust = localPad.shoot = false;
+    if (hadInput) updateLocalInputValues(false);
+    const direction = !pad ? 0 :
+      buttonPressed(pad, 14) || buttonPressed(pad, 12) ? -1 :
+      buttonPressed(pad, 15) || buttonPressed(pad, 13) ? 1 :
+      Math.abs(x) > 0.55 ? Math.sign(x) : Math.abs(y) > 0.55 ? Math.sign(y) : 0;
+    if (state.currentState === STATE_PODIUM) {
+      if (direction && direction !== lastPadDirection) {
+        state.podiumSelectedBtn = direction < 0 ? 0 : 1;
+        document.getElementById(direction < 0 ? 'btn-play-again' : 'btn-back-lobby')?.focus();
+      }
+      if (back && !lastPadBack) requestLobbyAction('lobby');
+      else if (confirm && !lastPadConfirm) requestLobbyAction(state.podiumSelectedBtn === 0 ? 'start' : 'lobby');
+    } else if (state.currentState === STATE_LOBBY) {
+      if (direction && direction !== lastPadDirection) navigateLobby(direction);
+      if (confirm && !lastPadConfirm) {
+        const button = /** @type {HTMLButtonElement|null} */ (document.activeElement);
+        if (button?.tagName === 'BUTTON') button.click();
+        else navigateLobby(1);
+      }
+    }
+    lastPadDirection = direction;
+  }
+  lastPadConfirm = confirm;
+  lastPadBack = back;
+}
+
 function bindKeyboard() {
   // Navegación y combate con teclado
   window.addEventListener("keydown", (e) => {
@@ -350,4 +415,4 @@ function bindKeyboard() {
   }, false);
 }
 
-export { bindKeyboard, ensureLocalPlayer, releaseLocalInputs, sendLocalInputsToHost, setupOnscreenControls, updateLocalPlayerButton, updateTouchControlsVisibility };
+export { pollLocalGamepad, bindKeyboard, ensureLocalPlayer, releaseLocalInputs, sendLocalInputsToHost, setupOnscreenControls, updateLocalPlayerButton, updateTouchControlsVisibility };
