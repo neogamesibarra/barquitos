@@ -1,15 +1,18 @@
+import { buttonPressed, connectedGamepad, stickResponse } from "../gamepad.js";
 import { CloudNet } from "../cloud_network.js";
 import { session } from "./session.js";
 import { controllerRotated, elements, triggerVibration } from "./ui.js";
 
 const inputState = {
   heading: null,
+  magnitude: 1,
   thrust: false,
   shoot: false
 };
 
 const lastSentInput = {
   heading: undefined,
+  magnitude: 1,
   thrust: false,
   shoot: false
 };
@@ -36,7 +39,8 @@ function sendInputUpdate(isImmediate = false) {
     : Math.abs(Math.atan2(Math.sin(delta), Math.cos(delta))) >= HEADING_THRESHOLD;
   const thrustDiff = inputState.thrust !== lastSentInput.thrust;
   const shootDiff = inputState.shoot !== lastSentInput.shoot;
-  const stateChanged = headingChanged || thrustDiff || shootDiff;
+  const stateChanged = headingChanged || thrustDiff || shootDiff ||
+    Math.abs(inputState.magnitude - lastSentInput.magnitude) >= 0.025;
   const needsHeartbeat = (now - lastHeartbeatTime >= HEARTBEAT_MS);
 
   if (!isImmediate && !stateChanged && !needsHeartbeat) {
@@ -50,47 +54,65 @@ function sendInputUpdate(isImmediate = false) {
   lastSentInputTime = now;
   lastHeartbeatTime = now;
   lastSentInput.heading = inputState.heading;
+  lastSentInput.magnitude = inputState.magnitude;
   lastSentInput.thrust = inputState.thrust;
   lastSentInput.shoot = inputState.shoot;
 
-  // El joystick solo transmite dirección: el impulso sigue siendo un botón.
   CloudNet.sendToHost({
     type: 'input',
     uuid: session.playerUUID,
     th: inputState.thrust ? 1 : 0,
-    sh: inputState.shoot ? 1 : 0,
+    sh: inputState.shoot && session.shipAlive ? 1 : 0,
     heading: inputState.heading,
-    firePress: now - firePress < 1100 ? firePress : 0
+    magnitude: Math.round(inputState.magnitude * 1000) / 1000,
+    firePress: session.shipAlive && now - firePress < 1100 ? firePress : 0
   });
 }
 
 function setupSteeringControls() {
   if (!elements.elSteeringZone || !elements.elWheelOuter || !elements.elWheelKnob) return;
 
-  function handleSteerTouch(touch) {
-    const rect = elements.elWheelOuter.getBoundingClientRect();
-    const screenX = touch.clientX - rect.left - rect.width / 2;
-    const screenY = touch.clientY - rect.top - rect.height / 2;
-    const x = controllerRotated ? screenY : screenX;
-    const y = controllerRotated ? -screenX : screenY;
-    const distance = Math.sqrt(x * x + y * y);
-    const limit = Math.max(6, (Math.min(rect.width, rect.height) - elements.elWheelKnob.offsetWidth) / 2);
+  const wheel = elements.elWheelOuter;
+  let originX = 0;
+  let originY = 0;
+  let limit = 1;
+  let radius = 1;
+
+  /** @param {{clientX: number, clientY: number}} point */
+  function beginSteer(point) {
+    const rect = wheel.getBoundingClientRect();
+    originX = point.clientX;
+    originY = point.clientY;
+    radius = Math.max(6, Math.min(rect.width, rect.height) / 2);
+    limit = Math.max(6, radius - elements.elWheelKnob.offsetWidth / 2);
+    const center = wheel.parentElement.getBoundingClientRect();
+    const dx = originX - center.left - center.width / 2;
+    const dy = originY - center.top - center.height / 2;
+    wheel.classList.add('is-floating');
+    wheel.style.transform = `translate(${controllerRotated ? dy : dx}px, ${controllerRotated ? -dx : dy}px)`;
+    handleSteerTouch(point);
+  }
+
+  /** @param {{clientX: number, clientY: number}} point */
+  function handleSteerTouch(point) {
+    const dx = point.clientX - originX;
+    const dy = point.clientY - originY;
+    const x = controllerRotated ? dy : dx;
+    const y = controllerRotated ? -dx : dy;
+    const distance = Math.hypot(x, y);
     const travel = distance > limit ? limit / distance : 1;
-    const heading = distance > 7 ? Math.round(Math.atan2(y, x) * 100) / 100 : null;
+    const { heading, magnitude } = stickResponse(x / radius, y / radius, 0.14);
     const immediate = heading === null && inputState.heading !== null;
     inputState.heading = heading;
-    elements.elWheelKnob.style.transform = "translate(" + x * travel + "px, " + y * travel + "px)";
-    const wheel = elements.elWheelOuter;
+    inputState.magnitude = magnitude;
+    elements.elWheelKnob.style.transform = `translate(${x * travel}px, ${y * travel}px)`;
     wheel.classList.toggle('is-steering', heading !== null);
-    if (heading !== null) wheel.style.setProperty('--aim-heading', `${Math.atan2(y, x)}rad`);
+    if (heading !== null) wheel.style.setProperty('--aim-heading', `${heading}rad`);
     sendInputUpdate(immediate);
   }
 
   function resetSteer() {
-    inputState.heading = null;
-    elements.elWheelKnob.style.transform = "translate(0px, 0px)";
-    elements.elWheelOuter.classList.remove("is-steering");
-    touchSteerId = null;
+    resetSteering();
     sendInputUpdate(true);
   }
 
@@ -101,7 +123,7 @@ function setupSteeringControls() {
       event.preventDefault();
       touchSteerId = event.pointerId;
       steering.setPointerCapture(event.pointerId);
-      handleSteerTouch(event);
+      beginSteer(event);
     });
     steering.addEventListener('pointermove', event => {
       if (touchSteerId === event.pointerId) handleSteerTouch(event);
@@ -120,7 +142,7 @@ function setupSteeringControls() {
     if (touchSteerId !== null) return;
     const t = e.changedTouches[0];
     touchSteerId = t.identifier;
-    handleSteerTouch(t);
+    beginSteer(t);
   }, false);
 
   elements.elSteeringZone.addEventListener("touchmove", (e) => {
@@ -153,25 +175,30 @@ function setupSteeringControls() {
   let isMouseDown = false;
   elements.elSteeringZone.addEventListener("mousedown", (e) => {
     isMouseDown = true;
-    handleSteerTouch(e);
+    touchSteerId = -1;
+    beginSteer(e);
   });
   window.addEventListener("mousemove", (e) => {
-    if (isMouseDown) {
+    if (isMouseDown && touchSteerId === -1) {
       handleSteerTouch(e);
     }
   });
   window.addEventListener("mouseup", () => {
     if (isMouseDown) {
       isMouseDown = false;
-      resetSteer();
+      if (touchSteerId === -1) resetSteer();
     }
   });
 }
 
 function resetSteering() {
-  elements.elWheelOuter?.classList.remove("is-steering");
+  if (elements.elWheelOuter) {
+    elements.elWheelOuter.classList.remove('is-steering', 'is-floating');
+    elements.elWheelOuter.style.transform = '';
+  }
   touchSteerId = null;
   inputState.heading = null;
+  inputState.magnitude = 0;
   if (elements.elWheelKnob) {
     elements.elWheelKnob.style.transform = 'translate(0px, 0px)';
   }
@@ -179,92 +206,101 @@ function resetSteering() {
 
 function releaseInputs() {
   resetSteering();
+  touchButtons.thrust = touchButtons.shoot = false;
+  padButtons.thrust = padButtons.shoot = false;
+  padNeedsNeutral = true;
+  padSteering = false;
   inputState.thrust = false;
   inputState.shoot = false;
   if (elements.elBtnThrust) elements.elBtnThrust.className = 'touch-btn thrust-btn';
   if (elements.elBtnShoot) elements.elBtnShoot.className = 'touch-btn shoot-btn';
   sendInputUpdate(true);
 }
+const touchButtons = { thrust: false, shoot: false };
+const padButtons = { thrust: false, shoot: false };
+
+function syncCombatButtons() {
+  const thrust = touchButtons.thrust || padButtons.thrust;
+  const shoot = session.shipAlive && (touchButtons.shoot || padButtons.shoot);
+  if (thrust === inputState.thrust && shoot === inputState.shoot) return false;
+  if (thrust && !inputState.thrust) triggerVibration(30);
+  if (shoot && !inputState.shoot) {
+    markFirePress();
+    triggerVibration(15);
+  }
+  inputState.thrust = thrust;
+  inputState.shoot = shoot;
+  elements.elBtnThrust?.classList.toggle('pressed', thrust);
+  elements.elBtnShoot?.classList.toggle('pressed', shoot);
+  return true;
+}
+
 function setupCombatButtons() {
-  // Acelerar (Velas)
-  if (elements.elBtnThrust) {
-    function setThrust(active) {
-      if (inputState.thrust === active) return;
-      inputState.thrust = active;
-      if (active) {
-        elements.elBtnThrust.className = 'touch-btn thrust-btn pressed';
-        triggerVibration(30);
-      } else {
-        elements.elBtnThrust.className = 'touch-btn thrust-btn';
-      }
-      sendInputUpdate(true); // Envío inmediato al presionar o soltar
-    }
-
-    elements.elBtnThrust.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      setThrust(true);
-    }, false);
-
-    elements.elBtnThrust.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      setThrust(false);
-    }, false);
-
-    elements.elBtnThrust.addEventListener('touchcancel', (e) => {
-      e.preventDefault();
-      setThrust(false);
-    }, false);
-
-    elements.elBtnThrust.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      setThrust(true);
-    });
-    elements.elBtnThrust.addEventListener('mouseup', (e) => {
-      e.preventDefault();
-      setThrust(false);
-    });
+  /** @param {HTMLElement|null} element @param {'thrust'|'shoot'} key */
+  function bind(element, key) {
+    if (!element) return;
+    /** @param {boolean} pressed */
+    const handle = pressed => (/** @type {Event} */ event) => {
+      event.preventDefault();
+      touchButtons[key] = pressed;
+      if (syncCombatButtons()) sendInputUpdate(true);
+    };
+    const press = handle(true);
+    const release = handle(false);
+    element.addEventListener('touchstart', press, { passive: false });
+    element.addEventListener('touchend', release, { passive: false });
+    element.addEventListener('touchcancel', release, { passive: false });
+    element.addEventListener('mousedown', press);
+    element.addEventListener('mouseup', release);
   }
+  bind(elements.elBtnThrust, 'thrust');
+  bind(elements.elBtnShoot, 'shoot');
+  window.addEventListener('mouseup', () => {
+    touchButtons.thrust = touchButtons.shoot = false;
+    if (syncCombatButtons()) sendInputUpdate(true);
+  });
+}
 
-  // El estado evita eventos duplicados sin descartar pulsaciones rápidas.
-  if (elements.elBtnShoot) {
-    function setShoot(active) {
-      if (inputState.shoot === active) return;
-      inputState.shoot = active;
-      if (active) markFirePress();
-      if (active) {
-        elements.elBtnShoot.className = 'touch-btn shoot-btn pressed';
-        triggerVibration(15);
-      } else {
-        elements.elBtnShoot.className = 'touch-btn shoot-btn';
-      }
-      sendInputUpdate(true); // Envío inmediato
-    }
+let pollingGamepad = false;
+let padSteering = false;
+let padNeedsNeutral = true;
 
-    elements.elBtnShoot.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      setShoot(true);
-    }, false);
-
-    elements.elBtnShoot.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      setShoot(false);
-    }, false);
-
-    elements.elBtnShoot.addEventListener('touchcancel', (e) => {
-      e.preventDefault();
-      setShoot(false);
-    }, false);
-
-    elements.elBtnShoot.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      setShoot(true);
-    });
-    elements.elBtnShoot.addEventListener('mouseup', (e) => {
-      e.preventDefault();
-      setShoot(false);
-    });
+/** @param {Gamepad|null} pad */
+function applyGamepad(pad) {
+  const x = pad?.axes[0] || 0;
+  const y = pad?.axes[1] || 0;
+  const { heading, magnitude } = stickResponse(x, y, 0.18);
+  const shoot = Boolean(pad && (buttonPressed(pad, 0) || buttonPressed(pad, 7)));
+  const thrust = Boolean(pad && (buttonPressed(pad, 1) || buttonPressed(pad, 6)));
+  if (session.currentGameState !== 'playing' || document.hidden || !session.shipAlive) {
+    padNeedsNeutral = true;
+  } else if (padNeedsNeutral && heading === null && !shoot && !thrust) {
+    padNeedsNeutral = false;
   }
+  const active = Boolean(pad && !padNeedsNeutral);
+  let released = false;
+  if (touchSteerId === null && (padSteering || (active && heading !== null))) {
+    released = inputState.heading !== null && (!active || heading === null);
+    inputState.heading = active ? heading : null;
+    inputState.magnitude = active ? magnitude : 0;
+    padSteering = active && heading !== null;
+  }
+  padButtons.thrust = active && thrust;
+  padButtons.shoot = active && shoot;
+  const changed = syncCombatButtons();
+  sendInputUpdate(released || changed);
+}
 
+function startGamepadPolling() {
+  if (pollingGamepad || !connectedGamepad()) return;
+  pollingGamepad = true;
+  const poll = () => {
+    const pad = connectedGamepad();
+    applyGamepad(pad);
+    if (pad) window.requestAnimationFrame(poll);
+    else pollingGamepad = false;
+  };
+  window.requestAnimationFrame(poll);
 }
 
 function clearFirePress() {
@@ -278,6 +314,8 @@ function markFirePress() {
 function initJoystick() {
   setupSteeringControls();
   setupCombatButtons();
+  window.addEventListener('gamepadconnected', startGamepadPolling);
+  startGamepadPolling();
   window.addEventListener('blur', releaseInputs);
   window.addEventListener('pagehide', releaseInputs);
   setInterval(sendInputUpdate, MIN_INPUT_INTERVAL_MS);
