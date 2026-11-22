@@ -634,20 +634,6 @@ html, body {
     padding: 2px 6px;
     font-size: 11px;
   }
-  .steering-zone {
-    padding: 4px 6px !important;
-  }
-  .wheel-outer {
-    width: min(100px, 28vh, 24vw) !important;
-    height: min(100px, 28vh, 24vw) !important;
-    max-width: 100px !important;
-    max-height: 100px !important;
-  }
-  .wheel-knob {
-    width: min(46px, 15vh) !important;
-    height: min(46px, 15vh) !important;
-    font-size: min(20px, 7vh) !important;
-  }
   .btn-icon {
     font-size: 24px;
     margin-bottom: 1px;
@@ -673,20 +659,6 @@ html, body {
     height: 26px;
     min-height: 24px;
     margin-bottom: 2px;
-  }
-  .steering-zone {
-    padding: 2px 4px !important;
-  }
-  .wheel-outer {
-    width: min(85px, 32vh, 22vw) !important;
-    height: min(85px, 32vh, 22vw) !important;
-    max-width: 85px !important;
-    max-height: 85px !important;
-  }
-  .wheel-knob {
-    width: min(38px, 14vh) !important;
-    height: min(38px, 14vh) !important;
-    font-size: min(17px, 6vh) !important;
   }
   .btn-icon {
     font-size: 20px;
@@ -717,19 +689,8 @@ html, body {
 /* El mismo joystick se usa en ambos estilos. */
 .fullscreen-btn { white-space: nowrap; }
 .style-compact .controls-area { justify-content: space-between; }
-.style-compact .steering-zone { flex: 0 1 38%; max-width: 136px; }
-.style-compact .actions-zone { flex: 0 1 53%; max-width: 182px; gap: 4px; }
-.style-compact .touch-btn { min-width: 0; }
 .style-compact .btn-label { font-size: 12px; }
 .style-compact .btn-sublabel { display: none; }
-.gamepad-container {
-  padding: max(4px, env(safe-area-inset-top)) max(4px, env(safe-area-inset-right))
-    max(4px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
-}
-.gamepad-container[data-rotated="true"] {
-  padding: max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom))
-    max(4px, env(safe-area-inset-left)) max(4px, env(safe-area-inset-top));
-}
 
 /* Consola de pulgares */
 .gamepad-container {
@@ -795,10 +756,10 @@ html, body {
 .gamepad-container .zone-label { top: 7px; }
 .gamepad-container .turn-labels { display: none; }
 .gamepad-container .wheel-outer {
-  width: min(75cqh, 78cqw, 188px) !important;
-  height: min(75cqh, 78cqw, 188px) !important;
-  max-width: none !important;
-  max-height: none !important;
+  width: min(75cqh, 78cqw, clamp(74px, 48vmin, 188px));
+  height: min(75cqh, 78cqw, clamp(74px, 48vmin, 188px));
+  max-width: none;
+  max-height: none;
   flex: none;
   border: 2px solid var(--pad-accent);
   background: radial-gradient(circle, #173f54 0 28%, #528797 29% 30%, #0d293c 31% 60%, #244e60 61% 62%, #0d293c 63%);
@@ -890,3 +851,259 @@ html, body {
 }
 
 #btn-host-lobby[hidden] { display: none; }
+
+
+.gamepad-container {
+  --gesture-left: env(safe-area-inset-left, 0px);
+  --gesture-right: env(safe-area-inset-right, 0px);
+  position: fixed;
+}
+.gamepad-container[data-rotated="true"] {
+  --gesture-left: env(safe-area-inset-top, 0px);
+  --gesture-right: env(safe-area-inset-bottom, 0px);
+}
+.gamepad-container #steering-zone { padding-left: max(24px, var(--gesture-left)); }
+.gamepad-container .actions-zone { padding-right: max(24px, var(--gesture-right)); }
+.gamepad-container .wheel-outer { transition: transform 150ms ease-out; }
+.gamepad-container .wheel-outer.is-floating { transition: none; }
+.gamepad-container .wheel-knob {
+  width: min(48%, clamp(28px, 12vmin, 64px));
+  height: auto;
+  aspect-ratio: 1;
+  font-size: clamp(14px, 5vmin, 26px);
+}
+.gamepad-container .touch-btn .btn-icon { font-size: clamp(18px, 7vmin, 44px); }
+.gamepad-container .touch-btn .btn-label { font-size: clamp(10px, 3.2vmin, 20px); }
+.ship-ammo {
+  margin-top: .3em;
+  padding: .15em .55em;
+  background: #142638;
+  color: #fff;
+  border-radius: 5px;
+  font: 700 clamp(10px, 3vmin, 17px)/1.3 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+.gamepad-container .shoot-btn.is-empty { opacity: .58; }
+.ship-sunk {
+  z-index: 2;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: max-content;
+  max-width: 90%;
+  padding: 8px 14px;
+  text-align: center;
+  background: #0b2131;
+  color: #fff;
+  border: 1px solid #ffb58c;
+  border-radius: 8px;
+  pointer-events: none;
+  font-size: clamp(12px, 4vmin, 20px);
+  font-weight: 800;
+}
+.ship-sunk span { display: block; font-weight: 500; }
+@media (prefers-reduced-motion: reduce) {
+  .gamepad-container .wheel-outer { transition: none; }
+}
+
+/* Puente de mando */
+.gamepad-container {
+  --captain-color: #ff9800;
+  --captain-halo: #8b572e;
+  --pad-bg: #07131f;
+  --pad-panel: #0c1e2c;
+  --pad-line: #294457;
+  --pad-accent: #8fd7e6;
+  background:
+    repeating-linear-gradient(90deg, #79bad608 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(0deg, #79bad608 0 1px, transparent 1px 28px),
+    radial-gradient(ellipse at 45% 34%, #102b40 0%, #07131f 55%, #03080e 100%);
+}
+
+@supports (color: color-mix(in srgb, orange 40%, transparent)) {
+  .gamepad-container { --captain-halo: color-mix(in srgb, var(--captain-color, #ff9800) 40%, transparent); }
+}
+
+.gamepad-container::before {
+  content: "";
+  position: absolute;
+  inset: 0 8% auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--captain-color, #ff9800), transparent);
+  pointer-events: none;
+}
+
+.gamepad-container .top-bar {
+  background: none;
+  border: 0;
+  padding: 0;
+  min-height: 34px;
+}
+
+.gamepad-container :is(.status-indicator, .player-badge, .top-bar button) {
+  border: 1px solid var(--pad-line);
+  border-radius: 999px;
+  background: #0b1927;
+  min-height: 29px;
+  box-shadow: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+.gamepad-container :is(.status-indicator, .player-badge) { padding-inline: clamp(5px, 1.2vmin, 12px); }
+.gamepad-container[data-state="playing"] :is(.status-indicator, .player-badge, .top-bar button) { opacity: .68; }
+.gamepad-container[data-state="playing"] .top-bar:is(:hover, :focus-within, :active) * { opacity: 1; }
+.gamepad-container .ready-btn.active { background: #234838; color: #adf4d4; }
+
+.gamepad-container .controls-area { position: relative; overflow: visible; column-gap: clamp(10px, 3vmin, 30px); }
+.bridge-compass {
+  position: absolute;
+  width: min(27vmin, 128px);
+  height: auto;
+  inset: 50% auto auto 43%;
+  transform: translate(-50%, -50%);
+  color: #93cede;
+  opacity: .09;
+  pointer-events: none;
+}
+
+.gamepad-container .steering-zone {
+  background: #0a1a28ab;
+  border-color: #36576a;
+  overflow: visible;
+  z-index: 1;
+}
+.gamepad-container .zone-label { pointer-events: none; color: #adc9d5; }
+.gamepad-container .wheel-outer {
+  border-color: var(--captain-halo);
+  background: radial-gradient(circle, #172b3c 0 43%, #09141f 44% 65%, #213846 66% 71%, #101e2d 72%);
+  box-shadow: 0 0 0 3px var(--captain-halo), 0 5px 0 #03080e;
+}
+.wheel-dial {
+  position: absolute;
+  inset: 3%;
+  width: 94%;
+  height: 94%;
+  color: #86aabb;
+  pointer-events: none;
+}
+.gamepad-container .wheel-knob {
+  background: linear-gradient(150deg, #41586a, #0b1521 70%);
+  color: #d9ecf3;
+  border: 1px solid #758e9e;
+  box-shadow: inset 0 0 0 3px var(--captain-halo), 0 4px 0 #050b12;
+  position: relative;
+}
+.wheel-knob svg { width: 53%; height: 53%; }
+.wheel-indicator::before { border-left-color: var(--captain-color, #ff9800); }
+
+.gamepad-container .actions-zone {
+  align-items: center;
+  overflow: visible;
+  padding-block: 6px 13px;
+}
+.gamepad-container .touch-btn {
+  --key-depth: #041315;
+  --key-rim: #507a79;
+  --key-top: #2b5555;
+  --key-base: #102a35;
+  flex: 1 1 0;
+  height: min(100%, 48vmin);
+  border: 1px solid var(--key-rim);
+  border-radius: clamp(12px, 5vmin, 28px);
+  background: linear-gradient(155deg, var(--key-top), var(--key-base) 72%);
+  box-shadow: inset 0 2px #ffffff25, 0 6px 0 var(--key-depth);
+}
+.gamepad-container .shoot-btn {
+  --key-rim: var(--captain-halo);
+  --key-top: #78533f;
+  --key-base: #342637;
+  --key-depth: #170e1a;
+  flex-grow: 1.25;
+  height: min(100%, 55vmin);
+  box-shadow: inset 0 2px #ffffff30, 0 6px 0 var(--key-depth), 0 0 0 2px var(--captain-halo);
+}
+.gamepad-container .touch-btn:is(.pressed, :active) {
+  transform: translateY(4px) scale(.96);
+  box-shadow: inset 0 2px #ffffff25, 0 2px 0 var(--key-depth);
+}
+.btn-icon svg { display: block; width: clamp(21px, 10vmin, 49px); height: auto; }
+.shoot-btn .btn-icon svg { width: clamp(25px, 12vmin, 57px); }
+.gamepad-container .shoot-btn::after {
+  inset: 5%;
+  background: none;
+  border: 2px solid var(--captain-color, #ff9800);
+  border-radius: inherit;
+}
+.gamepad-container .shoot-btn.pressed::after { animation: arcade-fire 220ms ease-out both; }
+@keyframes arcade-fire {
+  from { opacity: .85; transform: scale(.70); }
+  to { opacity: 0; transform: scale(1.18); }
+}
+
+.ship-ammo {
+  --slot-size: clamp(5px, 2vmin, 10px);
+  --ammo-slots: 0;
+  --ammo-filled: 0;
+  background: #131724;
+  padding: 3px 7px;
+  color: #ffe5bf;
+}
+.ship-ammo::before {
+  content: "";
+  display: block;
+  width: calc(var(--ammo-slots) * var(--slot-size));
+  height: var(--slot-size);
+  margin: 0 auto 2px;
+  background: linear-gradient(90deg,
+    var(--captain-color, #ff9800) calc(var(--ammo-filled) * var(--slot-size)),
+    #6a6374 0);
+  mask: radial-gradient(circle, #000 48%, transparent 55%) 0 0 / var(--slot-size) var(--slot-size);
+}
+.gamepad-container .shoot-btn.is-empty {
+  --key-top: #44414d;
+  --key-base: #242330;
+  opacity: .76;
+}
+.shoot-btn.is-empty .ship-ammo::after { content: " · VACÍO"; font-size: .82em; }
+
+.ship-sunk {
+  padding: clamp(8px, 3vmin, 18px) clamp(14px, 5vmin, 28px);
+  border: 1px solid var(--captain-halo);
+  background: #080f1bed;
+  border-radius: 16px;
+  box-shadow: 0 5px 0 #030710;
+  z-index: 3;
+}
+.ship-sunk:not([hidden]) { animation: sunk-enter 190ms ease-out both; }
+.ship-sunk svg { display: block; width: clamp(24px, 9vmin, 44px); margin: 0 auto 5px; color: var(--captain-color, #ff9800); }
+.ship-sunk span { margin-top: 4px; color: #b6c9d6; }
+@keyframes sunk-enter {
+  from { opacity: 0; transform: translate(-50%, -43%); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+.gamepad-container .host-panel { min-width: 0; height: auto; gap: 6px; align-items: stretch; }
+.gamepad-container .host-action-btn {
+  min-height: 52px;
+  height: auto;
+  background: linear-gradient(150deg, #28475f, #142639);
+  border: 1px solid #60819a;
+  box-shadow: inset 0 2px #ffffff20, 0 4px 0 #030911;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+.gamepad-container .start-round-btn {
+  background: linear-gradient(150deg, #275749, #18392f);
+  border-color: #79bdaa;
+}
+.gamepad-container .host-action-btn:active {
+  transform: translateY(3px) scale(.98);
+  box-shadow: inset 0 2px #ffffff20, 0 1px 0 #030911;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gamepad-container .top-bar *,
+  .gamepad-container .host-action-btn { transition: none; }
+  .gamepad-container .shoot-btn.pressed::after,
+  .ship-sunk:not([hidden]) { animation: none; }
+}
