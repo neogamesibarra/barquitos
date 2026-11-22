@@ -1,3 +1,4 @@
+import { pollLocalGamepad } from "./controls.js";
 import { MODE_HORDE, STATE_ARENA, STATE_LOBBY, STATE_PODIUM } from "./config.js";
 import { updateBattle, updateHorde } from "./modes.js";
 import { broadcastGameState, expireRemoteInputs, updateRemoteClient } from "./multiplayer.js";
@@ -43,6 +44,7 @@ function gameLoop(time) {
   }
   let dt = 0;
   try {
+    pollLocalGamepad();
     dt = clock.advance(time);
   } catch (err) {
     window.console?.error("[Barquitos Game Loop Error]", err);
