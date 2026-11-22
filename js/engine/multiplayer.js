@@ -78,7 +78,33 @@ function generateRoomCode() {
 // MULTIJUGADOR ONLINE: TRANSMISIÓN (HOST) Y SINCRONIZACIÓN (CLIENTE)
 // ==========================================================================
 
+/** @type {WeakMap<import("./state.js").PlayerProfile, {ship: import("./entities.js").Ship, alive: boolean, ammo: number, maxAmmo: number}>} */
+let shipStatuses = new WeakMap();
+let publishedArenaStatus = false;
+
+/** Publish private HUD updates independently of the world snapshot throttle. */
+function broadcastShipStatuses() {
+  if (state.isRemoteClient || !CloudNet.isConnected()) return;
+  if (state.currentState !== STATE_ARENA) {
+    if (publishedArenaStatus) shipStatuses = new WeakMap();
+    publishedArenaStatus = false;
+    return;
+  }
+  publishedArenaStatus = true;
+  for (const ship of state.activeShips) {
+    const player = state.playersData[ship.slot];
+    if (!player?.connected || !player.uuid || !player.wantsShipStatus) continue;
+    const previous = shipStatuses.get(player);
+    const { isAlive: alive, ammo, maxAmmo } = ship;
+    if (previous?.ship === ship && previous.alive === alive &&
+        previous.ammo === ammo && previous.maxAmmo === maxAmmo) continue;
+    shipStatuses.set(player, { ship, alive, ammo, maxAmmo });
+    CloudNet.sendToPlayer(player.uuid, { type: "ship_status", alive, ammo, maxAmmo });
+  }
+}
+
 function broadcastGameState() {
+  broadcastShipStatuses();
   if (!CloudNet || !CloudNet.isConnected() || state.isRemoteClient) return;
   const now = Date.now();
   if (now - state.lastBroadcastTime < 90) return; // ~11 Hz: tasa óptima para evitar congestión en brokers MQTT y conexiones móviles
@@ -590,6 +616,7 @@ function connectCloudNet() {
     if (CloudNet) {
       CloudNet.initHost(state.currentRoomCode, {
         onReady: () => {
+          shipStatuses = new WeakMap();
           // Los mandos necesitan tiempo para recuperar el enlace tras un fallo del broker.
           const now = Date.now();
           for (const player of state.playersData) {
@@ -671,6 +698,8 @@ function handleIncomingMessage(msg) {
 
     state.playersData[slot].connected = true;
     state.playersData[slot].lastSeenAt = Date.now();
+    state.playersData[slot].wantsShipStatus = msg.shipStatus === true;
+    shipStatuses.delete(state.playersData[slot]);
     const jName = sanitizeNickname(msg.name);
     if (jName.length > 0) state.playersData[slot].customName = jName;
     if (msg.resumeOnly !== true && (msg.team === "red" || msg.team === "blue")) {
@@ -769,6 +798,7 @@ function handleIncomingMessage(msg) {
         player.lastInputAt = nowInput;
 
         inputShip.headingInput = heading;
+        inputShip.headingMagnitude = syncNum(msg.magnitude, 0, 1, 1);
         inputShip.turnInput = turn;
         inputShip.thrustInput = thrust;
         if (typeof firePress === "number" && isFinite(firePress) &&
