@@ -12,6 +12,7 @@ const state = {
   isPaused: false,
   selectedMode: MODE_HORDE,
   currentRoomCode: "",
+  localNickname: "",
   /** @type {Record<string, number>} */
   uuidToSlot: {},
   /** @type {PlayerProfile[]} */

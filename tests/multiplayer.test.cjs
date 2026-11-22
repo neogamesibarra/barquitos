@@ -184,7 +184,6 @@ import { state } from "./engine/state.js";
       for (const ship of state.activeShips) {
         ship.isAlive = false;
         ship.data.score = 250;
-        ship.data.customName = "Capitana";
       }
       for (let tick = 0; tick < 250; tick++) updateHorde(1 / 60);
     },
@@ -595,11 +594,11 @@ test('ranking de Horda combina Firebase vacío u objeto, recorta a diez y funcio
   assert.equal(JSON.parse(host.window.localStorage.getItem('barquitos_horde_top10')).length, 10);
 });
 
-test('la derrota de Horda abre la tabla y marca el puntaje de la flota', async () => {
+test('el nombre local se guarda y aparece en la tabla de Horda al terminar', async () => {
   const puts = [];
   let finishRead;
   const reading = new Promise(resolve => { finishRead = resolve; });
-  const host = browser(createBroker(), { now: 10000 }, false, true, new Map(), async (_url, options) => {
+  const host = browser(createBroker(), { now: 10000 }, true, true, new Map(), async (_url, options) => {
     if (options.method === 'PUT') puts.push(JSON.parse(options.body));
     else await reading;
     return { ok: true, json: async () => null };
@@ -607,6 +606,14 @@ test('la derrota de Horda abre la tabla y marca el puntaje de la flota', async (
   const panel = host.element('horde-leaderboard');
   const status = host.element('horde-ranking-status');
   const body = host.element('horde-ranking-rows');
+  const nickname = host.element('local-nickname-input');
+  nickname.tagName = 'INPUT';
+  const field = host.element('local-nickname-field');
+  const menu = host.element('play-menu');
+  menu.querySelectorAll = () => [];
+  for (const id of ['play-options', 'play-heading', 'play-online-tools', 'play-local-help',
+    'play-solo-help', 'btn-mode-battle', 'btn-mode-teams', 'btn-local-player']) host.element(id);
+  host.window.localStorage.setItem('barquitos_nickname', '  Marina  ');
   const rows = [];
   body.replaceChildren = () => { rows.length = 0; };
   body.append = row => rows.push(row);
@@ -621,7 +628,25 @@ test('la derrota de Horda abre la tabla y marca el puntaje de la flota', async (
   };
   await host.load('game_engine.js', engineHooks);
   const game = host.window.testGame;
+  game.buttons();
+  assert.equal(nickname.value, 'Marina');
+  assert.equal(field.hidden, true);
+  menu.fire('click', { target: { getAttribute: () => 'solo' } });
+  assert.equal(field.hidden, false);
   game.start();
+  const ship = game.ship(game.localSlot());
+  assert.equal(ship.data.customName, 'Marina');
+  host.document.activeElement = nickname;
+  for (const key of ['w', 'a', ' ', 'ArrowUp', 'ArrowLeft', 'Enter', 'm', 'p']) {
+    host.windowEvents.get('keydown')({ key, preventDefault: () => assert.fail('Bloqueó la escritura') });
+  }
+  assert.equal(ship.thrustInput, false);
+  assert.equal(ship.shootInput, false);
+  nickname.value = '  Capitana  ';
+  nickname.fire('input');
+  assert.equal(ship.data.customName, 'Capitana');
+  assert.equal(host.window.localStorage.getItem('barquitos_nickname'), 'Capitana');
+  host.document.activeElement = null;
   game.loseHorde();
   assert.equal(game.state(), 3);
   assert.equal(panel.hidden, false);
@@ -630,6 +655,7 @@ test('la derrota de Horda abre la tabla y marca el puntaje de la flota', async (
   finishRead();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(puts.length, 1);
+  assert.deepEqual(puts[0][0].players, ['Capitana']);
   assert.equal(status.textContent, 'Ranking global');
   assert.deepEqual(rows[0].cells.map(cell => cell.textContent), ['1', 'Capitana', '5', '250']);
   assert.equal(rows[0].classList.active, 'latest-score');

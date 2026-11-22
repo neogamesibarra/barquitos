@@ -237,18 +237,25 @@
 
 .horde-leaderboard {
   position: absolute;
-  inset: 3% 0 auto;
+  inset: 3% 0 78px;
   z-index: 640;
   width: min(92%, 850px);
-  max-height: calc(97% - 78px);
   margin-inline: auto;
-  padding: clamp(10px, 2vmin, 24px);
-  overflow: auto;
+  padding: clamp(8px, 2vmin, 24px);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: clamp(4px, 1.2vmin, 12px);
+  height: max-content;
+  max-height: calc(97% - 78px);
   box-sizing: border-box;
-  font-size: clamp(12px, 2.5vmin, 28px);
+  font-size: clamp(12px, 2.4vmin, 26px);
 }
 
-.horde-leaderboard h2, .horde-leaderboard p { margin: 0 0 .35em; }
+.horde-leaderboard :is(h2, h3, p) { margin: 0; }
+.horde-podium-summary { text-align: center; overflow-wrap: anywhere; }
+.horde-podium-summary h2 { font-size: clamp(15px, 3.6vmin, 38px); }
+.horde-ranking-scroll { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.horde-leaderboard thead { position: sticky; top: 0; background: #0b2134; }
 .horde-leaderboard table { width: 100%; border-collapse: collapse; }
 .horde-leaderboard :is(th, td) {
   padding: .3em .55em;

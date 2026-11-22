@@ -911,3 +911,28 @@
   .lobby-play button { transition: none; }
 }
 .lobby-player-icon { color: var(--captain-color, var(--lobby-sea)); }
+.local-nickname-field {
+  display: grid;
+  gap: .35em;
+  width: min(100%, 320px);
+  color: #e9f5ff;
+  font-weight: 700;
+  text-align: left;
+}
+
+.local-nickname-field[hidden] { display: none; }
+
+.local-nickname-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: .55em .8em;
+  border: 1px solid #6b9dbb;
+  border-radius: 8px;
+  background: #10273b;
+  color: #fff;
+  font: inherit;
+  font-size: max(16px, 1em);
+}
+
+.local-nickname-field input:focus-visible { outline: 2px solid #ffdf75; outline-offset: 2px; }

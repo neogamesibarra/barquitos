@@ -1,12 +1,13 @@
 import { CloudNet } from "../cloud_network.js";
 import { MODE_BATTLE, MODE_HORDE, MODE_TEAMS, STATE_ARENA, STATE_LOBBY, STATE_PODIUM } from "./config.js";
-import { ensureLocalPlayer, releaseLocalInputs } from "./controls.js";
+import { ensureLocalPlayer, releaseLocalInputs, updateLocalPlayerButton } from "./controls.js";
 import { updateLobbyShips } from "./entities.js";
 import { startNewMatch } from "./modes.js";
 import { broadcastCurrentMode, sendTvAction, setGamePaused, withBrokerParam } from "./multiplayer.js";
-import { updateHordeLeaderboardVisibility } from "./hud.js";
+import { updateHordeLeaderboardVisibility, updateShipHUD } from "./hud.js";
 import { state } from "./state.js";
 import { fitLobby } from "./viewport.js";
+import { sanitizeNickname } from "./network_protocol.js";
 
 function updateRemoteTeamUI() {
   const btnB = document.getElementById("remote-btn-blue");
@@ -379,11 +380,40 @@ function openPlayMenu(choice) {
   document.getElementById("btn-mode-battle").hidden = solo;
   document.getElementById("btn-mode-teams").hidden = solo;
   document.getElementById("btn-local-player").hidden = solo || state.isRemoteClient;
+  updateLocalPlayerButton();
   if (solo) requestLobbyAction("set_mode", MODE_HORDE);
   if (state.canvas) fitLobby(state.canvas.width, state.canvas.height);
 }
 
 function bindLobbyButtons() {
+  const nickname = /** @type {HTMLInputElement|null} */ (document.getElementById("local-nickname-input"));
+  if (nickname) {
+    const applyLocalName = () => {
+      state.localNickname = sanitizeNickname(nickname.value);
+      const player = state.playersData[state.localPlayerSlot];
+      if (player) {
+        player.customName = state.localNickname;
+        for (const ship of state.activeShips) {
+          if (ship.slot === state.localPlayerSlot) ship.data.customName = state.localNickname;
+        }
+        updateShipHUD(state.localPlayerSlot);
+      }
+    };
+    try { nickname.value = window.localStorage.getItem("barquitos_nickname") ?? ""; } catch {}
+    applyLocalName();
+    nickname.value = state.localNickname;
+    const saveLocalName = () => {
+      if (state.isRemoteClient) return;
+      applyLocalName();
+      try { window.localStorage.setItem("barquitos_nickname", state.localNickname); } catch {}
+    };
+    nickname.addEventListener("input", saveLocalName);
+    nickname.addEventListener("change", () => {
+      saveLocalName();
+      nickname.value = state.localNickname;
+    });
+  }
+  updateLocalPlayerButton();
   document.getElementById("btn-pause-resume")?.addEventListener("click", () => setGamePaused(false));
   document.getElementById("btn-pause-lobby")?.addEventListener("click", () => requestLobbyAction("lobby"));
   const menu = document.getElementById("play-menu");

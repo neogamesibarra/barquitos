@@ -179,6 +179,9 @@ function updateShipHUD(slot) {
   }
   if (!ship) return;
 
+  const name = ship.data.customName || ship.data.name;
+  if (c.nameEl.textContent !== name) c.nameEl.textContent = name;
+
   if (c.lastHp !== ship.health || c.lastMaxHp !== ship.maxHealth) {
     c.lastHp = ship.health;
     c.lastMaxHp = ship.maxHealth;
@@ -279,6 +282,10 @@ async function showHordeLeaderboard(result) {
   const panel = document.getElementById("horde-leaderboard");
   const status = document.getElementById("horde-ranking-status");
   const rows = document.getElementById("horde-ranking-rows");
+  const title = document.getElementById("horde-podium-title");
+  const summary = document.getElementById("horde-podium-result");
+  if (title) title.textContent = "🌊 ¡La flota resistió hasta la oleada " + result.wave + "! 🌊";
+  if (summary) summary.textContent = result.players.join(", ") + " · " + result.score + " puntos";
   hasHordeResults = true;
   updateHordeLeaderboardVisibility();
   const pending = recordHordeScore(result);

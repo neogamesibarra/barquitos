@@ -623,6 +623,7 @@ function renderPodium() {
   // Fondo podio
   state.ctx.fillStyle = "#1A4B75";
   state.ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+  if (document.getElementById("horde-leaderboard")?.hidden === false) return;
 
   let sorted = [];
   for (let i = 0; i < state.playersData.length; i++) {

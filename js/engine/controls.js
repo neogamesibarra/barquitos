@@ -17,6 +17,7 @@ function ensureLocalPlayer() {
       state.localPlayerSlot = i;
       state.playersData[i].connected = true;
       state.playersData[i].ready = true;
+      state.playersData[i].customName = state.localNickname;
       updateLobbyShips();
       if (state.currentState === STATE_ARENA && !state.activeShips.some((ship) => { return ship.slot === i; })) {
         state.activeShips.push(new Ship(i, 960, 800, -Math.PI / 2));
@@ -29,6 +30,9 @@ function ensureLocalPlayer() {
 }
 
 function updateLocalPlayerButton() {
+  const field = document.getElementById("local-nickname-field");
+  if (field) field.hidden = state.isRemoteClient ||
+    (state.playMenuChoice !== "solo" && state.localPlayerSlot === -1);
   const button = /** @type {HTMLButtonElement|null} */ (document.getElementById("btn-local-player"));
   if (!button) return;
   button.style.display = state.isRemoteClient ? "none" : "";
@@ -319,11 +323,19 @@ function pollLocalGamepad() {
   lastPadBack = back;
 }
 
+function isTextInput(element) {
+  return element?.tagName === "INPUT" || element?.tagName === "TEXTAREA";
+}
+
 function bindKeyboard() {
+  document.addEventListener("focusin", (event) => {
+    if (isTextInput(event.target)) releaseLocalInputs();
+  });
   // Navegación y combate con teclado
   window.addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
     const tag = /** @type {HTMLElement|null} */ (e.target)?.tagName;
+    if (isTextInput(e.target) || isTextInput(document.activeElement)) return;
     if (state.currentState === STATE_PODIUM && (!state.isRemoteClient || state.remoteIsHost)) {
       if (k === "arrowleft" || k === "arrowright") {
         state.podiumSelectedBtn = k === "arrowleft" ? 0 : 1;
@@ -350,7 +362,7 @@ function bindKeyboard() {
     if (state.currentState === STATE_LOBBY) {
       const modal = document.getElementById("join-modal");
       const scope = modal && modal.style.display !== "none" ? modal : document.getElementById("lobby-ui");
-      if (scope && ["arrowleft", "arrowup", "arrowright", "arrowdown"].includes(k) && (tag !== "INPUT" || (k === "arrowup" || k === "arrowdown"))) {
+      if (scope && ["arrowleft", "arrowup", "arrowright", "arrowdown"].includes(k)) {
         const candidates = /** @type {NodeListOf<HTMLButtonElement|HTMLInputElement>} */ (scope.querySelectorAll("button, input"));
         const visible = [];
         for (let i = 0; i < candidates.length; i++) {
@@ -362,7 +374,7 @@ function bindKeyboard() {
           visible[focused < 0 ? 0 : (focused + step + visible.length) % visible.length].focus();
           e.preventDefault();
         }
-      } else if (scope && k === "enter" && tag !== "BUTTON" && tag !== "INPUT") {
+      } else if (scope && k === "enter" && tag !== "BUTTON") {
         const first = /** @type {HTMLButtonElement|HTMLInputElement|null} */ (scope.querySelector(scope === modal ? "input" : state.isRemoteClient ? "#btn-mode-horde" : "#play-menu button"));
         if (first && !first.disabled) first.focus();
         e.preventDefault();
@@ -394,6 +406,7 @@ function bindKeyboard() {
     }
   }, false);
   window.addEventListener("keyup", (e) => {
+    if (isTextInput(e.target) || isTextInput(document.activeElement)) return;
     const k = e.key.toLowerCase();
     const isPlaying = (state.currentState === STATE_ARENA);
 
