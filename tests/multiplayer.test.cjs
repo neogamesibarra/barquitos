@@ -155,7 +155,7 @@ function browser(broker, clock, touch = false, pointerEvents = true, sessionStor
 const engineHooks = `
 import "./game_engine.js";
 import { STATE_ARENA, STATE_LOBBY, STATE_PODIUM } from "./engine/config.js";
-import { setupOnscreenControls, updateTouchControlsVisibility } from "./engine/controls.js";
+import { pollLocalGamepad, setupOnscreenControls, updateTouchControlsVisibility } from "./engine/controls.js";
 import { BossGalleon } from "./engine/entities.js";
 import { bindLobbyButtons } from "./engine/lobby.js";
 import { startNewMatch, updateRescues } from "./engine/modes.js";
@@ -197,6 +197,7 @@ import { state } from "./engine/state.js";
     nearIsland: isInsideIsland,
     connected: function () { return state.playersData.filter(function (p) { return p.connected; }).length; },
     controls: setupOnscreenControls,
+    pollPad: pollLocalGamepad,
     buttons: bindLobbyButtons,
     start: startNewMatch,
     visibility: updateTouchControlsVisibility,
@@ -885,4 +886,55 @@ test('ready, apodo, equipo y acción de anfitrión renuevan la plaza sin enviar 
     game.expire();
     assert.equal(game.connected(), 0, payload.type);
   }
+});
+
+test('el estado de munición y vida solo se envía al mando afectado y cuando cambia', async () => {
+  const clock = { now: 10000 };
+  const broker = createBroker();
+  const host = browser(broker, clock);
+  const first = browser(broker, clock);
+  const second = browser(broker, clock);
+  await host.load('game_engine.js', engineHooks);
+  await first.load('controller.js', controllerHooks);
+  await second.load('controller.js', controllerHooks);
+  const game = host.window.testGame;
+  game.host();
+  game.arena();
+  for (const phone of [first, second]) {
+    phone.window.testController.join();
+    phone.flushTimers();
+  }
+  const messages = () => broker.delivered.filter(([, , payload]) => payload.type === 'ship_status');
+  game.snapshot();
+  game.snapshot();
+  assert.equal(messages().length, 2);
+  const ship = game.ship(0);
+  ship.ammo = 0;
+  ship.maxAmmo = 5;
+  ship.isAlive = false;
+  game.snapshot();
+  game.snapshot();
+  assert.equal(messages().length, 3);
+  assert.match(messages().at(-1)[1], new RegExp('/out/' + game.uuidOf(0) + '$'));
+  assert.deepEqual(messages().at(-1)[2], { type: 'ship_status', alive: false, ammo: 0, maxAmmo: 5 });
+});
+
+test('el gamepad local maneja su propio barco y conserva el impulso del teclado al desconectarse', async () => {
+  const host = browser(createBroker(), { now: 10000 });
+  await host.load('game_engine.js', engineHooks);
+  const game = host.window.testGame;
+  game.arena();
+  let pad = { connected: true, axes: [0, 0.8], buttons: [{ pressed: true }] };
+  host.window.navigator.getGamepads = () => [pad];
+  game.pollPad();
+  const ship = game.ship(game.localSlot());
+  assert.equal(ship.headingInput, Math.PI / 2);
+  assert.ok(ship.headingMagnitude > 0 && ship.headingMagnitude < 1);
+  assert.equal(ship.shootInput, true);
+  host.windowEvents.get('keydown')({ key: 'w', preventDefault() {} });
+  pad = null;
+  game.pollPad();
+  assert.equal(ship.headingInput, null);
+  assert.equal(ship.shootInput, false);
+  assert.equal(ship.thrustInput, true);
 });
