@@ -7,7 +7,7 @@ import { removeParticle, spawnWaterFoam } from "./effects.js";
 import { AmmoCrate, BossGalleon, removeCannonball, spawnCannonball, HordePowerup, PirateShip, Ship, updateLobbyShips } from "./entities.js";
 import { updateAllShipsHUD, updateHordeUpgradesHUD, updatePauseOverlay, updateTeamScoresHUD } from "./hud.js";
 import { openPlayMenu, requestLobbyAction, setupInviteButtons, setupRemotePlayerBarEvents, updateLobbyModeUI, updateLobbyPermissions, updateRemoteTeamUI, updateRemoteTeamVisibility } from "./lobby.js";
-import { initArenaIslands } from "./modes.js";
+import { setArenaMode } from "./modes.js";
 import { applyWaterDrift, getSafeSpawnPoint, pushByWaves } from "./physics.js";
 import { state } from "./state.js";
 
@@ -117,15 +117,11 @@ function applyClientSync(payload) {
   const msg = decodeSnapshot(payload);
   if (msg && typeof msg.swellTime === "number" && isFinite(msg.swellTime)) state.waveAnim = msg.swellTime;
   if (!state.isRemoteClient || !msg) return;
-  if (state.islands.length === 0) {
-    initArenaIslands();
-  }
-
   if (msg.st !== undefined) {
     state.currentState = msg.st;
     if (state.currentState !== STATE_ARENA) applyPauseState(false);
   }
-  state.selectedMode = syncNum(msg.m, 0, 2, state.selectedMode);
+  setArenaMode(msg.m ?? state.selectedMode);
   state.currentRound = syncNum(msg.r, 0, 999, state.currentRound);
   state.currentWave = syncNum(msg.w, 1, 9999, 1);
   state.countdownTime = syncNum(msg.cd, 0, 60, 0);
@@ -382,7 +378,7 @@ function handleClientIncomingMessage(topic, msg) {
     stopClientJoinRetry();
     state.remoteSlot = msg.slot;
     state.remoteIsHost = typeof msg.isHost === "boolean" ? msg.isHost : msg.slot === 0;
-    if (typeof msg.mode === "number") state.selectedMode = msg.mode;
+    setArenaMode(msg.mode ?? state.selectedMode);
     if (typeof msg.state === "number") state.currentState = msg.state;
     applyPauseState(state.currentState === STATE_ARENA && msg.paused === true);
     updateLobbyPermissions();
@@ -436,7 +432,7 @@ function handleClientIncomingMessage(topic, msg) {
       updateRemoteTeamUI();
     }
   } else if (msg.type === "mode_change") {
-    state.selectedMode = msg.mode;
+    setArenaMode(msg.mode);
     updateLobbyModeUI();
     updateRemoteTeamVisibility();
   } else if (msg.type === "pause_state" && typeof msg.paused === "boolean") {

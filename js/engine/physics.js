@@ -72,14 +72,25 @@ function isInsideIsland(x, y, margin) {
 function getSafeSpawnPoint(bounds, margin) {
   const b = bounds || state.currentBounds || arenaBounds;
   const m = margin || 40;
+  const padX = Math.min(80, b.w / 2);
+  const padY = Math.min(80, b.h / 2);
   for (let attempt = 0; attempt < 30; attempt++) {
-    const rx = b.x + 80 + Math.random() * (b.w - 160);
-    const ry = b.y + 80 + Math.random() * (b.h - 160);
+    const rx = b.x + padX + Math.random() * (b.w - 2 * padX);
+    const ry = b.y + padY + Math.random() * (b.h - 2 * padY);
     if (!isInsideIsland(rx, ry, m)) {
       return { x: rx, y: ry };
     }
   }
-  return { x: b.x + 120, y: b.y + 120 };
+  const columns = Math.max(1, Math.ceil((b.w - 2 * padX) / 16));
+  const rows = Math.max(1, Math.ceil((b.h - 2 * padY) / 16));
+  for (let row = 0; row <= rows; row++) {
+    const y = b.y + padY + row * (b.h - 2 * padY) / rows;
+    for (let column = 0; column <= columns; column++) {
+      const x = b.x + padX + column * (b.w - 2 * padX) / columns;
+      if (!isInsideIsland(x, y, m)) return { x, y };
+    }
+  }
+  throw new Error("No hay espacio libre para aparecer en la arena");
 }
 
 function getLootPosition(x, y) {

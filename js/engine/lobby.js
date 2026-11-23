@@ -2,7 +2,7 @@ import { CloudNet } from "../cloud_network.js";
 import { MODE_BATTLE, MODE_HORDE, MODE_TEAMS, STATE_ARENA, STATE_LOBBY, STATE_PODIUM } from "./config.js";
 import { ensureLocalPlayer, releaseLocalInputs, updateLocalPlayerButton } from "./controls.js";
 import { updateLobbyShips } from "./entities.js";
-import { startNewMatch } from "./modes.js";
+import { setArenaMode, startNewMatch } from "./modes.js";
 import { broadcastCurrentMode, sendTvAction, setGamePaused, withBrokerParam } from "./multiplayer.js";
 import { updateHordeLeaderboardVisibility, updateShipHUD } from "./hud.js";
 import { state } from "./state.js";
@@ -342,7 +342,7 @@ function requestLobbyAction(action, mode) {
   } else if (action === "start") {
     startNewMatch();
   } else if (action === "set_mode") {
-    state.selectedMode = mode;
+    setArenaMode(mode);
     updateHordeLeaderboardVisibility();
     updateLobbyModeUI();
     broadcastCurrentMode();

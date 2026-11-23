@@ -1,4 +1,4 @@
-import { drawMapBase, drawMapForeground, getMapCache } from "./map_cache.js";
+import { drawMapBase, drawMapForeground, getMapCache, getMapPalette } from "./map_cache.js";
 import { MODE_HORDE, MODE_TEAMS, SEA_WAVES, STATE_ARENA, STATE_LOBBY, STATE_PODIUM, TOTAL_ROUNDS, V_HEIGHT, V_WIDTH, arenaBounds } from "./config.js";
 import { updateTouchControlsVisibility } from "./controls.js";
 import { renderFloatingTexts, renderParticles } from "./effects.js";
@@ -167,8 +167,9 @@ function renderLobby() {
   }
   // Fondo del lobby
   const grad = state.ctx.createLinearGradient(0, 0, 0, V_HEIGHT);
-  grad.addColorStop(0, "#2476d9");
-  grad.addColorStop(1, "#372798");
+  const water = getMapPalette(state.selectedMode).water;
+  grad.addColorStop(0, state.selectedMode === MODE_HORDE ? "#2476d9" : water[0]);
+  grad.addColorStop(1, state.selectedMode === MODE_HORDE ? "#372798" : water[1]);
   state.ctx.fillStyle = grad;
   state.ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
@@ -245,7 +246,7 @@ function drawOceanSwell(c) {
 function renderArena(dt) {
   setLobbyUIVisible(false);
 
-  const cache = getMapCache(state.islands, state.canvas.width, state.canvas.height, state.currentRound);
+  const cache = getMapCache(state.islands, state.canvas.width, state.canvas.height, state.currentRound, state.selectedMode);
   drawMapBase(state.ctx, cache, state.islands);
   drawOceanSwell(state.ctx);
   drawMapForeground(state.ctx, cache, state.islands);

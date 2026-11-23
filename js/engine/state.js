@@ -36,6 +36,7 @@ const state = {
   floatingTexts: [],
   /** @type {import("./entities.js").Island[]} */
   islands: [],
+  islandMode: -1,
   currentRound: 0,
   teamScores: { blue: 0, red: 0 },
   // Variables Modo Horda Pirata

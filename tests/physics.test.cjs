@@ -109,6 +109,10 @@ test('el mapa redibuja las capas solo al cambiar ronda, islas o viewport', async
     getMapCache(islands, 1280, 720, 2);
     getMapCache([], 1280, 720, 2);
     assert.equal(cleared, 8);
+    getMapCache(islands, 1280, 720, 2);
+    getMapCache(islands, 1280, 720, 2, 1);
+    assert.equal(getMapCache(islands, 1280, 720, 2, 1).mode, 1);
+    assert.equal(cleared, 12);
     assert.equal(created, 2);
   } finally {
     document.createElement = oldCreateElement;

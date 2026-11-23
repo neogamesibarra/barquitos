@@ -1,6 +1,6 @@
 import { clearParticles } from "./effects.js";
 import { gameEvents } from "./events.js";
-import { ARENA_ISLANDS, MODE_HORDE, MODE_TEAMS, STATE_ARENA, STATE_PODIUM, TOTAL_ROUNDS, arenaBounds } from "./config.js";
+import { ARENA_ISLANDS, MODE_BATTLE, MODE_HORDE, MODE_TEAMS, STATE_ARENA, STATE_PODIUM, TOTAL_ROUNDS, arenaBounds } from "./config.js";
 import { ensureLocalPlayer, releaseLocalInputs } from "./controls.js";
 import { clearCannonballs, AmmoCrate, Island, BossGalleon, PirateShip, Ship } from "./entities.js";
 import { setLobbyUIVisible, showHordeLeaderboard, updateHordeLeaderboardVisibility, updatePauseOverlay } from "./hud.js";
@@ -61,8 +61,31 @@ function applyGlobalPowerup(type, collector) {
   }
 }
 
-function initArenaIslands() {
-  state.islands = ARENA_ISLANDS.map(island => new Island(island));
+const islandsByMode = {
+  [MODE_BATTLE]: [
+    { x: 700, y: 205, rad: 72 }, { x: 1220, y: 205, rad: 62 },
+    { x: 1475, y: 540, rad: 76 }, { x: 1220, y: 875, rad: 72 },
+    { x: 700, y: 875, rad: 62 }, { x: 445, y: 540, rad: 76 }
+  ],
+  [MODE_TEAMS]: [
+    { x: 640, y: 315, rad: 70 }, { x: 640, y: 765, rad: 70 },
+    { x: 1280, y: 315, rad: 70 }, { x: 1280, y: 765, rad: 70 },
+    { x: 960, y: 310, rad: 105 }, { x: 960, y: 770, rad: 105 }
+  ],
+  [MODE_HORDE]: ARENA_ISLANDS
+};
+
+function initArenaIslands(mode = state.selectedMode) {
+  if (state.islandMode === mode && state.islands.length) return;
+  state.islands = (islandsByMode[mode] ?? ARENA_ISLANDS).map(island => new Island(island));
+  state.islandMode = mode;
+}
+
+function setArenaMode(mode) {
+  if (mode === MODE_BATTLE || mode === MODE_TEAMS || mode === MODE_HORDE) {
+    state.selectedMode = mode;
+    initArenaIslands(mode);
+  }
 }
 
 // Inicio de Rondas y Modos
@@ -91,7 +114,6 @@ function startBattleRound() {
   state.roundOverTimer = 0;
   sendTvAction("state_change", null, STATE_ARENA);
 
-  initArenaIslands();
   clearCannonballs();
   state.ammoCrates = [];
   state.hordePowerups = [];
@@ -100,8 +122,8 @@ function startBattleRound() {
   clearParticles();
   state.floatingTexts = [];
 
-  state.ammoCrates.push(new AmmoCrate(700, 540));
-  state.ammoCrates.push(new AmmoCrate(1220, 540));
+  state.ammoCrates.push(new AmmoCrate(960, 430));
+  state.ammoCrates.push(new AmmoCrate(960, 650));
 
   state.activeShips = [];
   const connected = [];
@@ -110,7 +132,7 @@ function startBattleRound() {
   }
 
   const count = connected.length;
-  const radius = 350;
+  const radius = 280;
   for (let j = 0; j < count; j++) {
     const p = connected[j];
     const angle = (Math.PI * 2 / count) * j;
@@ -133,7 +155,6 @@ function startTeamsRound() {
   state.roundOverTimer = 0;
   sendTvAction("state_change", null, STATE_ARENA);
 
-  initArenaIslands();
   clearCannonballs();
   state.ammoCrates = [];
   state.hordePowerups = [];
@@ -203,7 +224,6 @@ function startHordeMode() {
     repairs: 0
   };
 
-  initArenaIslands();
   clearCannonballs();
   state.ammoCrates = [];
   state.hordePowerups = [];
@@ -247,7 +267,8 @@ function startHordeWave(wave) {
         }
       }
       if (!shipFound) {
-        shipFound = new Ship(pSlot, 960 + (Math.random() - 0.5) * 200, 540 + (Math.random() - 0.5) * 200, 0);
+        const spawn = getSafeSpawnPoint(state.currentBounds, 34);
+        shipFound = new Ship(pSlot, spawn.x, spawn.y, 0);
         state.activeShips.push(shipFound);
         revivedCount++;
       } else if (!shipFound.isAlive) {
@@ -328,7 +349,7 @@ function soloRoomOccupied() {
 function startNewMatch() {
   if (state.isRemoteClient) { requestLobbyAction("start"); return; }
   if (soloRoomOccupied()) return;
-  if (state.playMenuChoice === "solo") state.selectedMode = MODE_HORDE;
+  if (state.playMenuChoice === "solo") setArenaMode(MODE_HORDE);
   if (needsMorePlayers()) return;
   if (state.selectedMode === MODE_HORDE && !state.playersData.some((player) => { return player.connected; })) {
     ensureLocalPlayer();
@@ -351,6 +372,7 @@ function startNewMatch() {
 function startRoundByMode() {
   if (state.isRemoteClient) { requestLobbyAction("start"); return; }
   try {
+    initArenaIslands(state.selectedMode);
     releaseLocalInputs();
     // Ocultar de inmediato la interfaz del lobby
     setLobbyUIVisible(false);
@@ -724,4 +746,4 @@ function openPodiumScreen() {
   sendTvAction("state_change", null, STATE_PODIUM);
 }
 
-export { applyGlobalPowerup, initArenaIslands, needsMorePlayers, soloRoomOccupied, startNewMatch, startRoundByMode, updateBattle, updateHorde, updateRescues };
+export { applyGlobalPowerup, initArenaIslands, needsMorePlayers, setArenaMode, soloRoomOccupied, startNewMatch, startRoundByMode, updateBattle, updateHorde, updateRescues };

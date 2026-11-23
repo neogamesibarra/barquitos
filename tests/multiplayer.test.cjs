@@ -173,6 +173,7 @@ import { state } from "./engine/state.js";
 
 
   window.testGame = {
+    mapGeometry: () => JSON.stringify(state.islands),
     drawShip: (context, mode, phase, team, alive) => {
       const ship = state.activeShips[0];
       state.selectedMode = mode;
@@ -700,6 +701,30 @@ test('el halo sigue al equipo en el lobby y la arena y solo rodea barcos vivos',
     game.drawShip(context, mode, 1, team, alive);
     assert.ok(!strokes.some(([color]) => color === '#ff3b30' || color === '#00a8ff'));
   }
+});
+
+test('la vista remota reconstruye el mismo mapa por modo y por snapshot', async () => {
+  const broker = createBroker();
+  const clock = { now: 10000 };
+  const host = browser(broker, clock);
+  const viewer = browser(broker, clock);
+  await host.load('game_engine.js', engineHooks);
+  await viewer.load('game_engine.js', engineHooks);
+  const local = host.window.testGame;
+  const remote = viewer.window.testGame;
+  local.host();
+  remote.view();
+  for (const mode of [0, 1, 2]) {
+    host.window.BarquitosGame.setMode(mode);
+    assert.equal(remote.mode(), mode);
+    assert.equal(remote.mapGeometry(), local.mapGeometry());
+  }
+  host.window.BarquitosGame.setMode(1);
+  remote.applySync({ m: 0 });
+  assert.equal(remote.mode(), 0);
+  local.snapshot();
+  assert.equal(remote.mode(), 1);
+  assert.equal(remote.mapGeometry(), local.mapGeometry());
 });
 
 for (const pointerEvents of [true, false]) {

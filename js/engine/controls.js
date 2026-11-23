@@ -5,6 +5,7 @@ import { STATE_ARENA, STATE_LOBBY, STATE_PODIUM } from "./config.js";
 import { Ship } from "./entities.js";
 import { updateLobbyShips } from "./entities.js";
 import { requestLobbyAction } from "./lobby.js";
+import { getSafeSpawnPoint, isInsideIsland } from "./physics.js";
 import { state } from "./state.js";
 import { stageRotated } from "./viewport.js";
 
@@ -20,7 +21,9 @@ function ensureLocalPlayer() {
       state.playersData[i].customName = state.localNickname;
       updateLobbyShips();
       if (state.currentState === STATE_ARENA && !state.activeShips.some((ship) => { return ship.slot === i; })) {
-        state.activeShips.push(new Ship(i, 960, 800, -Math.PI / 2));
+        const spawn = isInsideIsland(960, 800, 34)
+          ? getSafeSpawnPoint(state.currentBounds, 34) : { x: 960, y: 800 };
+        state.activeShips.push(new Ship(i, spawn.x, spawn.y, -Math.PI / 2));
       }
       updateLocalPlayerButton();
       return i;
