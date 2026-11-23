@@ -65,7 +65,7 @@ function setupRemotePlayerBarEvents() {
   const inpNick = /** @type {HTMLInputElement|null} */ (document.getElementById("remote-nickname-input"));
   if (inpNick) {
     try {
-      const sNick = window.localStorage.getItem("barquitos_nickname") || "";
+      const sNick = sanitizeNickname(window.localStorage.getItem("barquitos_nickname"));
       if (sNick) {
         state.myCustomNickname = sNick;
         inpNick.value = sNick;
@@ -73,7 +73,7 @@ function setupRemotePlayerBarEvents() {
     } catch(e){}
 
     function syncNick() {
-      const val = (inpNick.value || "").trim().slice(0, 12);
+      const val = sanitizeNickname(inpNick.value);
       state.myCustomNickname = val;
       try { window.localStorage.setItem("barquitos_nickname", val); } catch(e){}
       if (CloudNet && CloudNet.isConnected()) {
@@ -211,7 +211,7 @@ function setupInviteButtons() {
   function doJoin(asController) {
     const codeVal = (inputJoinRoom.value || "").trim().toUpperCase();
     if (codeVal.length >= 3) {
-      const nameVal = (inputJoinName ? inputJoinName.value : "").trim();
+      const nameVal = sanitizeNickname(inputJoinName?.value);
       if (nameVal) {
         try { window.localStorage.setItem("barquitos_nickname", nameVal); } catch(e){}
       }

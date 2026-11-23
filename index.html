@@ -6,9 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>BARQUITOS - Pantalla Principal de Juego (Smart TV & PC)</title>
   <link rel="stylesheet" href="css/tv/base.css">
-  <link rel="stylesheet" href="css/tv/lobby.css?v=2">
-  <link rel="stylesheet" href="css/tv/hud.css">
-  <link rel="stylesheet" href="css/tv/modals.css?v=3">
+  <link rel="stylesheet" href="css/tv/lobby.css?v=3">
+  <link rel="stylesheet" href="css/tv/hud.css?v=2">
+  <link rel="stylesheet" href="css/tv/modals.css?v=4">
 </head>
 <body>
   <script>
@@ -94,7 +94,7 @@
       <button id="btn-local-player" class="online-btn" type="button">Jugar en esta pantalla</button>
       <label id="local-nickname-field" class="local-nickname-field" hidden>
         Nombre de capitán
-        <input id="local-nickname-input" type="text" maxlength="12" placeholder="Tu nombre de capitán" autocomplete="nickname">
+        <input id="local-nickname-input" type="text" maxlength="16" placeholder="Tu nombre de capitán" autocomplete="nickname">
       </label>
       <button id="btn-start-game" class="start-btn" type="button">Iniciar partida</button>
       <p id="start-player-notice" class="invite-help" hidden></p>
@@ -115,7 +115,7 @@
       <h2>🌐 UNIRSE A SALA ONLINE</h2>
       <p>Escribe el código de 4 caracteres de tu amigo. Después elige cómo quieres jugar.</p>
       <input id="input-join-room" class="join-modal-input" type="text" maxlength="4" placeholder="EJ: 8421" autocomplete="off" autocapitalize="characters" spellcheck="false">
-      <input id="input-join-name" class="join-modal-input nickname" type="text" maxlength="12" placeholder="Tu Apodo de Capitán (Opcional)" autocomplete="off" spellcheck="false">
+      <input id="input-join-name" class="join-modal-input nickname" type="text" maxlength="16" placeholder="Tu Apodo de Capitán (Opcional)" autocomplete="off" spellcheck="false">
 
       <div id="join-team-picker" class="join-team-picker" style="display: none;">
         <span>Equipo:</span>
@@ -139,7 +139,7 @@
       <span id="remote-player-room" class="remote-player-room">Sala: ----</span>
     </div>
     <div class="remote-config">
-      <input id="remote-nickname-input" class="remote-nickname-input" type="text" maxlength="12" placeholder="Tu Apodo" autocomplete="off" spellcheck="false">
+      <input id="remote-nickname-input" class="remote-nickname-input" type="text" maxlength="16" placeholder="Tu Apodo" autocomplete="off" spellcheck="false">
       <div id="remote-team-toggle" class="remote-team-toggle" style="display: none;">
         <button id="remote-btn-blue" class="remote-team-btn blue" type="button">🔵 Azul</button>
         <button id="remote-btn-red" class="remote-team-btn red" type="button">🔴 Rojo</button>

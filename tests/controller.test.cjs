@@ -7,6 +7,19 @@ const { createContext, SourceTextModule, SyntheticModule } = require('node:vm');
 const KEY = 'barquitos_controller_session';
 const JS = resolve(__dirname, '../js');
 
+test('el mando guarda y envía hasta 16 caracteres del apodo', async () => {
+  const fixture = await controllerFixture();
+  const { api, outgoing, storage } = fixture;
+  api.connectToRoom('TEST');
+  fixture.receive({ type: 'init', slot: 1, state: 0 });
+  for (const name of ['abcdefghijklmnop', 'abcdefghijklmnopq']) {
+    api.updateNickname(name, true);
+    assert.equal(api.session.myCustomName, 'abcdefghijklmnop');
+    assert.equal(outgoing.at(-1).name, 'abcdefghijklmnop');
+    assert.equal(JSON.parse(storage.get(KEY)).playerName, 'abcdefghijklmnop');
+  }
+});
+
 async function controllerFixture(initial, navigator = {}) {
   const clock = { now: 10000 };
   const outgoing = [];

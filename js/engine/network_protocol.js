@@ -194,7 +194,7 @@ export function syncCoord(value) {
   return syncNum(value, -SYNC_MAX_COORD, SYNC_MAX_COORD, 0);
 }
 
-const MAX_NAME_LEN = 12;
+const MAX_NAME_LEN = 16;
 
 const UUID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 

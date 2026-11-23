@@ -85,6 +85,22 @@ function drawShip(c, entity) {
   c.lineTo(-24, sternWidth);
   c.lineTo(bowShoulder, 14);
   c.closePath();
+
+  const team = entity.data?.team;
+  if (state.selectedMode === MODE_TEAMS && (team === "red" || team === "blue")) {
+    // El casco cubre la mitad interior de ambos trazos.
+    c.save();
+    c.lineJoin = "round";
+    c.strokeStyle = team === "red" ? "#ff3b30" : "#00a8ff";
+    c.globalAlpha *= 0.32;
+    c.lineWidth = 20;
+    c.stroke();
+    c.globalAlpha *= 2.5;
+    c.lineWidth = 11;
+    c.stroke();
+    c.restore();
+  }
+
   c.fillStyle = hullCol;
   c.fill();
   c.strokeStyle = outlineCol;

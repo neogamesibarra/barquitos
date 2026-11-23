@@ -231,6 +231,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 6px;
+  gap: 6px;
 }
 
 .hud-card-name {
@@ -240,10 +241,11 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 145px;
+  min-width: 0;
 }
 
 .hud-card-status {
+  flex-shrink: 0;
   font-size: 10px;
   font-weight: 800;
   padding: 2px 5px;

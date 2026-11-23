@@ -442,7 +442,7 @@ function initUI() {
 
   if (elements.elInputNickname) {
     elements.elInputNickname.value = session.myCustomName;
-    const sync = immediate => updateNickname(elements.elInputNickname.value.trim().slice(0, 12), immediate);
+    const sync = immediate => updateNickname(elements.elInputNickname.value, immediate);
     elements.elInputNickname.addEventListener('input', () => sync(false));
     elements.elInputNickname.addEventListener('change', () => sync(true));
   }

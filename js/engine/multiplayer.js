@@ -206,7 +206,7 @@ function applyClientSync(payload) {
       if (ship.data) {
         ship.data.team = readText(item[8]);
         if (typeof item[9] === "string" && item[9]) ship.data.name = item[9];
-        ship.data.customName = readText(item[10]);
+        ship.data.customName = sanitizeNickname(item[10]);
       }
       ship.isRamming = (item[11] === 1);
       if (item[12] === 1) ship.flashTimer = 0.2;
@@ -395,7 +395,7 @@ function handleClientIncomingMessage(topic, msg) {
 
     // Re-sincronizar apodo guardado
     try {
-      const savedName = window.localStorage.getItem("barquitos_nickname");
+      const savedName = sanitizeNickname(window.localStorage.getItem("barquitos_nickname"));
       if (savedName) {
         state.myCustomNickname = savedName;
         const inp = /** @type {HTMLInputElement|null} */ (document.getElementById("remote-nickname-input"));

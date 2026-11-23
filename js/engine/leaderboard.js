@@ -1,5 +1,7 @@
 import { HORDE_LEADERBOARD_URL } from "./config.js";
 
+import { sanitizeNickname } from "./network_protocol.js";
+
 const STORAGE_KEY = "barquitos_horde_top10";
 const LIMIT = 10;
 
@@ -13,8 +15,7 @@ function topScores(...collections) {
     for (const item of Object.values(collection)) {
       if (!item || !Number.isSafeInteger(item.wave) || item.wave < 1 ||
           !Number.isSafeInteger(item.score) || item.score < 0 || !Array.isArray(item.players)) continue;
-      const players = item.players.filter(name => typeof name === "string")
-        .slice(0, 8).map(name => name.trim().slice(0, 32)).filter(Boolean);
+      const players = item.players.map(sanitizeNickname).filter(Boolean).slice(0, 8);
       if (!players.length) continue;
       const date = typeof item.date === "string" ? item.date.slice(0, 32) : "";
       const id = typeof item.id === "string" && item.id ? item.id.slice(0, 128) :

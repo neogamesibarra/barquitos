@@ -23,6 +23,8 @@ test('los controles normalizan ángulos, cotas y timestamps inválidos', () => {
   assert.equal(protocol.syncCoord(1e9), 20000);
   assert.equal(protocol.sanitizeUuid('__ bad'), '');
   assert.equal(protocol.sanitizeNickname('  Mar\u0000   Azul   '), 'Mar Azul');
+  assert.equal(protocol.sanitizeNickname('abcdefghijklmnop'), 'abcdefghijklmnop');
+  assert.equal(protocol.sanitizeNickname('  abcdefghijklmnopq  '), 'abcdefghijklmnop');
 });
 
 test('un snapshot inválido no crea colecciones falsas y acepta el estado legado', () => {

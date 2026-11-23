@@ -173,6 +173,14 @@ import { state } from "./engine/state.js";
 
 
   window.testGame = {
+    drawShip: (context, mode, phase, team, alive) => {
+      const ship = state.activeShips[0];
+      state.selectedMode = mode;
+      state.currentState = phase;
+      ship.data.team = team;
+      ship.isAlive = alive;
+      ship.draw(context);
+    },
     paused: () => state.isPaused,
     startLoop: startGameLoop,
     countdown: () => state.countdownTime,
@@ -663,6 +671,37 @@ test('el nombre local se guarda y aparece en la tabla de Horda al terminar', asy
   assert.equal(panel.hidden, true);
 });
 
+test('el halo sigue al equipo en el lobby y la arena y solo rodea barcos vivos', async () => {
+  const host = browser(createBroker(), { now: 10000 });
+  await host.load('game_engine.js', engineHooks);
+  const game = host.window.testGame;
+  game.start();
+  const strokes = [];
+  const stack = [];
+  const context = new Proxy({
+    globalAlpha: 1,
+    save() {
+      stack.push({ globalAlpha: this.globalAlpha, strokeStyle: this.strokeStyle, lineWidth: this.lineWidth });
+    },
+    restore() { Object.assign(this, stack.pop()); },
+    stroke() { strokes.push([this.strokeStyle, this.lineWidth, this.globalAlpha]); }
+  }, { get: (target, key) => key in target ? target[key] : () => {} });
+  for (const phase of [0, 1]) {
+    for (const [team, color] of [['red', '#ff3b30'], ['blue', '#00a8ff']]) {
+      strokes.length = 0;
+      game.drawShip(context, 1, phase, team, true);
+      assert.deepEqual(strokes.filter(([paint]) => paint === color), [[color, 20, 0.32], [color, 11, 0.8]]);
+      assert.equal(context.globalAlpha, 1);
+      assert.equal(stack.length, 0);
+    }
+  }
+  for (const [mode, team, alive] of [[0, 'red', true], [2, 'blue', true], [1, 'red', false], [1, '', true]]) {
+    strokes.length = 0;
+    game.drawShip(context, mode, 1, team, alive);
+    assert.ok(!strokes.some(([color]) => color === '#ff3b30' || color === '#00a8ff'));
+  }
+});
+
 for (const pointerEvents of [true, false]) {
   test('anfitrión móvil y QR controlan barcos independientes con multitáctil ' + (pointerEvents ? 'pointer' : 'touch'), async () => {
     const broker = createBroker();
@@ -882,7 +921,12 @@ test('el anfitrión descarta datos absurdos y nombres con caracteres de control'
   const uuid = game.uuidOf(0);
 
   game.raw(uuid, { type: 'set_name', name: '  Ca\u0000pi\u001Ftán   Largo   ' });
-  assert.equal(game.name(0), 'Capitán Larg');
+  assert.equal(game.name(0), 'Capitán Largo');
+  for (const name of ['abcdefghijklmnop', 'abcdefghijklmnopq']) {
+    game.raw(uuid, { type: 'set_name', name });
+    assert.equal(game.name(0), 'abcdefghijklmnop');
+    assert.equal(game.ship(0).data.customName, 'abcdefghijklmnop');
+  }
 
   const ship = game.shipOf(0);
   game.raw(uuid, {

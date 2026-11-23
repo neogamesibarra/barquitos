@@ -896,7 +896,7 @@
 }
 
 .lobby-player-icon { flex: none; width: 22px; height: 22px; }
-.lobby-player-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lobby-player-name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lobby-player-team, .lobby-player-ready { flex: none; color: var(--lobby-muted); font-size: 11px; }
 .lobby-player-team[data-team="blue"] { color: #93c9ff; }
 .lobby-player-team[data-team="red"] { color: #ffaaa4; }

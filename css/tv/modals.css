@@ -257,6 +257,7 @@
 .horde-ranking-scroll { min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .horde-leaderboard thead { position: sticky; top: 0; background: #0b2134; }
 .horde-leaderboard table { width: 100%; border-collapse: collapse; }
+.horde-leaderboard th:not(:nth-child(2)) { white-space: nowrap; }
 .horde-leaderboard :is(th, td) {
   padding: .3em .55em;
   text-align: right;

@@ -1,3 +1,4 @@
+import { sanitizeNickname } from "../engine/network_protocol.js";
 import { STATE_LOBBY, STATE_ARENA, STATE_PODIUM } from "../engine/config.js";
 import { setWakeLockActive, syncWakeLock } from "./pwa.js";
 import { CloudNet } from "../cloud_network.js";
@@ -84,7 +85,7 @@ const session = {
   currentGameState: 'lobby',
   currentMode: 0,
   myTeam: 'blue',
-  myCustomName: savedSession?.playerName ?? ''
+  myCustomName: sanitizeNickname(savedSession?.playerName)
 };
 
 let joinRetryTimer = null;
@@ -232,7 +233,7 @@ function handleServerMessage(msg) {
     stopJoinRetry();
     session.mySlot = msg.slot;
     session.isHost = typeof msg.isHost === "boolean" ? msg.isHost : session.mySlot === 0;
-    session.myCustomName = msg.customName || session.myCustomName;
+    session.myCustomName = sanitizeNickname(msg.customName || session.myCustomName);
     saveSession();
     if (window.history && !window.history.state?.barquitosRoom) {
       window.history.pushState({ barquitosRoom: true }, '', window.location.href);
@@ -313,14 +314,15 @@ function handleServerMessage(msg) {
 
 function loadPreferences() {
   try {
-    session.myCustomName = savedSession?.playerName ?? window.localStorage.getItem('barquitos_nickname') ?? '';
+    session.myCustomName = sanitizeNickname(savedSession?.playerName ?? window.localStorage.getItem('barquitos_nickname'));
     const team = window.localStorage.getItem('barquitos_team');
     if (team === 'blue' || team === 'red') session.myTeam = team;
   } catch {}
 }
 
 let nicknameTimer;
-function updateNickname(name, immediate) {
+function updateNickname(value, immediate) {
+  const name = sanitizeNickname(value);
   session.myCustomName = name;
   if (savedSession && session.mySlot !== -1) saveSession();
   try { window.localStorage.setItem('barquitos_nickname', name); } catch {}

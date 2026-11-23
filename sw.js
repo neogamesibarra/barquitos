@@ -1,5 +1,5 @@
 const cachePrefix = `barquitos:${self.registration.scope}:`;
-const cacheName = `${cachePrefix}v11`;
+const cacheName = `${cachePrefix}v12`;
 const controllerShell = [
   './controller.html',
   './manifest.json',
