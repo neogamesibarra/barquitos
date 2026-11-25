@@ -121,6 +121,7 @@ function setupSteeringControls() {
 
   if (window.PointerEvent) {
     const steering = elements.elSteeringZone;
+    steering.addEventListener('touchstart', event => event.preventDefault(), { passive: false });
     steering.addEventListener('pointerdown', event => {
       if (touchSteerId !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
       event.preventDefault();
@@ -146,7 +147,7 @@ function setupSteeringControls() {
     const t = e.changedTouches[0];
     touchSteerId = t.identifier;
     beginSteer(t);
-  }, false);
+  }, { passive: false });
 
   elements.elSteeringZone.addEventListener("touchmove", (e) => {
     e.preventDefault();
@@ -157,7 +158,7 @@ function setupSteeringControls() {
         break;
       }
     }
-  }, false);
+  }, { passive: false });
 
   elements.elSteeringZone.addEventListener("touchend", (e) => {
     e.preventDefault();

@@ -1,3 +1,4 @@
+import { bindGameZoomGuards, fullscreenRequest, isDocumentFullscreen, toggleDocumentFullscreen } from "../mobile_viewport.js";
 import { CloudNet } from "../cloud_network.js";
 import { releaseInputs, resetSteering, sendInputUpdate } from "./joystick.js";
 import { connectToRoom, session, updateNickname } from "./session.js";
@@ -172,10 +173,6 @@ function toggleReady() {
   }
 }
 
-function isDocumentFullscreen() {
-  return Boolean(document.fullscreenElement);
-}
-
 function getViewportSize() {
   const vv = window.visualViewport;
   if (vv && vv.width && vv.height) {
@@ -261,12 +258,9 @@ function updateLayoutDimensions() {
 
 async function toggleFullscreen() {
   try {
-    if (isDocumentFullscreen()) {
-      await document.exitFullscreen?.();
-    } else {
-      await document.documentElement.requestFullscreen?.();
-      if (isDocumentFullscreen()) await window.screen?.orientation?.lock?.('landscape');
-    }
+    const entering = !isDocumentFullscreen();
+    await toggleDocumentFullscreen();
+    if (entering && isDocumentFullscreen()) await window.screen?.orientation?.lock?.('landscape');
   } catch {
     // Fullscreen and orientation lock can be denied on mobile.
   }
@@ -347,7 +341,8 @@ function setupActionButtons() {
   bindTap(elements.elBtnReady, 300, toggleReady);
 
   // Pantalla Completa
-  if (elements.elBtnFullscreen) {
+  if (elements.elBtnFullscreen) elements.elBtnFullscreen.hidden = !fullscreenRequest();
+  if (elements.elBtnFullscreen && !elements.elBtnFullscreen.hidden) {
     let lastFsTap = 0;
     function handleFsTap(e) {
       const now = Date.now();
@@ -376,18 +371,6 @@ function setupActionButtons() {
       if (e.key === 'Enter') submitRoom();
     });
   }
-}
-
-function preventPageZoom() {
-  document.addEventListener('gesturestart', (e) => {
-    e.preventDefault();
-  }, false);
-
-  document.addEventListener('touchmove', (e) => {
-    if ('scale' in e && e.scale !== undefined && e.scale !== 1) {
-      e.preventDefault();
-    }
-  }, { passive: false });
 }
 
 function showPlayer(msg) {
@@ -479,7 +462,7 @@ function initUI() {
   bindTeamButton(elements.elBtnTeamBlue, 'blue');
   bindTeamButton(elements.elBtnTeamRed, 'red');
 
-  preventPageZoom();
+  bindGameZoomGuards("#gamepad-container");
   updateLayoutDimensions();
   setupActionButtons();
   if (elements.elBtnStyleToggle) {
@@ -502,6 +485,7 @@ function initUI() {
   window.addEventListener('resize', updateLayoutDimensions);
   window.screen?.orientation?.addEventListener('change', updateLayoutDimensions);
   document.addEventListener('fullscreenchange', updateLayoutDimensions);
+  document.addEventListener('webkitfullscreenchange', updateLayoutDimensions);
   window.visualViewport?.addEventListener('resize', updateLayoutDimensions);
   window.visualViewport?.addEventListener('scroll', updateLayoutDimensions);
 }

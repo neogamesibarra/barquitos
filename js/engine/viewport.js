@@ -22,9 +22,12 @@ function fitLobby(width, height) {
 function resizeCanvas() {
   if (!state.canvas) return;
   const viewport = window.visualViewport;
-  const width = Math.floor(viewport && viewport.width || window.innerWidth);
-  const height = Math.floor(viewport && viewport.height || window.innerHeight);
   const stage = document.getElementById("landscape-stage");
+  const padding = stage && document.body ? window.getComputedStyle?.(document.body) : null;
+  const horizontalInset = (parseFloat(padding?.paddingLeft) || 0) + (parseFloat(padding?.paddingRight) || 0);
+  const verticalInset = (parseFloat(padding?.paddingTop) || 0) + (parseFloat(padding?.paddingBottom) || 0);
+  const width = Math.max(1, Math.floor((viewport?.width || window.innerWidth) - horizontalInset));
+  const height = Math.max(1, Math.floor((viewport?.height || window.innerHeight) - verticalInset));
   const rotated = !!stage && height > width;
   if (stageRotated !== rotated) {
     stageRotated = rotated;
@@ -62,6 +65,7 @@ function resizeCanvas() {
 function bindViewport() {
   window.addEventListener("resize", resizeCanvas, false);
   document.addEventListener("fullscreenchange", resizeCanvas, false);
+  document.addEventListener("webkitfullscreenchange", resizeCanvas, false);
   if (window.visualViewport) window.visualViewport.addEventListener("resize", resizeCanvas, false);
 }
 

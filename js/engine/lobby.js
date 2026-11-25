@@ -1,3 +1,4 @@
+import { fullscreenRequest, isDocumentFullscreen, toggleDocumentFullscreen } from "../mobile_viewport.js";
 import { CloudNet } from "../cloud_network.js";
 import { MODE_BATTLE, MODE_HORDE, MODE_TEAMS, STATE_ARENA, STATE_LOBBY, STATE_PODIUM } from "./config.js";
 import { ensureLocalPlayer, releaseLocalInputs, updateLocalPlayerButton } from "./controls.js";
@@ -26,15 +27,13 @@ function updateRemoteTeamVisibility() {
 function setupFullscreenButton() {
   const fsBtn = document.getElementById("btn-fullscreen-toggle");
   if (!fsBtn) return;
+  fsBtn.hidden = !fullscreenRequest();
+  if (fsBtn.hidden) return;
   const fsIcon = document.getElementById("fs-icon");
   const fsLabel = fsBtn.querySelector ? fsBtn.querySelector(".fs-label") : (document.querySelector ? document.querySelector("#btn-fullscreen-toggle .fs-label") : null);
 
-  function isFullscreen() {
-    return Boolean(document.fullscreenElement);
-  }
-
   function updateFsState() {
-    if (isFullscreen()) {
+    if (isDocumentFullscreen()) {
       if (fsBtn.classList && fsBtn.classList.add) fsBtn.classList.add("is-fullscreen");
       if (fsIcon) fsIcon.textContent = "🗗";
       if (fsLabel) fsLabel.textContent = "SALIR PANTALLA";
@@ -47,8 +46,7 @@ function setupFullscreenButton() {
 
   async function toggleFullscreen() {
     try {
-      if (isFullscreen()) await document.exitFullscreen?.();
-      else await document.documentElement.requestFullscreen?.();
+      await toggleDocumentFullscreen();
     } catch (error) {
       console.warn("Fullscreen toggle failed:", error);
     }
@@ -57,6 +55,7 @@ function setupFullscreenButton() {
 
   fsBtn.addEventListener("click", toggleFullscreen);
   document.addEventListener("fullscreenchange", updateFsState);
+  document.addEventListener("webkitfullscreenchange", updateFsState);
 
   updateFsState();
 }

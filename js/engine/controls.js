@@ -1,3 +1,4 @@
+import { bindGameZoomGuards } from "../mobile_viewport.js";
 import { buttonPressed, connectedGamepad, stickResponse } from "../gamepad.js";
 import { CloudNet } from "../cloud_network.js";
 import { SoundSynth as Sound } from "../sound_synth.js";
@@ -154,6 +155,7 @@ function updateTouchControlsVisibility() {
 }
 
 function setupOnscreenControls() {
+  bindGameZoomGuards("#landscape-stage");
   const joystick = /** @type {HTMLElement & { releaseInput?: () => void }|null} */ (document.getElementById("touch-joystick"));
   const btnThrust = /** @type {HTMLElement & { releaseInput?: () => void }|null} */ (document.getElementById("touch-thrust"));
   const btnShoot = /** @type {HTMLElement & { releaseInput?: () => void }|null} */ (document.getElementById("touch-shoot"));
@@ -210,6 +212,7 @@ function setupOnscreenControls() {
     }
 
     if (window.PointerEvent) {
+      el.addEventListener("touchstart", e => e.preventDefault(), { passive: false });
       el.addEventListener("pointerdown", (e) => {
         if (e.pointerType === "mouse" && e.button !== 0) return;
         press(e.pointerId, e, e);
@@ -224,6 +227,7 @@ function setupOnscreenControls() {
       el.addEventListener("lostpointercapture", releasePointer, false);
     } else {
       el.addEventListener("touchstart", (e) => {
+        e.preventDefault();
         if (e.changedTouches.length) press(e.changedTouches[0].identifier, e, e.changedTouches[0]);
       }, { passive: false });
       if (!prop) el.addEventListener("touchmove", (e) => {

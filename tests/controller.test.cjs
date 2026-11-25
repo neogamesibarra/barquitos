@@ -70,6 +70,7 @@ async function controllerFixture(initial, navigator = {}) {
     export * from './controller/session.js';
     export * from './controller/ui.js';
     export * from './gamepad.js';
+    export * from './mobile_viewport.js';
   `, { identifier: resolve(JS, 'test-entry.js'), context });
   await entry.link((specifier, importer) => moduleFor(resolve(dirname(importer.identifier), specifier)));
   await entry.evaluate();
@@ -103,6 +104,37 @@ test('el joystick aislado filtra temblores y respeta 40 ms salvo disparo o liber
   assert.equal(outgoing.length, 4);
   assert.equal(outgoing.at(-1).heading, null);
   assert.equal(outgoing.at(-1).sh, 0);
+});
+
+test('los gestos del juego se cancelan y los campos editables conservan sus gestos', async () => {
+  const { api, listeners } = await controllerFixture();
+  api.bindGameZoomGuards('#gamepad-container');
+  for (const eventName of ['gesturestart', 'dblclick', 'touchmove']) {
+    for (const [inGame, editable, blocked] of [[true, false, true], [true, true, false], [false, false, false]]) {
+      let prevented = false;
+      listeners.get(eventName)({
+        target: { closest: selector => selector === '#gamepad-container' ? inGame : editable },
+        touches: [{}, {}],
+        preventDefault: () => { prevented = true; }
+      });
+      assert.equal(prevented, blocked, eventName);
+    }
+  }
+});
+
+test('pantalla completa respeta la disponibilidad y usa la API prefijada cuando corresponde', async () => {
+  const { api, document } = await controllerFixture();
+  document.documentElement = { requestFullscreen: () => assert.fail('API deshabilitada') };
+  document.fullscreenEnabled = false;
+  assert.equal(api.fullscreenRequest(), null);
+  document.documentElement.webkitRequestFullscreen = () => {
+    document.webkitFullscreenElement = document.documentElement;
+  };
+  document.webkitExitFullscreen = () => { document.webkitFullscreenElement = null; };
+  await api.toggleDocumentFullscreen();
+  assert.equal(api.isDocumentFullscreen(), true);
+  await api.toggleDocumentFullscreen();
+  assert.equal(api.isDocumentFullscreen(), false);
 });
 
 test('la sesión se guarda al confirmar barco y se limpia al salir', async () => {

@@ -114,6 +114,7 @@ html, body {
   position: fixed;
   inset: 0;
   width: 100%;
+  height: 100vh;
   height: 100dvh;
   max-width: 100vw;
   max-height: 100dvh;
@@ -1115,3 +1116,18 @@ html, body {
   .gamepad-container .shoot-btn.pressed::after,
   .ship-sunk:not([hidden]) { animation: none; }
 }
+html, body, button {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+:is(input, textarea, [contenteditable]) {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+#btn-fullscreen[hidden] { display: none; }
+#steering-zone, .touch-btn, canvas { touch-action: none; }
